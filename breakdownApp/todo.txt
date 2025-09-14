@@ -1,0 +1,148 @@
+-> Add Vehicle information using form on excel
+-> Request Nearby BreakDown with nearby location
+-> Finish Settings page
+-> Access control working but waiting to config nice the database and the spacing for roles to work
+
+
+High Level Requirements
+
+Driver(
+Driver screen for checklist (dues, got it)
+Status update (Location of where or what happening)
+Request breakdown - > location wise(
+    driver to call center will look for Technicial and send driver information to call
+    Techni ho and take pictures and send to fleet controller and approve or reject call center
+    order no generated (Or.128651312s)
+)
+Emegency (option to say med or Vehicle), 
+be able to scan the license disc will confirm that belong to customer 
+horse and trailer to check if they belong to driver
+)
+
+
+Call Center(
+BreakDown Req
+Dispatch Tech base on location
+
+Form to add new technician for work
+=> Dashboard and Display of breakdowns with map view, if theres no one available go and choose other dropdown of all the technicians
+Subcontractors and Towing Companies similar to customer form they must complete)
+
+Fleet Manager(
+    Add the forms,
+    Vehicle,
+    Driver, Cost centers information and 
+    customer details information,
+    Approval or reject the jobs
+)
+
+@#password_B12
+
+Technicial (
+    notification (accept or reject to breakdown)
+    Capture (form to indicate if fix it or not change status) 
+)
+
+Customer have they own breakdowns and have estimated time, status(brk re, dispatch, job complete, and all).
+
+
+Cost center
+be able to create a qoutation for the client.
+(auth to check what been sent is fine from the qoutes.)
+
+
+Webapplication for the other roles. must have one database for these things once
+
+
+customer must give out go ahead for the application process before done.
+generate breakdown number to keep history
+add driver and vihecles for them to be able to log in the system.
+
+
+Driver -> Call Center(infor of v and l) -> fleet manager(l and v registration) 
+
+step 2 choose tech if available or external -> tech(approve or reject) -> if approved -> cost center (qoutaion) ->  
+fleetmanager (will reject(reason to why) or approve the qoute from cost center) -> customer(reject or approve) -> tech and call center ->
+go ahead ->  
+
+
+location must given after the inspection.
+roles 5 in total ((driver, technician) Mobile App  (call center, cost center, customer) Web Application)
+
+
+driver scan licence plate, do inspection and send to fleet controller.
+If breakdown and press breakdown (location, and pictures) -> fleet manager and call center (find technician or third party)
+techn will scan license to say wha twrong with the call centre for qoute and fleet controller, carry on with repair
+status (timestamp, allocated, accept, get breakdown, and howlong the vihecles) (status on what happening)
+accept or look for new tech (scan says busy with diagnosese (work in progress)(complete)) call centre to finalise the 
+qoutation(internal free, and extrenal )
+
+fleet controller will confirm the qoutaion
+
+ability for fleet controller or call centre to send msg to technician.
+towing function functionality (technician go out 
+towing company for client information, indicate number of tow trucks and what sizing capacity they have, client (banking and types of vihecle))
+registration(call centre)(invitation to register)
+
+
+when creating job_assignment must have viheclesc id and driver id to besuccess
+
+must make sure it goes to db profile
+
+Driver (
+    no done: {
+        cant add pictures, checklist doesnt record in db,
+        cant scan license disc
+    }
+)
+
+Technician: (
+    is done{
+        can retreive their jobs,
+        can update job with job card and upload images
+    }
+    not done{
+        no statuses.
+        cant update fully the job,
+        cant scan and validate,
+        Thinking of auto gen a qr code for trucks.(Temp solution)
+    }
+)
+
+what vihecle and what number
+fleet manager is the client with the drivers and vihecles 
+
+Call centre belongs to workshop 
+
+
+external client, third party workshop if in the area not available
+
+Call center -> Assign internal or request third party
+technician -> updates only then the other guy updates all (they do 3 things) (internal and external)
+
+client need to register 
+
+problem with login
+
+
+add (files when reporting)
+
+so what i will do on customers it where i will record all the external client,
+make this app to say after scanned and did inspection then they do the qoute
+
+Template to add all vehicles, 
+
+vehicles we need to add history,
+ have to say paid or outstanding
+
+
+so if job is doen status pending => Assigned => then scan in progress => 
+
+
+
+
+Defect from testing: => 
+    = QR the registration number is stored temporary
+
+NEED TO MAKE JOB CARD AUTO COMPLETE AND MAKE SURE IT SUBMIT CORRECTLY 
+MAKE EDIT FEATURE FOR THE REQUEST TO UPLOAD STUFF
