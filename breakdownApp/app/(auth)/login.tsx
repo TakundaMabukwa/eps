@@ -47,11 +47,11 @@ export default function Login() {
         setIsLoading(false);
         return;
       }
-      if (!existingDriver) {
-        setIsLoading(false);
-        Alert.alert("Login failed", "No driver profile found with this email.");
-        return;
-      }
+      // if (!existingDriver) {
+      //   setIsLoading(false);
+      //   Alert.alert("Login failed", "No driver profile found with this email.");
+      //   return;
+      // }
       const { data, error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,

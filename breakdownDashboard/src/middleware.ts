@@ -7,6 +7,10 @@ const roles = [
     path: ['/dashboard', '/profile', '/login', '/signup', '/', '/ccenter', '/logout', 'jobs'],
   },
   {
+    name: 'fc',
+    path: ['/fleetManager', '/jobsFleet', '/dashboard', '/drivers', '/vehicles', '/technician', '/profile', '/logs', '/login', '/signup', '/', '/logout', '/qoutation'],
+  },
+  {
     name: 'fleet manager',
     path: ['/fleetManager', '/jobsFleet', '/dashboard', '/drivers', '/vehicles', '/technician', '/profile', '/logs', '/login', '/signup', '/', '/logout', '/qoutation'],
   },
@@ -61,14 +65,23 @@ export async function middleware(req: NextRequest) {
     try {
       const supabase = await createClient()
       const { data: { user }, error } = await supabase.auth.getUser()
-      if (error) {
+
+      // Query the users table to get the role for the logged-in user
+      const { data: userRecord, error: userError } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", (user?.id) as string)
+        .single();
+
+
+      if (error || userError) {
         return NextResponse.redirect(new URL('/login', req.url))
       }
       console.log("The user id is", user?.id)
-      console.log("The user role is", user?.user_metadata.role)
+      console.log("The user role is", userRecord?.role)
 
       if (user) {
-        const role = decodeURIComponent(user.user_metadata.role)
+        const role = decodeURIComponent(userRecord?.role || '')
         if (role) {
           const allowedPaths = getAllowedPaths(role)
           const isAllowed = allowedPaths.some(p => path.startsWith(p))

@@ -7,26 +7,39 @@ import { cookies } from "next/headers";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
+
   const data = {
     email: formData.get("email") as string,
     password: formData.get("password") as string,
   };
+
   const { error, data: resData } = await supabase.auth.signInWithPassword(data);
+
   if (error) {
     console.log(error);
-    // redirect(`/login?message=${error.message}`);
-    return { success: false, message: error.message }; // ✅ Return instead of redirect
+    return { success: false, message: error.message };
   }
 
-  console.log(resData.user.user_metadata.role);
-  const cookieStore = await cookies()
-  cookieStore.set('access_token', resData.session.access_token)
-  cookieStore.set('refresh_token', resData.session.refresh_token)
-  cookieStore.set('role', resData.user.user_metadata.role)
+  // Query the users table to get the role for the logged-in user
+  const { data: userRecord, error: userError } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", resData.user.id)
+    .single();
+
+  if (userError || !userRecord) {
+    console.log("Failed to get role from users table", userError);
+    return { success: false, message: "Failed to fetch user role" };
+  }
+  
+  const cookieStore = await cookies();
+  cookieStore.set("access_token", resData.session.access_token);
+  cookieStore.set("refresh_token", resData.session.refresh_token);
+  cookieStore.set("role", userRecord.role);
 
   revalidatePath("/", "layout");
-  // redirect("/");
-  return { success: true }; // ✅ Let frontend handle redirect
+
+  return { success: true };
 }
 
 export async function signup(formData: FormData) {

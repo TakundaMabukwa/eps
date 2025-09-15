@@ -23,6 +23,18 @@ const roleNavigation = {
     { name: 'System Settings', href: '/settings', Icon: <Settings /> },
     { name: 'User Management', href: '/userManagement', Icon: <PlusSquare /> },
   ],
+  'fc': [
+    { name: 'Dashboard', href: '/dashboard', Icon: <ChartBar /> },
+    { name: 'Fleet Manager', href: '/fleetManager', Icon: <Truck /> },
+    { name: 'Inspections', href: '/fleetManager/inspections', Icon: <Briefcase /> },
+    { name: 'Jobs', href: '/jobsFleet', Icon: <Briefcase /> },
+    { name: 'Drivers', href: '/drivers', Icon: <Users /> },
+    { name: 'Vehicles', href: '/vehicles', Icon: <Car /> },
+    { name: 'Qoute Management', href: '/qoutation', Icon: <Building2 /> },
+    // { name: 'Profile', href: '/profile', Icon: <Settings2Icon /> },
+    { name: 'System Settings', href: '/settings', Icon: <Settings /> },
+    { name: 'User Management', href: '/userManagement', Icon: <PlusSquare /> },
+  ],
   'call centre': [
     { name: 'Dashboard', href: '/dashboard', Icon: <ChartBar /> },
     { name: 'Jobs', href: '/jobs', Icon: <Briefcase /> },
