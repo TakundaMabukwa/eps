@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "eagleEye",
-    "slug": "eagleEye",
+    "name": "breakdownApp",
+    "slug": "breakdownApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -14,7 +14,7 @@
       "foregroundImage": "./assets/images/adaptive-icon.png",
       "backgroundColor": "#ffffff"
     },
-    "scheme": "eagleeye",
+    "scheme": "breakdownApp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -39,7 +39,7 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.mukelani_mashoba.eagleEye"
+      "package": "com.mukelani_mashoba.breakdownApp"
     },
     "web": {
       "bundler": "metro",

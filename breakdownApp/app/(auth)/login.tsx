@@ -35,10 +35,10 @@ export default function Login() {
     try {
       setIsLoading(true);
       const { data: existingDriver, error: driverError } = await supabase
-        .from("profiles")
+        .from("users")
         .select("*")
         .eq("email", values.email)
-        .eq("role", "driver")
+        .eq("role", "fc")
         .single();
 
       if (driverError && driverError.code !== "PGRST116") {
@@ -166,11 +166,11 @@ export default function Login() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity onPress={() => router.push("/(auth)/techsignin")}>
+              {/* <TouchableOpacity onPress={() => router.push("/(auth)/techsignin")}>
                 <ThemedText style={styles.signUp}>
                   Sign in as<ThemedText style={styles.signUpLink}>: Technician </ThemedText>
                 </ThemedText>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               <TouchableOpacity onPress={() => router.push("/(auth)/signup")} style={{ marginTop: 20 }}>
                 <ThemedText style={styles.signUp}>

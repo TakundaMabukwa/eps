@@ -1,5 +1,5 @@
 {
-  "name": "eagle",
+  "name": "breakdown-dashboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "database:pull": "npx supabase gen types --lang=typescript --project-id hymdjuonstxgyittuawz > src/lib/supabase/database.types.ts"
+    "database:pull": "npx supabase gen types --lang=typescript --project-id jbactgkcijnkjpyqqzxv > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",

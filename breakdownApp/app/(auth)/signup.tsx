@@ -385,7 +385,7 @@ export default function Signup() {
                                 >
                                     <Picker.Item label="Select role..." value="" />
                                     <Picker.Item label="Driver" value="driver" />
-                                    <Picker.Item label="Technician" value="technician" />
+                                    {/* <Picker.Item label="Technician" value="technician" /> */}
                                 </Picker>
                             </View>
                             {touched.role && errors.role && (

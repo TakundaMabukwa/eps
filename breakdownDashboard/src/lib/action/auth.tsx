@@ -37,7 +37,8 @@ export async function signup(formData: FormData) {
     role !== "fleet manager" &&
     role !== "customer" &&
     role !== "call centre" &&
-    role !== "cost centre"
+    role !== "cost centre" &&
+    role !== "fc"
   ) {
     redirect(`/signup?message=Role not found`);
   }
