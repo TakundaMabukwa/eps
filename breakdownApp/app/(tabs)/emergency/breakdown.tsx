@@ -3,6 +3,7 @@ import { getVehicleByRegistrationNumber } from "@/app/utils/actions/functions";
 import { addEmergency, getVehicleAndDrivers, getVehicleAssignId } from "@/app/utils/actions/requests";
 import { supabase } from "@/app/utils/supabase";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Picker } from "@react-native-picker/picker";
 import { decode as atob } from 'base-64';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from "expo-image-picker";
@@ -28,6 +29,7 @@ type jobAssignment = {
   breakdowns_id: string | null;
   technician_id: string | null;
   accepted: boolean | null;
+  service: string | null;
   notes: string | null;
   result_images: string[] | null;
   completed_at: Date | null;
@@ -51,21 +53,26 @@ const AvailableBreakdowns = [
   },
   {
     id: "2",
+    title: "Mechanical Failure",
+    description: "Request help for mechanical failure.",
+  },
+  {
+    id: "3",
     title: "Jump Start",
     description: "Request help to jump start your vehicle if your battery is dead.",
   },
   {
-    id: "3",
+    id: "4",
     title: "Fuel Delivery",
     description: "Ran out of fuel? We can deliver fuel to your location.",
   },
   {
-    id: "4",
+    id: "5",
     title: "Lockout Service",
     description: "Locked out of your car? Get assistance to unlock your vehicle.",
   },
   {
-    id: "5",
+    id: "6",
     title: "Tire Change",
     description: "Flat or damaged tire? Request a tire change service.",
   },
@@ -87,6 +94,7 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
   const [vehicle_id, setVehicleId] = useState<number | null>(null);
   const [driver_id, setDriverId] = useState<number | null>(null);
   const [editable, setEditable] = useState(false);
+  const [service, setService] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -200,6 +208,21 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
           </Text>
         )}
 
+        {/* Service Type */}
+        <Text style={styles.sectionTitle}>Service Type</Text>
+        <View style={styles.inputStyle}>
+          <Picker
+            selectedValue={service}
+            onValueChange={(itemValue) => setService(itemValue)}
+            style={styles.input}
+          >
+            <Picker.Item label="Select a service" value={null} />
+            {AvailableBreakdowns.map((breakdown) => (
+              <Picker.Item key={breakdown.id} label={breakdown.title} value={breakdown.title} />
+            ))}
+          </Picker>
+        </View>
+
         {/* What's the issue? */}
         <Text style={styles.sectionTitle}>What's the issue?</Text>
         <View style={styles.inputRow}>
@@ -305,6 +328,7 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
                 id: undefined,
                 breakdowns_id: null,
                 technician_id: null,
+                service: service ? service : null,
                 accepted: null,
                 notes: null,
                 result_images: null,
@@ -457,6 +481,13 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     width: "100%",
   },
+    inputStyle: {
+    paddingHorizontal: 16,
+    maxWidth: 480,
+    borderRadius: 12,
+    width: "100%",
+    height: 50,
+  },
   textArea: {
     flex: 1,
     minHeight: 100,
@@ -471,12 +502,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 48,
+    height: "auto",
     backgroundColor: "#fff",
     borderRadius: 12,
     color: "#0c151d",
-    padding: 16,
-    fontSize: 16,
+    padding: 8,
+    fontSize: 15,
     borderWidth: 1,
     borderColor: "#d1e3f6",
   },
@@ -500,6 +531,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     justifyContent: "center",
+    gap: 12,
   },
   button: {
     flex: 1,

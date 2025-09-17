@@ -91,79 +91,6 @@ export default function ScannerDriver() {
     console.log("Checking vehicle registration:", regNumber, checking);
 
 
-    // if (checking.success) {
-    //   setHasScanned(true);
-    //   Alert.alert("Scanned Vehicle 45", `Registration: ${regNumber}`);
-
-    //   // 1. Get vehicle ID from registration number
-    //   const { data: vehicleData, error: vehicleError } = await supabase
-    //     .from('vehiclesc')
-    //     .select('id')
-    //     .eq('registration_number', regNumber)
-    //     .single();
-
-    //   if (vehicleError) {
-    //     console.error('Vehicle lookup error:', vehicleError);
-    //     alert('Vehicle not found');
-    //     return;
-    //   }
-
-    //   if (!vehicleData) {
-    //     alert('Vehicle not found');
-    //     return;
-    //   }
-    //   // 2. Upsert inspection record
-    //   const { data: userId, error: errors } = await supabase.auth.getUser();
-    //   if (!userId?.user) {
-    //     return;
-    //   }
-    //   const { data: driverData, error: driverError } = await supabase
-    //     .from('drivers')
-    //     .select('id')
-    //     .eq('user_id', userId.user.aud)
-    //     .single();
-
-    //   if (driverError || !driverData) {
-    //     alert("Can't find driver linked to user");
-    //     return;
-    //   }
-
-    //   const driverId = driverData.id;
-    //   const vehicleId = vehicleData.id;
-
-
-    //   const { data, error } = await supabase
-    //     .from('vehicle_inspections')
-    //     .select('*')
-    //     .upsert({
-    //       driver_id: driverId,
-    //       vehicle_id: vehicleId,
-    //       inspected: true,
-    //       inspection_date: new Date().toISOString(),
-    //       updated_at: new Date().toISOString(),
-    //       user_id: userId
-    //     }, { onConflict: ['driver_id', 'vehicle_id'] });
-
-    //   if (error) {
-    //     console.error('Upsert inspection error:', error);
-    //     alert('Failed to record inspection');
-    //     return;
-    //   }
-
-
-    //   if (error) {
-    //     console.error("Upsert error:", error);
-    //   } else { 
-    //     alert('Inspection recorded successfully');
-    //     console.log("Inspection upserted:", data);
-    //   }
-
-
-    //   router.push({
-    //     pathname: "/(tabs)/inspection/inspect",
-    //     params: { registration_number: regNumber },
-    //   });
-    // } 
     if (checking.success) {
       if (checking.success) {
         Alert.alert("Scanned Vehicle", `Registration: ${regNumber}`);
@@ -236,48 +163,7 @@ export default function ScannerDriver() {
       console.error("Error checking vehicle registration: 3", checking.error);
     }
   };
-  // const rawScan = "%MVL1CC09%0148%4025T0BD%1%4025013FVTT0%DD80MKGP%FTV684K%Hatch back / Luikrug%OPEL%ASTRA%Silver / Silwer%W0LPC6ED2EG017187%A16XER20TF6740%2025-07-31%";
-  // const vehicleDetails = parseVehicleQR(rawScan);
 
-  // console.log(vehicleDetails);
-
-  // const handleScannedData = async (rawScan: string) => {
-  //   if (!hasScanned) return;
-
-  //   const parsed = parseVehicleQR(rawScan);
-
-  //   // If it's a link, open it
-  //   if (rawScan.startsWith("http")) {
-  //     try {
-  //       await Linking.openURL(rawScan);
-  //     } catch (err) {
-  //       Alert.alert("Failed to open link", rawScan);
-  //     }
-  //     return;
-  //   }
-
-  //   if (parsed.registration_number.startsWith("http")) {
-  //     try {
-  //       await Linking.openURL(parsed.registration_number);
-  //     } catch (err) {
-  //       Alert.alert("Failed to open link", parsed.registration_number);
-  //     }
-  //   } else {
-  //     const checking = await checkCarReg({ registrationNumber: parsed.registration_number });
-  //     if (checking.success) {
-  //       setHasScanned(true);
-  //       Alert.alert("Scanned Data", parsed.registration_number || "No registration number found.");
-  //       router.push({
-  //         pathname: "/(Technician)/checklist/mainCheck",
-  //         params: { registration_number: parsed.registration_number || "" },
-  //       });
-  //     } else {
-  //       setHasScanned(false);
-  //       console.error("Error checking vehicle registration:", checking.error);
-  //       Alert.alert("Error", checking.error || "No vehicle registration found.");
-  //     }
-  //   }
-  // };
   return (
     <SafeAreaView style={StyleSheet.absoluteFillObject}>
       <Stack.Screen

@@ -2025,6 +2025,54 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_inspections: {
+        Row: {
+          created_at: string | null
+          driver_id: number | null
+          id: number
+          inspected: boolean
+          inspection_date: string | null
+          updated_at: string | null
+          user_id: string | null
+          vehicle_id: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspected?: boolean
+          inspection_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vehicle_id?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspected?: boolean
+          inspection_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vehicle_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_inspections_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehiclesc"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_invoices: {
         Row: {
           "2nd_month": number | null
@@ -2189,6 +2237,132 @@ export type Database = {
           vin_number?: string | null
         }
         Relationships: []
+      }
+      vehiclesc: {
+        Row: {
+          boarding_km_hours: number | null
+          colour: string
+          company_id: number | null
+          cost_centres: string | null
+          created_at: string | null
+          created_by: string | null
+          driver_id: number | null
+          engine_number: string | null
+          expected_boarding_date: string | null
+          fuel_type: string | null
+          id: number
+          inspected: boolean | null
+          license_expiry_date: string | null
+          make: string | null
+          manufactured_year: string
+          model: string
+          purchase_price: number | null
+          register_number: string | null
+          registration_date: string | null
+          registration_number: string
+          retail_price: number | null
+          service_intervals: string
+          status: string | null
+          sub_model: string | null
+          take_on_kilometers: number
+          tank_capacity: number | null
+          tech_id: number | null
+          transmission_type: string | null
+          type: string | null
+          updated_at: string | null
+          vehicle_priority: string | null
+          vehicle_type: string
+          vin_number: string | null
+          workshop_id: string | null
+        }
+        Insert: {
+          boarding_km_hours?: number | null
+          colour: string
+          company_id?: number | null
+          cost_centres?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          driver_id?: number | null
+          engine_number?: string | null
+          expected_boarding_date?: string | null
+          fuel_type?: string | null
+          id?: number
+          inspected?: boolean | null
+          license_expiry_date?: string | null
+          make?: string | null
+          manufactured_year: string
+          model: string
+          purchase_price?: number | null
+          register_number?: string | null
+          registration_date?: string | null
+          registration_number: string
+          retail_price?: number | null
+          service_intervals: string
+          status?: string | null
+          sub_model?: string | null
+          take_on_kilometers: number
+          tank_capacity?: number | null
+          tech_id?: number | null
+          transmission_type?: string | null
+          type?: string | null
+          updated_at?: string | null
+          vehicle_priority?: string | null
+          vehicle_type?: string
+          vin_number?: string | null
+          workshop_id?: string | null
+        }
+        Update: {
+          boarding_km_hours?: number | null
+          colour?: string
+          company_id?: number | null
+          cost_centres?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          driver_id?: number | null
+          engine_number?: string | null
+          expected_boarding_date?: string | null
+          fuel_type?: string | null
+          id?: number
+          inspected?: boolean | null
+          license_expiry_date?: string | null
+          make?: string | null
+          manufactured_year?: string
+          model?: string
+          purchase_price?: number | null
+          register_number?: string | null
+          registration_date?: string | null
+          registration_number?: string
+          retail_price?: number | null
+          service_intervals?: string
+          status?: string | null
+          sub_model?: string | null
+          take_on_kilometers?: number
+          tank_capacity?: number | null
+          tech_id?: number | null
+          transmission_type?: string | null
+          type?: string | null
+          updated_at?: string | null
+          vehicle_priority?: string | null
+          vehicle_type?: string
+          vin_number?: string | null
+          workshop_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehiclesc_created_by_fkey1"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehiclesc_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

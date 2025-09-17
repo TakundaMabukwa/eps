@@ -5,31 +5,98 @@ import { useEffect, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { Button, Icon, ListItem } from 'react-native-elements'
 
-// Replace options
-const options = ['OK', 'Faulty'];
-
-// New checklist sections with categories
 const checklistSections = [
     {
-        title: 'Inside Cabin',
+        title: 'Cab Exterior',
+        items: ['Wiper blades']
+    },
+    {
+        title: 'Cab Interior',
         items: [
-            { label: 'Steering fluid level', category: 'A' },
-            { label: 'Warning lights off', category: 'A' },
-            { label: 'Air pressure full', category: 'A' },
-            { label: 'Function of all lights & indicators', category: 'B' },
-            { label: 'Safety harness inside', category: 'A' },
-            { label: 'DriveCam (no flashing/red lights)', category: 'B' },
-            // ... continue mapping doc items with category A or B
+            'Instrument Control Operation & Fault Display',
+            // 'All Switches & Gauges',
+            // 'Pedals, Floor Boards & Floor Mats',
+            // 'Gearshift, Clutch & Splitter Operation'
         ]
     },
     {
-        title: 'Outside Cabin',
+        title: 'Electrical',
+        items: ['General Wiring Harnesses']
+    },
+    {
+        title: 'Engine',
         items: [
-            { label: 'Valid license / COF / operator disc', category: 'A' },
-            { label: 'No windscreen cracks obstructing view', category: 'A' },
-            { label: 'Battery cover undamaged', category: 'B' },
-            // etc...
+            'Radiator, Caps, Tanks, Hoses, Fan, Belts',
+            // 'Any visible Oil Leaks',
+            // 'Air Cleaner, Intake Pipes, ducting, stack',
+            // 'Exhaust condition and any leaks',
+            // 'Fuel Leaks',
+            // 'Coolant Leaks',
+            // 'Engine electrical harnesses',
+            // 'Engine, gearbox mountings',
+            // 'Fuel Tanks and Filler Caps',
+            // 'Engine protection unit if fitted',
+            // 'Is wearcheck required?'
         ]
+    },
+    {
+        title: 'Gearbox',
+        items: [
+            'Oil leaks/weeping',
+            // 'Linkages, push pull cables, and Rods',
+            // 'Mountings',
+            // 'Security/missing fasteners, loose cables'
+        ]
+    },
+    {
+        title: 'Air Systems & Batteries',
+        items: [
+            'Reservoirs & Valves',
+            // 'Air Compressor if fitted',
+            // 'Piping and Couplings',
+            // 'Air leaks',
+            // 'Batteries, Terminals, Clamps, condition'
+        ]
+    },
+    {
+        title: 'Chassis, Axles & Suspensions',
+        items: [
+            'Chassis Cracks',
+            'Steering Box & Idler Arms',
+            // 'Steering axle Kingpins & Lubrication',
+            // 'Drag Links & Tie Rod Ends',
+            // 'Spring Hangers, Pins & Bushes',
+            // 'Spring Packs, spring coils & U Bolts',
+            // 'Air Bags',
+            // 'Shock Absorbers',
+            // 'Load levelling valves connected',
+            // 'Diff Oil Leaks, Breathers',
+            // 'Prop Shafts & Universal Joints condition',
+            // 'Mountings, Torque Arms, Pins & Bushes',
+            // 'Brake Boosters secure',
+            // 'Brake Drums/Linings or Brake Discs/Pads',
+            // 'ABS sensors & cables',
+            // 'Axle Hubs, Wheel Rims & Wheel Nuts'
+        ]
+    },
+    {
+        title: '5th Wheel & Pedestal',
+        items: []
+    },
+    {
+        title: 'Tail lift Unit',
+        items: [
+            // 'Make of lift - Zepro/Radcliff/Dhollandia etc.',
+            // 'Power Pack - cover, secure, no leaks',
+            // 'Platform - bent, cracked, damaged',
+            // 'Pipes, cables and connectors',
+            'Cylinders, Pins & Bushes',
+            'Control box and controls'
+        ]
+    },
+    {
+        title: 'Other',
+        items: []
     }
 ]
 
@@ -39,6 +106,7 @@ type ChecklistState = {
     }
 }
 
+const options = ['Good/No Leaks', 'Average', 'Poor/Worn or Leaking']
 
 const Checklist = () => {
     const params = useLocalSearchParams();
@@ -180,42 +248,27 @@ const Checklist = () => {
     }
 
     const handleSubmit = async () => {
+
         if (!isChecklistComplete()) {
-            setError(true);
-            return;
+            setError(true)
+            return
         }
-
-        const inspectionData = {
-            vehicle_id: vehicleId,
-            driver_id: driver?.id ?? null,
-            odo_reading: parseInt(odoReading),
-            checklist,
-            category: Object.values(checklist).some(
-                section => Object.values(section).includes('Faulty_A')
-            ) ? 'A' : 'B',
-            overall_status: Object.values(checklist).some(
-                section => Object.values(section).includes('Faulty')
-            ) ? 'Faulty' : 'OK',
-        };
-
-        const { error } = await supabase.from('vehicle_inspections').insert(inspectionData);
-
-        if (error) {
-            console.error('Failed to save inspection:', error.message);
-            Alert.alert('Error', 'Could not save inspection. Please try again.');
-            return;
+        else {
+            if (vehicleId && driver?.id) {
+                await handleAssignDriver(vehicleId, driver.id);
+                console.log('Driver assigned to vehicle successfully.');
+            }
+            updateVehicle();
+            router.push({
+                pathname: '/(tabs)/emergency/breakdown',
+                params: {
+                    registration_number: registrationNumber,
+                    odo_reading: odoReading,
+                    checklist: JSON.stringify(checklist)
+                }
+            });
         }
-
-        if (vehicleId != null) {
-            await supabase.from('vehiclesc')
-                .update({ inspected: true })
-                .eq('id', vehicleId);
-        }
-
-        Alert.alert('Checklist Submitted', `Vehicle ${registrationNumber} inspection saved.`);
-        router.push('/(tabs)/emergency/breakdown');
-    };
-
+    }
     return (
         <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
             {/* Step 1: Vehicle Details */}
@@ -310,7 +363,7 @@ const Checklist = () => {
                                 <Text style={styles.sectionTitle}>{section.title}</Text>
                                 {section.items.map((item, iIdx) => (
                                     <View key={iIdx} style={styles.itemRow}>
-                                        <Text style={styles.itemText}>{item.label} : {item.category}</Text>
+                                        <Text style={styles.itemText}>{item}</Text>
                                         <View style={styles.optionsRow}>
                                             {options.map(option => (
                                                 <Button

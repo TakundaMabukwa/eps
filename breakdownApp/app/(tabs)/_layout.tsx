@@ -24,10 +24,10 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: {
-          backgroundColor: '#eff6ff', // Soft light blue background
+          backgroundColor: '#eff6ff', 
           borderRadius: 20,
           marginHorizontal: 14,
-          marginBottom: insets.bottom + 12,
+          marginBottom: 2,
           height: 60,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 5 },
@@ -35,10 +35,10 @@ export default function TabLayout() {
           shadowRadius: 12,
           elevation: 10,
           borderTopWidth: 0,
-          position: 'absolute', // allows overlay and rounded corners without clipping
+          // position: 'absolute',
           left: 10,
           right: 10,
-          bottom: insets.bottom + 10,
+          bottom: insets.bottom + 5,
         },
         tabBarLabelStyle: {
           fontSize: 8,

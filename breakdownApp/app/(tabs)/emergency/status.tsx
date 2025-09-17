@@ -109,7 +109,7 @@ export default function Status() {
                 .update({
                     description: editIssue,
                     location: editLocation,
-                    attachment: editAttachments,
+                    attachments: editAttachments,
                 })
                 .eq('id', selectedJob.id);
 
@@ -195,9 +195,18 @@ export default function Status() {
                         </TouchableOpacity>
 
                         <ScrollView horizontal style={{ marginTop: 8 }}>
-                            {editAttachments.map((att, i) => (
-                                <Text key={i} style={styles.attachmentItem}>{att.split('/').pop()}</Text>
-                            ))}
+                            {isSaving ? (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 }}>
+                                    <ActivityIndicator size="small" color="black" />
+                                    <Text style={{ marginLeft: 8, color: '#555' }}>Updating attachments...</Text>
+                                </View>
+                            ) : editAttachments?.length ? (
+                                editAttachments.map((att, i) => (
+                                    <Text key={i} style={styles.attachmentItem}>{att.split('/').pop()}</Text>
+                                ))
+                            ) : (
+                                <Text style={styles.attachmentItem}>No attachments</Text>
+                            )}
                         </ScrollView>
 
                         <View style={styles.modalButtons}>
