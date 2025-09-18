@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Breakdown Brigade",
-  description: "Breakdown Brigade",
+  title: "Breakdown",
+  description: "Breakdown",
   authors: [{ name: "Kilig Mukelani", url: "" }],
 };
 

@@ -31,11 +31,18 @@ export async function login(formData: FormData) {
     console.log("Failed to get role from users table", userError);
     return { success: false, message: "Failed to fetch user role" };
   }
+
+  // Ensure role is present (string) before setting cookie
+  const role = userRecord.role;
+  if (!role) {
+    console.log("Failed to get role from users table", userError);
+    return { success: false, message: "Failed to fetch user role" };
+  }
   
   const cookieStore = await cookies();
   cookieStore.set("access_token", resData.session.access_token);
   cookieStore.set("refresh_token", resData.session.refresh_token);
-  cookieStore.set("role", userRecord.role);
+  cookieStore.set("role", role);
 
   revalidatePath("/", "layout");
 
@@ -72,7 +79,7 @@ export async function signup(formData: FormData) {
     redirect("/signup?message=" + error.message);
   }
 
-  const { error: inserterror, data: profile } = await supabase.from("profiles").insert(
+  const { error: inserterror, data: profile } = await supabase.from("users").insert(
     {
       // @ts-expect-error
       id: signs.session?.user.id,
@@ -104,7 +111,7 @@ export async function getUser() {
   }
 
   const { data: user, error: error2 } = await supabase
-    .from("profiles")
+    .from("users")
     .select("*")
     .eq("id", data.user.id)
     .single();

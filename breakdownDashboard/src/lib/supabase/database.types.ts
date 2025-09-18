@@ -287,6 +287,69 @@ export type Database = {
         }
         Relationships: []
       }
+      company: {
+        Row: {
+          company_contact: string | null
+          company_contactname: string | null
+          company_email: string | null
+          company_fms: string | null
+          company_industry: string | null
+          company_infor: string | null
+          company_name: string | null
+          company_no_vehicles: number | null
+          company_phone: string | null
+          company_regions: string | null
+          company_size: number | null
+          company_tax_id: string | null
+          company_v_type: string | null
+          company_website: string | null
+          created_at: string
+          created_by: string | null
+          id: number
+          updated_at: string | null
+        }
+        Insert: {
+          company_contact?: string | null
+          company_contactname?: string | null
+          company_email?: string | null
+          company_fms?: string | null
+          company_industry?: string | null
+          company_infor?: string | null
+          company_name?: string | null
+          company_no_vehicles?: number | null
+          company_phone?: string | null
+          company_regions?: string | null
+          company_size?: number | null
+          company_tax_id?: string | null
+          company_v_type?: string | null
+          company_website?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: number
+          updated_at?: string | null
+        }
+        Update: {
+          company_contact?: string | null
+          company_contactname?: string | null
+          company_email?: string | null
+          company_fms?: string | null
+          company_industry?: string | null
+          company_infor?: string | null
+          company_name?: string | null
+          company_no_vehicles?: number | null
+          company_phone?: string | null
+          company_regions?: string | null
+          company_size?: number | null
+          company_tax_id?: string | null
+          company_v_type?: string | null
+          company_website?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       cost_centers: {
         Row: {
           branch: string | null
@@ -926,6 +989,60 @@ export type Database = {
         }
         Relationships: []
       }
+      inspections: {
+        Row: {
+          category: string | null
+          checklist: Json
+          created_at: string | null
+          driver_id: number | null
+          id: number
+          inspection_date: string | null
+          odo_reading: number
+          overall_status: string | null
+          remarks: string | null
+          vehicle_id: number
+        }
+        Insert: {
+          category?: string | null
+          checklist: Json
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspection_date?: string | null
+          odo_reading: number
+          overall_status?: string | null
+          remarks?: string | null
+          vehicle_id: number
+        }
+        Update: {
+          category?: string | null
+          checklist?: Json
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspection_date?: string | null
+          odo_reading?: number
+          overall_status?: string | null
+          remarks?: string | null
+          vehicle_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspections_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehiclesc"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory: {
         Row: {
           account_number: string | null
@@ -1000,6 +1117,154 @@ export type Database = {
           vat_amount?: number
         }
         Relationships: []
+      }
+      job_assignments: {
+        Row: {
+          accepted: boolean | null
+          actual_cost: number | null
+          approval_required: boolean | null
+          approved_at: string | null
+          approved_by: string | null
+          assigned_technician: string | null
+          attachments: string[] | null
+          breakdown_req: boolean | null
+          breakdowns_id: number | null
+          client_name: string | null
+          client_type: string | null
+          completed_at: string | null
+          coordinates: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string
+          driver_id: number | null
+          emergency_type: string | null
+          estimated_cost: number | null
+          eta: string | null
+          fleet_status: string | null
+          id: number
+          image_path: string | null
+          inspected: boolean | null
+          job_id: string | null
+          job_status: string | null
+          location: string | null
+          notes: string | null
+          order_no: string | null
+          priority: string | null
+          result_images: string[] | null
+          scanned: boolean | null
+          service: string | null
+          status: string | null
+          technician_id: number | null
+          technician_phone: string | null
+          updated_at: string | null
+          updated_by: string | null
+          vehicle_id: number | null
+        }
+        Insert: {
+          accepted?: boolean | null
+          actual_cost?: number | null
+          approval_required?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_technician?: string | null
+          attachments?: string[] | null
+          breakdown_req?: boolean | null
+          breakdowns_id?: number | null
+          client_name?: string | null
+          client_type?: string | null
+          completed_at?: string | null
+          coordinates?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          driver_id?: number | null
+          emergency_type?: string | null
+          estimated_cost?: number | null
+          eta?: string | null
+          fleet_status?: string | null
+          id?: number
+          image_path?: string | null
+          inspected?: boolean | null
+          job_id?: string | null
+          job_status?: string | null
+          location?: string | null
+          notes?: string | null
+          order_no?: string | null
+          priority?: string | null
+          result_images?: string[] | null
+          scanned?: boolean | null
+          service?: string | null
+          status?: string | null
+          technician_id?: number | null
+          technician_phone?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vehicle_id?: number | null
+        }
+        Update: {
+          accepted?: boolean | null
+          actual_cost?: number | null
+          approval_required?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_technician?: string | null
+          attachments?: string[] | null
+          breakdown_req?: boolean | null
+          breakdowns_id?: number | null
+          client_name?: string | null
+          client_type?: string | null
+          completed_at?: string | null
+          coordinates?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          driver_id?: number | null
+          emergency_type?: string | null
+          estimated_cost?: number | null
+          eta?: string | null
+          fleet_status?: string | null
+          id?: number
+          image_path?: string | null
+          inspected?: boolean | null
+          job_id?: string | null
+          job_status?: string | null
+          location?: string | null
+          notes?: string | null
+          order_no?: string | null
+          priority?: string | null
+          result_images?: string[] | null
+          scanned?: boolean | null
+          service?: string | null
+          status?: string | null
+          technician_id?: number | null
+          technician_phone?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vehicle_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_assignments_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "technicians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_assignments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehiclesc"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_cards: {
         Row: {
@@ -2025,6 +2290,57 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_inspections: {
+        Row: {
+          created_at: string | null
+          driver_id: number | null
+          id: number
+          inspected: boolean
+          inspection_date: string | null
+          type: string | null
+          updated_at: string | null
+          user_id: string | null
+          vehicle_id: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspected?: boolean
+          inspection_date?: string | null
+          type?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vehicle_id?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspected?: boolean
+          inspection_date?: string | null
+          type?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vehicle_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_inspections_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehiclesc"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_invoices: {
         Row: {
           "2nd_month": number | null
@@ -2189,6 +2505,132 @@ export type Database = {
           vin_number?: string | null
         }
         Relationships: []
+      }
+      vehiclesc: {
+        Row: {
+          boarding_km_hours: number | null
+          colour: string
+          company_id: number | null
+          cost_centres: string | null
+          created_at: string | null
+          created_by: string | null
+          driver_id: number | null
+          engine_number: string | null
+          expected_boarding_date: string | null
+          fuel_type: string | null
+          id: number
+          inspected: boolean | null
+          license_expiry_date: string | null
+          make: string | null
+          manufactured_year: string
+          model: string
+          purchase_price: number | null
+          register_number: string | null
+          registration_date: string | null
+          registration_number: string
+          retail_price: number | null
+          service_intervals: string
+          status: string | null
+          sub_model: string | null
+          take_on_kilometers: number
+          tank_capacity: number | null
+          tech_id: number | null
+          transmission_type: string | null
+          type: string | null
+          updated_at: string | null
+          vehicle_priority: string | null
+          vehicle_type: string
+          vin_number: string | null
+          workshop_id: string | null
+        }
+        Insert: {
+          boarding_km_hours?: number | null
+          colour: string
+          company_id?: number | null
+          cost_centres?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          driver_id?: number | null
+          engine_number?: string | null
+          expected_boarding_date?: string | null
+          fuel_type?: string | null
+          id?: number
+          inspected?: boolean | null
+          license_expiry_date?: string | null
+          make?: string | null
+          manufactured_year: string
+          model: string
+          purchase_price?: number | null
+          register_number?: string | null
+          registration_date?: string | null
+          registration_number: string
+          retail_price?: number | null
+          service_intervals: string
+          status?: string | null
+          sub_model?: string | null
+          take_on_kilometers: number
+          tank_capacity?: number | null
+          tech_id?: number | null
+          transmission_type?: string | null
+          type?: string | null
+          updated_at?: string | null
+          vehicle_priority?: string | null
+          vehicle_type?: string
+          vin_number?: string | null
+          workshop_id?: string | null
+        }
+        Update: {
+          boarding_km_hours?: number | null
+          colour?: string
+          company_id?: number | null
+          cost_centres?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          driver_id?: number | null
+          engine_number?: string | null
+          expected_boarding_date?: string | null
+          fuel_type?: string | null
+          id?: number
+          inspected?: boolean | null
+          license_expiry_date?: string | null
+          make?: string | null
+          manufactured_year?: string
+          model?: string
+          purchase_price?: number | null
+          register_number?: string | null
+          registration_date?: string | null
+          registration_number?: string
+          retail_price?: number | null
+          service_intervals?: string
+          status?: string | null
+          sub_model?: string | null
+          take_on_kilometers?: number
+          tank_capacity?: number | null
+          tech_id?: number | null
+          transmission_type?: string | null
+          type?: string | null
+          updated_at?: string | null
+          vehicle_priority?: string | null
+          vehicle_type?: string
+          vin_number?: string | null
+          workshop_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehiclesc_created_by_fkey1"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehiclesc_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

@@ -287,6 +287,69 @@ export type Database = {
         }
         Relationships: []
       }
+      company: {
+        Row: {
+          company_contact: string | null
+          company_contactname: string | null
+          company_email: string | null
+          company_fms: string | null
+          company_industry: string | null
+          company_infor: string | null
+          company_name: string | null
+          company_no_vehicles: number | null
+          company_phone: string | null
+          company_regions: string | null
+          company_size: number | null
+          company_tax_id: string | null
+          company_v_type: string | null
+          company_website: string | null
+          created_at: string
+          created_by: string | null
+          id: number
+          updated_at: string | null
+        }
+        Insert: {
+          company_contact?: string | null
+          company_contactname?: string | null
+          company_email?: string | null
+          company_fms?: string | null
+          company_industry?: string | null
+          company_infor?: string | null
+          company_name?: string | null
+          company_no_vehicles?: number | null
+          company_phone?: string | null
+          company_regions?: string | null
+          company_size?: number | null
+          company_tax_id?: string | null
+          company_v_type?: string | null
+          company_website?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: number
+          updated_at?: string | null
+        }
+        Update: {
+          company_contact?: string | null
+          company_contactname?: string | null
+          company_email?: string | null
+          company_fms?: string | null
+          company_industry?: string | null
+          company_infor?: string | null
+          company_name?: string | null
+          company_no_vehicles?: number | null
+          company_phone?: string | null
+          company_regions?: string | null
+          company_size?: number | null
+          company_tax_id?: string | null
+          company_v_type?: string | null
+          company_website?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       cost_centers: {
         Row: {
           branch: string | null
@@ -925,6 +988,114 @@ export type Database = {
           work_permit_upload?: string | null
         }
         Relationships: []
+      }
+      inspection: {
+        Row: {
+          category: string | null
+          checklist: Json
+          created_at: string | null
+          driver_id: number | null
+          id: number
+          inspection_date: string | null
+          odo_reading: number
+          overall_status: string | null
+          remarks: string | null
+          vehicle_id: number
+        }
+        Insert: {
+          category?: string | null
+          checklist: Json
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspection_date?: string | null
+          odo_reading: number
+          overall_status?: string | null
+          remarks?: string | null
+          vehicle_id: number
+        }
+        Update: {
+          category?: string | null
+          checklist?: Json
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspection_date?: string | null
+          odo_reading?: number
+          overall_status?: string | null
+          remarks?: string | null
+          vehicle_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehiclesc"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspections: {
+        Row: {
+          category: string | null
+          checklist: Json
+          created_at: string | null
+          driver_id: number | null
+          id: number
+          inspection_date: string | null
+          odo_reading: number
+          overall_status: string | null
+          remarks: string | null
+          vehicle_id: number
+        }
+        Insert: {
+          category?: string | null
+          checklist: Json
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspection_date?: string | null
+          odo_reading: number
+          overall_status?: string | null
+          remarks?: string | null
+          vehicle_id: number
+        }
+        Update: {
+          category?: string | null
+          checklist?: Json
+          created_at?: string | null
+          driver_id?: number | null
+          id?: number
+          inspection_date?: string | null
+          odo_reading?: number
+          overall_status?: string | null
+          remarks?: string | null
+          vehicle_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspections_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehiclesc"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inventory: {
         Row: {
@@ -2032,6 +2203,7 @@ export type Database = {
           id: number
           inspected: boolean
           inspection_date: string | null
+          type: string | null
           updated_at: string | null
           user_id: string | null
           vehicle_id: number | null
@@ -2042,6 +2214,7 @@ export type Database = {
           id?: number
           inspected?: boolean
           inspection_date?: string | null
+          type?: string | null
           updated_at?: string | null
           user_id?: string | null
           vehicle_id?: number | null
@@ -2052,6 +2225,7 @@ export type Database = {
           id?: number
           inspected?: boolean
           inspection_date?: string | null
+          type?: string | null
           updated_at?: string | null
           user_id?: string | null
           vehicle_id?: number | null

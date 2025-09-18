@@ -114,7 +114,7 @@ export default function Vehicles() {
         if (!userId) return;
 
         const { data, error } = await supabase
-          .from('profiles')
+          .from('users')
           .select('workshop_id')
           .eq('id', userId)
           .single();
@@ -832,7 +832,7 @@ export default function Vehicles() {
                   <TableHead>Color</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Priority</TableHead>
-                  <TableHead>Assigned Driver</TableHead>
+                  <TableHead>Driver</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -894,7 +894,7 @@ export default function Vehicles() {
                       <div className="flex flex-row gap-3">
                         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                           <DialogTrigger asChild>
-                            <Button
+                            {/* <Button
                               variant="outline"
                               className="px-4 py-2"
                               onClick={() => {
@@ -904,7 +904,7 @@ export default function Vehicles() {
                               }}
                             >
                               Assign
-                            </Button>
+                            </Button> */}
 
                           </DialogTrigger>
                           <DialogContent className="sm:max-w-md w-full">
