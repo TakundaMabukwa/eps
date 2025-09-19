@@ -30,15 +30,16 @@ async function checkAuth(session: Session | null, currentPath: string) {
     }
     return;
   }
-
-  const role = user.user_metadata?.role;
-  console.log(`session ${user.email} role: ${role}`);
+  const {data} = await supabase.from('users').select('role').eq('id', user.id).single();
+  if (data?.role && data.role) {
+    console.log(`session role from ${data.role}`);
+  }
 
   if (!resetPaths.includes(currentPath) && currentPath !== '/login') {
     let targetRoute = '/login';
 
-    if (role === 'driver') targetRoute = '/(tabs)';
-    else if (role === 'technician') targetRoute = '/(Technician)';
+    if (data?.role === 'driver') targetRoute = '/(tabs)';
+    else if (data?.role === 'technician') targetRoute = '/(Technician)';
 
     if (currentPath !== targetRoute) {
       router.replace(targetRoute as Href);
