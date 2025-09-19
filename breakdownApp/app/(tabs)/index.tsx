@@ -120,7 +120,7 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.icon }]}>
-        <ThemedText type="title" style={styles.title}>Breakdown Brigade</ThemedText>
+        <ThemedText type="title" style={styles.title}>Breakdown Logictics</ThemedText>
         <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings')}>
           <Ionicons name="settings-outline" size={28} color={theme.text} />
         </TouchableOpacity>

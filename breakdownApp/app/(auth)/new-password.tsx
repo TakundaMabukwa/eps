@@ -47,7 +47,7 @@ const Screen = () => {
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.container}>
       <Text allowFontScaling={false} style={styles.title}>
-        Breakdown Brigade
+        Breakdown Logistics
       </Text>
 
       <View style={styles.formContainer}>

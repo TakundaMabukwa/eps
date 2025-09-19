@@ -20,7 +20,7 @@ export default function RegisterLayout({
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-blue-600">Breakdown Brigade</h1>
+              <h1 className="text-2xl font-bold text-blue-600">Breakdown Logistics</h1>
             </div>
 
             {/* Desktop Menu */}

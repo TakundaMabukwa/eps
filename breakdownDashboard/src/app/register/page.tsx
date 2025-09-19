@@ -128,7 +128,7 @@ export default function RegisterPage() {
 
       {/* Features Grid */}
       <div className="mb-16">
-        <h2 className="text-3xl font-bold text-center mb-12">Why Choose Breakdown Brigade Breakdown?</h2>
+        <h2 className="text-3xl font-bold text-center mb-12">Why Choose Breakdown Logistics?</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <Card key={index} className="border-0 shadow-lg">
@@ -272,7 +272,7 @@ export default function RegisterPage() {
 
       {/* Footer */}
       <footer className="mt-16 text-center text-gray-500">
-        <p>&copy; 2025 Breakdown Brigade Breakdown. All rights reserved.</p>
+        <p>&copy; 2025 Breakdown Logistics. All rights reserved.</p>
       </footer>
     </div>
   )

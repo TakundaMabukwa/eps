@@ -68,7 +68,7 @@ const Screen = () => {
     >
       <Image source={require('../../assets/images/Logo.jpeg')} style={styles.logo} />
       <Text allowFontScaling={false} style={styles.title}>
-        Breakdown Brigade
+        Breakdown Logistics
       </Text>
 
       <View style={styles.formContainer}>

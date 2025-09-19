@@ -30,8 +30,8 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
               <Image src="/icon.png" alt="Eagle Eye" width={150} height={150} className="object-contain rounded-full" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Breakdown Brigade</h1>
-            <p className="text-gray-600">Welcome back to your Breakdown Brigade</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Breakdown Logistics</h1>
+            <p className="text-gray-600">Welcome back to your Breakdown Logistics</p>
           </div>
 
           {/* Auth form container */}
@@ -67,7 +67,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-500">
-              © 2025 Breakdown Brigade. All rights reserved.
+              © 2025 Breakdown Logistics. All rights reserved.
             </p>
           </div>
         </div>

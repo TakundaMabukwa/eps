@@ -166,7 +166,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
             <h1 className="text-xl font-bold text-gray-900">
-              Breakdown Brigade
+              Breakdown Logistics
             </h1>
             <Button
               variant="ghost"
