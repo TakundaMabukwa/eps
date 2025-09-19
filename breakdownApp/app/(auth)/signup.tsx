@@ -81,11 +81,6 @@ export default function Signup() {
                     return;
                 }
 
-                if (!existingDriver) {
-                    Alert.alert("Sign Up Error", "Driver number does not exist in the Company.");
-                    return;
-                }
-
                 // Sign up user
                 const { data: driverData, error: signUpError } = await supabase.auth.signUp({
                     email: values.email,
