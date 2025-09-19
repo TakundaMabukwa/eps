@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "breakdownApp",
-    "slug": "BreakdownApp",
+    "slug": "breakdownapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -30,10 +30,6 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
@@ -78,14 +74,15 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b7f91d19-0344-4423-b2bc-bd0b72c489b5"
+        "projectId": "3f0dac43-e4d7-4ca4-951f-1826ff2cf42a"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/b7f91d19-0344-4423-b2bc-bd0b72c489b5"
-    }
+      "url": "https://u.expo.dev/3f0dac43-e4d7-4ca4-951f-1826ff2cf42a"
+    },
+    "owner": "mukelani_mashoba"
   }
 }
