@@ -41,17 +41,6 @@ export default function Login() {
         .eq("role", "driver")
         .single();
 
-      if (driverError && driverError.code !== "PGRST116") {
-        console.log("Driver Check Error:", driverError);
-        Alert.alert("Error", "Could not check Role.");
-        setIsLoading(false);
-        return;
-      }
-      // if (!existingDriver) {
-      //   setIsLoading(false);
-      //   Alert.alert("Login failed", "No driver profile found with this email.");
-      //   return;
-      // }
       const { data, error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
