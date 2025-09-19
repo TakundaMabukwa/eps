@@ -38,7 +38,7 @@ export default function Login() {
         .from("users")
         .select("*")
         .eq("email", values.email)
-        .eq("role", "fc")
+        .eq("role", "driver")
         .single();
 
       if (driverError && driverError.code !== "PGRST116") {
