@@ -1,11 +1,15 @@
 import { useCurrentAddress } from "@/app/hooks/useCurrentAddress";
 import { getVehicleByRegistrationNumber } from "@/app/utils/actions/functions";
-import { addEmergency, getVehicleAndDrivers, getVehicleAssignId } from "@/app/utils/actions/requests";
+import {
+  addEmergency,
+  getVehicleAndDrivers,
+  getVehicleAssignId,
+} from "@/app/utils/actions/requests";
 import { supabase } from "@/app/utils/supabase";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
-import { decode as atob } from 'base-64';
-import * as FileSystem from 'expo-file-system';
+import { decode as atob } from "base-64";
+import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -17,7 +21,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -40,7 +44,20 @@ type jobAssignment = {
   created_at: Date | null;
   created_by: string | null;
   job_id?: string;
-  status: 'pending' | 'assigned' | 'inprogress' | 'awaiting-approval' | 'approved' | 'completed' | 'cancelled' | 'Breakdown Request' | 'Breakdown assigned' | 'Technician accepted' | 'Technician on site' | 'Technician working' | 'Tow requested';
+  status:
+    | "pending"
+    | "assigned"
+    | "inprogress"
+    | "awaiting-approval"
+    | "approved"
+    | "completed"
+    | "cancelled"
+    | "Breakdown Request"
+    | "Breakdown assigned"
+    | "Technician accepted"
+    | "Technician on site"
+    | "Technician working"
+    | "Tow requested";
   attachment?: string[] | null;
   vehicle_id?: number | null;
   driver_id?: number | null;
@@ -50,7 +67,8 @@ const AvailableBreakdowns = [
   {
     id: "1",
     title: "Tow Truck",
-    description: "Get a tow truck to your location for vehicle recovery or transport.",
+    description:
+      "Get a tow truck to your location for vehicle recovery or transport.",
   },
   {
     id: "2",
@@ -60,7 +78,8 @@ const AvailableBreakdowns = [
   {
     id: "3",
     title: "Jump Start",
-    description: "Request help to jump start your vehicle if your battery is dead.",
+    description:
+      "Request help to jump start your vehicle if your battery is dead.",
   },
   {
     id: "4",
@@ -70,7 +89,8 @@ const AvailableBreakdowns = [
   {
     id: "5",
     title: "Lockout Service",
-    description: "Locked out of your car? Get assistance to unlock your vehicle.",
+    description:
+      "Locked out of your car? Get assistance to unlock your vehicle.",
   },
   {
     id: "6",
@@ -81,37 +101,44 @@ const AvailableBreakdowns = [
 
 export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
   const params = useLocalSearchParams();
-  const regNumFromParams = params.registration_number || '';
+  const regNumFromParams = params.registration_number || "";
   const [issue, setIssue] = useState("");
   const [location, setLocation] = useState("");
   const [shareLocation, setShareLocation] = useState(false);
-  const [registrationNumber, setRegistrationNumber] = useState('');
-  const [regExists, setRegExists] = useState(false)
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  const [regExists, setRegExists] = useState(false);
   const [error, setError] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const { address } = useCurrentAddress();
-  const [regNum, setRegNum] = React.useState('');
+  const [regNum, setRegNum] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [vehicle_id, setVehicleId] = useState<number | null>(null);
   const [driver_id, setDriverId] = useState<number | null>(null);
   const [editable, setEditable] = useState(false);
   const [service, setService] = useState<string | null>(null);
 
-
   useEffect(() => {
     if (!editable && address) {
       setLocation(address);
       console.log("Address set to:", address);
     }
-
   }, [address, editable]);
 
+  useEffect(() => {
+    const saveReg = async () => {
+      if (regNum && typeof window !== "undefined") {
+        await AsyncStorage.setItem("registrationNumber", regNum);
+      }
+    };
+    saveReg();
+  }, [regNum]);
+
   const saveRegistrationNumber = async (regNum: string) => {
-    await AsyncStorage.setItem('registrationNumber', regNum);
+    await AsyncStorage.setItem("registrationNumber", regNum);
   };
 
   const getRegistrationNumber = async () => {
-    const value = await AsyncStorage.getItem('registrationNumber');
+    const value = await AsyncStorage.getItem("registrationNumber");
     return value;
   };
 
@@ -127,36 +154,40 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
 
   useEffect(() => {
     if (regNumFromParams) {
-      const regNumStr = Array.isArray(regNumFromParams) ? regNumFromParams[0] : regNumFromParams;
+      const regNumStr = Array.isArray(regNumFromParams)
+        ? regNumFromParams[0]
+        : regNumFromParams;
       setRegistrationNumber(regNumStr);
       saveRegistrationNumber(regNumStr);
     }
   }, [regNumFromParams]);
 
-
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUserId(user?.id ?? null);
     };
     const fetchVehicle = async () => {
       if (!registrationNumber) {
-        setRegExists(false)
-        return
+        setRegExists(false);
+        return;
       }
-      const vehicle = await getVehicleByRegistrationNumber(registrationNumber)
+      const vehicle = await getVehicleByRegistrationNumber(registrationNumber);
       setVehicleId(vehicle?.id || null);
 
-      const driver = driver_id !== null ? await getVehicleAndDrivers({ Jobassignment: { id: driver_id } }) : null;
+      const driver =
+        driver_id !== null
+          ? await getVehicleAndDrivers({ Jobassignment: { id: driver_id } })
+          : null;
       setDriverId(driver?.data?.id || null);
 
-      setRegExists(!!vehicle)
-    }
-    fetchVehicle()
+      setRegExists(!!vehicle);
+    };
+    fetchVehicle();
     fetchUser();
-  }, [registrationNumber])
-
-
+  }, [registrationNumber]);
 
   // React.useEffect(() => {
   //   if (registration_number) {
@@ -175,28 +206,34 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.iconContainer} onPress={() => {
-            router.back();
-            console.log("Back button pressed");
-          }}>
+          <TouchableOpacity
+            style={styles.iconContainer}
+            onPress={() => {
+              router.back();
+              console.log("Back button pressed");
+            }}
+          >
             <Text style={styles.iconText}>{"<"}</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Request a breakdown</Text>
         </View>
         <Text style={styles.label}>Registration Number *</Text>
         <View style={styles.inputRow}>
-
           <TextInput
             placeholder="e.g. ABC123"
             placeholderTextColor="#aaa"
             value={registrationNumber}
-            onChangeText={text => setRegistrationNumber(text.toUpperCase())}
+            onChangeText={(text) => setRegistrationNumber(text.toUpperCase())}
             style={[
               styles.input,
-              !regExists && registrationNumber.length > 0 && { borderColor: 'red' }
+              !regExists &&
+                registrationNumber.length > 0 && { borderColor: "red" },
             ]}
             autoCapitalize="characters"
             autoCorrect={false}
@@ -219,7 +256,11 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
           >
             <Picker.Item label="Select a service" value={null} />
             {AvailableBreakdowns.map((breakdown) => (
-              <Picker.Item key={breakdown.id} label={breakdown.title} value={breakdown.title} />
+              <Picker.Item
+                key={breakdown.id}
+                label={breakdown.title}
+                value={breakdown.title}
+              />
             ))}
           </Picker>
         </View>
@@ -237,55 +278,60 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
           />
         </View>
 
-
         {/* Attachments */}
-        <TouchableOpacity onPress={async () => {
-          let response = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 1,
-            selectionLimit: 0,
-            allowsMultipleSelection: true,
-          });
+        <TouchableOpacity
+          onPress={async () => {
+            let response = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 1,
+              selectionLimit: 0,
+              allowsMultipleSelection: true,
+            });
 
-          if (response.canceled) return;
-          if (response.assets && response.assets.length > 0) {
-            const jobId = undefined;
-            const uploadedPaths: string[] = [];
+            if (response.canceled) return;
+            if (response.assets && response.assets.length > 0) {
+              const jobId = undefined;
+              const uploadedPaths: string[] = [];
 
-            for (let i = 0; i < response.assets.length; i++) {
-              const uri = response.assets[i].uri;
-              const fileName = uri.split('/').pop() || `image_${i}.jpg`;
+              for (let i = 0; i < response.assets.length; i++) {
+                const uri = response.assets[i].uri;
+                const fileName = uri.split("/").pop() || `image_${i}.jpg`;
 
-              // Read file as base64
-              const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-              // Convert base64 to binary
-              const binary = atob(base64);
-              const bytes = new Uint8Array(binary.length);
-              for (let j = 0; j < binary.length; j++) {
-                bytes[j] = binary.charCodeAt(j);
-              }
-
-              // Upload to Supabase Storage
-              const { data, error } = await supabase.storage
-                .from('images')
-                .upload(`attachments/${jobId}/${fileName}`, bytes, {
-                  contentType: 'image/jpeg',
-                  upsert: true,
+                // Read file as base64
+                const base64 = await FileSystem.readAsStringAsync(uri, {
+                  encoding: FileSystem.EncodingType.Base64,
                 });
+                // Convert base64 to binary
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let j = 0; j < binary.length; j++) {
+                  bytes[j] = binary.charCodeAt(j);
+                }
 
-              if (error) {
-                console.error(`Failed to upload image: ${fileName} - ${error.message}`);
-                continue;
+                // Upload to Supabase Storage
+                const { data, error } = await supabase.storage
+                  .from("images")
+                  .upload(`attachments/${jobId}/${fileName}`, bytes, {
+                    contentType: "image/jpeg",
+                    upsert: true,
+                  });
+
+                if (error) {
+                  console.error(
+                    `Failed to upload image: ${fileName} - ${error.message}`
+                  );
+                  continue;
+                }
+                uploadedPaths.push(data.path);
               }
-              uploadedPaths.push(data.path);
-            }
 
-            // Now you can store uploadedPaths in your state or send to your backend
-            setAttachments(prev => [...prev, ...uploadedPaths]);
-          }
-        }}>
+              // Now you can store uploadedPaths in your state or send to your backend
+              setAttachments((prev) => [...prev, ...uploadedPaths]);
+            }
+          }}
+        >
           <Text style={styles.sectionSubtitle}>Attachments (optional)</Text>
         </TouchableOpacity>
 
@@ -316,11 +362,10 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
           />
         </View>
 
-
-
         {/* Request assistance button */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.button}
+          <TouchableOpacity
+            style={styles.button}
             onPress={async () => {
               console.log("Request Breakdown pressed");
               setIsLoading(true);
@@ -343,18 +388,23 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
                 job_id: "",
                 attachment: attachments.length > 0 ? attachments : null,
                 driver_id: driver_id,
-                vehicle_id: vehicle_id
+                vehicle_id: vehicle_id,
               };
               try {
                 setIsLoading(true);
                 const response = await addEmergency({ jobAssignment });
                 if (response.success && response.data && response.data[0]?.id) {
                   const insertedId = response.data[0].id;
-                  const driverResponse = await getVehicleAndDrivers({ Jobassignment: { id: insertedId } });
+                  const driverResponse = await getVehicleAndDrivers({
+                    Jobassignment: { id: insertedId },
+                  });
 
                   console.log("Driver updated:", driverResponse);
 
-                  const insertedVehicle = await getVehicleAssignId({ Jobassignment: { id: insertedId } }, registrationNumber);
+                  const insertedVehicle = await getVehicleAssignId(
+                    { Jobassignment: { id: insertedId } },
+                    registrationNumber
+                  );
 
                   console.log("Vehicle updated:", insertedVehicle);
 
@@ -363,9 +413,10 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
                   const driverId = driverResponse.data?.id; // from getVehicleAndDrivers
 
                   // 3) Update job assignment to set driver_id
-                  const { data: update, error: updateError } = await supabase.from('job_assignments')
+                  const { data: update, error: updateError } = await supabase
+                    .from("job_assignments")
                     .update({ driver_id: driverId })
-                    .eq('id', insertedId);
+                    .eq("id", insertedId);
 
                   // const { data: assignData, error: assignError } = await supabase.from('assignements')
                   //   .insert({
@@ -374,7 +425,10 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
                   //     vehicle_id: insertedVehicle.id,
                   //   });
                   // Success
-                  Alert.alert("Success", "Breakdown request sent successfully.");
+                  Alert.alert(
+                    "Success",
+                    "Breakdown request sent successfully."
+                  );
                   setIsLoading(false);
                   router.navigate("/(tabs)/emergency/status");
                   return;
@@ -393,14 +447,17 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
                 location,
                 shareLocation,
               });
-            }}>
-            <Text style={styles.buttonText}>{isLoading ? "Loading..." : "Request BreakDown"}</Text>
+            }}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? "Loading..." : "Request BreakDown"}
+            </Text>
           </TouchableOpacity>
 
-
-          <TouchableOpacity style={styles.button}
+          <TouchableOpacity
+            style={styles.button}
             onPress={() => {
-              router.push("/(tabs)/emergency/status")
+              router.push("/(tabs)/emergency/status");
             }}
           >
             <Text style={styles.buttonText}>View Status</Text>
@@ -412,7 +469,9 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
           {AvailableBreakdowns.map((breakdown) => (
             <View key={breakdown.id} style={styles.serviceCard}>
               <Text style={styles.serviceTitle}>{breakdown.title}</Text>
-              <Text style={styles.serviceDescription}>{breakdown.description}</Text>
+              <Text style={styles.serviceDescription}>
+                {breakdown.description}
+              </Text>
             </View>
           ))}
         </View>
@@ -482,7 +541,7 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     width: "100%",
   },
-    inputStyle: {
+  inputStyle: {
     paddingHorizontal: 16,
     maxWidth: 480,
     borderRadius: 12,
@@ -594,14 +653,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
   },
   errorText: {
-    color: 'red',
+    color: "red",
     marginTop: 5,
     fontSize: 13,
-  }, label: {
+  },
+  label: {
     marginTop: 10,
     marginBottom: 3,
-    fontWeight: '600',
-    color: '#444',
+    fontWeight: "600",
+    color: "#444",
     fontSize: 14,
   },
 });
