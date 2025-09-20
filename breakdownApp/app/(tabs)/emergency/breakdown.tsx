@@ -10,7 +10,7 @@ import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert, SafeAreaView,
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -19,6 +19,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type BreakdownScreenProps = {
   navigation?: any;
@@ -366,12 +367,12 @@ export default function BreakdownScreen({ navigation }: BreakdownScreenProps) {
                     .update({ driver_id: driverId })
                     .eq('id', insertedId);
 
-                  const { data: assignData, error: assignError } = await supabase.from('assignements')
-                    .insert({
-                      driver_id: driverId,
-                      job_id: insertedJobAssignment.id,
-                      vehicle_id: insertedVehicle.id,
-                    });
+                  // const { data: assignData, error: assignError } = await supabase.from('assignements')
+                  //   .insert({
+                  //     driver_id: driverId,
+                  //     job_id: insertedJobAssignment.id,
+                  //     vehicle_id: insertedVehicle.id,
+                  //   });
                   // Success
                   Alert.alert("Success", "Breakdown request sent successfully.");
                   setIsLoading(false);

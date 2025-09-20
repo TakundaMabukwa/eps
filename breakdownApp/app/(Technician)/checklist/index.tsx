@@ -3,10 +3,11 @@ import { router } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
     ActivityIndicator,
-    Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput,
+    Modal, Pressable, ScrollView, StyleSheet, Text, TextInput,
     TouchableOpacity, View
 } from 'react-native';
 import { supabase } from '../../utils/supabase';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 type technicain = {

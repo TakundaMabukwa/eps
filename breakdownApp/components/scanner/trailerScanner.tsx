@@ -8,12 +8,12 @@ import {
     AppState,
     Linking,
     Platform,
-    SafeAreaView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ScannerDriver() {
     const qrLock = useRef(false);

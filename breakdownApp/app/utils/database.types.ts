@@ -989,60 +989,6 @@ export type Database = {
         }
         Relationships: []
       }
-      inspection: {
-        Row: {
-          category: string | null
-          checklist: Json
-          created_at: string | null
-          driver_id: number | null
-          id: number
-          inspection_date: string | null
-          odo_reading: number
-          overall_status: string | null
-          remarks: string | null
-          vehicle_id: number
-        }
-        Insert: {
-          category?: string | null
-          checklist: Json
-          created_at?: string | null
-          driver_id?: number | null
-          id?: number
-          inspection_date?: string | null
-          odo_reading: number
-          overall_status?: string | null
-          remarks?: string | null
-          vehicle_id: number
-        }
-        Update: {
-          category?: string | null
-          checklist?: Json
-          created_at?: string | null
-          driver_id?: number | null
-          id?: number
-          inspection_date?: string | null
-          odo_reading?: number
-          overall_status?: string | null
-          remarks?: string | null
-          vehicle_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inspection_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: false
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inspection_vehicle_id_fkey"
-            columns: ["vehicle_id"]
-            isOneToOne: false
-            referencedRelation: "vehiclesc"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       inspections: {
         Row: {
           category: string | null
@@ -1171,6 +1117,154 @@ export type Database = {
           vat_amount?: number
         }
         Relationships: []
+      }
+      job_assignments: {
+        Row: {
+          accepted: boolean | null
+          actual_cost: number | null
+          approval_required: boolean | null
+          approved_at: string | null
+          approved_by: string | null
+          assigned_technician: string | null
+          attachments: string[] | null
+          breakdown_req: boolean | null
+          breakdowns_id: number | null
+          client_name: string | null
+          client_type: string | null
+          completed_at: string | null
+          coordinates: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string
+          driver_id: number | null
+          emergency_type: string | null
+          estimated_cost: number | null
+          eta: string | null
+          fleet_status: string | null
+          id: number
+          image_path: string | null
+          inspected: boolean | null
+          job_id: string | null
+          job_status: string | null
+          location: string | null
+          notes: string | null
+          order_no: string | null
+          priority: string | null
+          result_images: string[] | null
+          scanned: boolean | null
+          service: string | null
+          status: string | null
+          technician_id: number | null
+          technician_phone: string | null
+          updated_at: string | null
+          updated_by: string | null
+          vehicle_id: number | null
+        }
+        Insert: {
+          accepted?: boolean | null
+          actual_cost?: number | null
+          approval_required?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_technician?: string | null
+          attachments?: string[] | null
+          breakdown_req?: boolean | null
+          breakdowns_id?: number | null
+          client_name?: string | null
+          client_type?: string | null
+          completed_at?: string | null
+          coordinates?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          driver_id?: number | null
+          emergency_type?: string | null
+          estimated_cost?: number | null
+          eta?: string | null
+          fleet_status?: string | null
+          id?: number
+          image_path?: string | null
+          inspected?: boolean | null
+          job_id?: string | null
+          job_status?: string | null
+          location?: string | null
+          notes?: string | null
+          order_no?: string | null
+          priority?: string | null
+          result_images?: string[] | null
+          scanned?: boolean | null
+          service?: string | null
+          status?: string | null
+          technician_id?: number | null
+          technician_phone?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vehicle_id?: number | null
+        }
+        Update: {
+          accepted?: boolean | null
+          actual_cost?: number | null
+          approval_required?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_technician?: string | null
+          attachments?: string[] | null
+          breakdown_req?: boolean | null
+          breakdowns_id?: number | null
+          client_name?: string | null
+          client_type?: string | null
+          completed_at?: string | null
+          coordinates?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          driver_id?: number | null
+          emergency_type?: string | null
+          estimated_cost?: number | null
+          eta?: string | null
+          fleet_status?: string | null
+          id?: number
+          image_path?: string | null
+          inspected?: boolean | null
+          job_id?: string | null
+          job_status?: string | null
+          location?: string | null
+          notes?: string | null
+          order_no?: string | null
+          priority?: string | null
+          result_images?: string[] | null
+          scanned?: boolean | null
+          service?: string | null
+          status?: string | null
+          technician_id?: number | null
+          technician_phone?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vehicle_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_assignments_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "technicians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_assignments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehiclesc"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_cards: {
         Row: {

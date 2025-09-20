@@ -4,11 +4,11 @@ import { router } from 'expo-router';
 import React from 'react';
 import {
   Linking,
-  SafeAreaView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Settings() {
   const [email, setEmail] = React.useState('');

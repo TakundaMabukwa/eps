@@ -3,11 +3,11 @@ import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Clipboard, Modal,
-    SafeAreaView, ScrollView, StyleSheet, Text,
+    ActivityIndicator, Clipboard, Modal, ScrollView, StyleSheet, Text,
     TouchableOpacity, View
 } from 'react-native';
 import { supabase } from '../../utils/supabase';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Technician = {
     id: number;
