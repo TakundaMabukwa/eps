@@ -80,7 +80,7 @@ export default function Login() {
     //   setIsLoading(false);
     //   Alert.alert('Login failed', 'Please check your email and password');
     // }
-
+    setIsLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({
       email: values.email,
       password: values.password,
@@ -88,32 +88,13 @@ export default function Login() {
 
     if (error) throw error;
     if (!data.user) {
+      setIsLoading(false);
       Alert.alert("Login failed", "No user found");
-      setIsLoading(false);
-      return;
-    }
-
-    // ✅ fetch role from users table
-    const { data: userRow, error: roleError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
-
-    if (roleError || !userRow) {
-      Alert.alert("Login failed", "Could not fetch user role.");
-      setIsLoading(false);
-      return;
-    }
-
-    if (userRow.role !== "driver") {
-      Alert.alert("Login failed", "This is the driver login screen.");
-      setIsLoading(false);
       return;
     }
 
     setIsLoading(false);
-    console.log("Driver logged in:", data.user + " with role: " + userRow.role);
+    console.log("Driver logged in:", data.user);
     router.push("/(tabs)");
   };
 
