@@ -258,7 +258,15 @@ const Checklist = () => {
       "Checklist Submitted",
       `Vehicle ${registrationNumber} inspection saved.`
     );
-    router.push("/(tabs)/emergency/breakdown");
+
+    router.push({
+      pathname: "/(tabs)/emergency/breakdown",
+      params: {
+        registration_number: registrationNumber,
+        odo_reading: odoReading,
+        checklist: JSON.stringify(checklist),
+      },
+    });
   };
 
   return (
