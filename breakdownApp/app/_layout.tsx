@@ -30,7 +30,7 @@ async function checkAuth(session: Session | null, currentPath: string) {
     }
     return;
   }
-  const {data} = await supabase.from('users').select('role').eq('id', user.id).single();
+  const {data} = await supabase.from('users').select('*').eq('id', user.id).single();
   if (data?.role && data.role) {
     console.log(`session role from ${data.role}`);
   }
@@ -39,7 +39,7 @@ async function checkAuth(session: Session | null, currentPath: string) {
     let targetRoute = '/login';
 
     if (data?.role === 'driver') targetRoute = '/(tabs)';
-    else if (data?.role === 'technician') targetRoute = '/(Technician)';
+    // else if (data?.role === 'technician') targetRoute = '/(Technician)';
 
     if (currentPath !== targetRoute) {
       router.replace(targetRoute as Href);
