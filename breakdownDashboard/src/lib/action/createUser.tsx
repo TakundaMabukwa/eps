@@ -31,7 +31,7 @@ export async function CreateUser(formData: FormData) {
 
     // ✅ Fetch the logged-in user's workshop_id from profiles table
     const { data: currentProfile, error: profileError } = await supabase
-        .from("profiles")
+        .from("users")
         .select("workshop_id")
         .eq("id", currentUser.id)
         .single();
@@ -66,7 +66,7 @@ export async function CreateUser(formData: FormData) {
     }
 
     // ✅ Insert into profiles table and link to the same workshop_id
-    const { error: insertError } = await supabase.from("profiles").insert({
+    const { error: insertError } = await supabase.from("users").insert({
         id: newUserId,
         full_name: fullName,
         role,
@@ -137,7 +137,7 @@ export async function createWorkshopWithAdmin(formData: FormData) {
   }
 
   // ✅ 3. Insert into profiles linked to workshop
-  const { error: profileError } = await supabase.from("profiles").insert({
+  const { error: profileError } = await supabase.from("users").insert({
     id: userId,
     full_name: `${adminFirstName} ${adminLastName}`,
     phone_number: adminPhone,

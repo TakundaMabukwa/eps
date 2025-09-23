@@ -48,7 +48,7 @@ export async function createDriver(driver: Driver) {
     }
 
 
-    const { data, error } = await supabase.from('profiles')
+    const { data, error } = await supabase.from('users')
         .upsert({
             // @ts-expect-error
             id: user_id, // <-- required!
