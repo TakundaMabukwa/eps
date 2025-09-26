@@ -86,7 +86,12 @@ export default function Login() {
       password: values.password,
     });
 
-    if (error) throw error;
+    if (error) {
+      setIsLoading(false);
+      Alert.alert("Login failed", error.message);
+      return;
+    }
+
     if (!data.user) {
       setIsLoading(false);
       Alert.alert("Login failed", "No user found");

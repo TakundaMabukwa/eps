@@ -93,7 +93,7 @@ export default function Signup() {
           const { data: updateDriver, error: updateError } = await supabase
             .from("drivers")
             .update({
-              created_by: user_id,
+              user_id: user_id,
             })
             .eq("email_address", values.email)
             .select();
