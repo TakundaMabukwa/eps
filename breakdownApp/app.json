@@ -14,7 +14,7 @@
       "foregroundImage": "./assets/images/adaptive-icon.png",
       "backgroundColor": "#ffffff"
     },
-    "scheme": "breakdownApp",
+    "scheme": "breakdownapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
