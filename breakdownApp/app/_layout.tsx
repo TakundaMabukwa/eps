@@ -1,19 +1,30 @@
-import { Session } from '@supabase/supabase-js';
-import { useFonts } from 'expo-font';
-import { router, SplashScreen, Stack, usePathname, type Href } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
-import 'react-native-reanimated';
-import { ThemeProvider, useTheme } from './contexts/theme-context';
-import { supabase } from './utils/supabase';
+import { Session } from "@supabase/supabase-js";
+import { useFonts } from "expo-font";
+import {
+  router,
+  SplashScreen,
+  Stack,
+  usePathname,
+  type Href,
+} from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useRef } from "react";
+import "react-native-reanimated";
+import { ThemeProvider, useTheme } from "./contexts/theme-context";
+import { supabase } from "./utils/supabase";
 
 async function checkAuth(session: Session | null, currentPath: string) {
-  const resetPaths = ['/reset-password', '/new-password', '/otp', '/forgot-password'];
+  const resetPaths = [
+    "/reset-password",
+    "/new-password",
+    "/otp",
+    "/forgot-password",
+  ];
 
   if (!session) {
-    console.log('no session');
-    if (!resetPaths.includes(currentPath) && currentPath !== '/login') {
-      router.replace('/login');
+    console.log("no session");
+    if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
+      router.replace("/login");
     }
     return;
   }
@@ -24,32 +35,53 @@ async function checkAuth(session: Session | null, currentPath: string) {
   } = await supabase.auth.getUser();
 
   if (error || !user) {
-    console.log('user fetch error or missing user', error?.message);
-    if (!resetPaths.includes(currentPath) && currentPath !== '/login') {
-      router.replace('/login');
+    console.log("user fetch error or missing user", error?.message);
+    if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
+      router.replace("/login");
     }
     return;
   }
-  const {data} = await supabase.from('users').select('*').eq('id', user.id).single();
+  const { data } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", user.id)
+    .single();
   if (data?.role && data.role) {
     console.log(`session role from ${data.role}`);
   }
+  
+  if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
+    let targetRoute = "/login";
 
-  if (!resetPaths.includes(currentPath) && currentPath !== '/login') {
-    let targetRoute = '/login';
-
-    if (data?.role === 'driver') targetRoute = '/(tabs)';
+    if (data?.role === "driver") {
+      targetRoute = "/(tabs)";
+    } else {
+      console.log(
+        `Unknown or removed role: ${data?.role}, redirecting to login`
+      );
+      targetRoute = "/login";
+    }
 
     if (currentPath !== targetRoute) {
       router.replace(targetRoute as Href);
     }
   }
+
+  // if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
+  //   let targetRoute = "/login";
+
+  //   if (data?.role === "driver") targetRoute = "/(tabs)";
+
+  //   if (currentPath !== targetRoute) {
+  //     router.replace(targetRoute as Href);
+  //   }
+  // }
 }
 
 export default function RootLayout() {
   const { theme } = useTheme();
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
   const pathname = usePathname();
   const latestPathname = useRef(pathname);
@@ -70,11 +102,13 @@ export default function RootLayout() {
 
     initialCheck();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (mounted) {
-        await checkAuth(session, latestPathname.current);
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (mounted) {
+          await checkAuth(session, latestPathname.current);
+        }
       }
-    });
+    );
 
     return () => {
       mounted = false;
@@ -92,14 +126,14 @@ export default function RootLayout() {
     return null;
   }
 
-  const background = theme === 'dark' ? '#121212' : '#f0f4f8';
+  const background = theme === "dark" ? "#121212" : "#f0f4f8";
 
   return (
     <ThemeProvider>
       <Stack
         screenOptions={{
           headerShown: false,
-          animation: 'fade_from_bottom',
+          animation: "fade_from_bottom",
           contentStyle: {
             backgroundColor: background,
           },
