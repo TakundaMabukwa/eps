@@ -74,6 +74,7 @@ export default function TripCard({ trip, onStatusChange }: Props) {
 
       <View>
         <Text style={styles.title}>Trip's Coming Soon</Text>
+        <Text style={styles.label}>Stay Tuned! Will be used for additional stops adn etc</Text>
       </View>
       {/* <Text style={styles.title}>Trip {tripData?.trip_id || "Unknown"}</Text>
       <Text style={styles.label}>
