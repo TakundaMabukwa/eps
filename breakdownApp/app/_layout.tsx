@@ -23,6 +23,7 @@ async function checkAuth(session: Session | null, currentPath: string) {
 
   if (!session) {
     console.log("no session");
+    await supabase.auth.signOut(); // force logout, clear storage
     if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
       router.replace("/login");
     }
@@ -36,11 +37,13 @@ async function checkAuth(session: Session | null, currentPath: string) {
 
   if (error || !user) {
     console.log("user fetch error or missing user", error?.message);
+    await supabase.auth.signOut(); // also clear if user is missing
     if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
       router.replace("/login");
     }
     return;
   }
+  
   const { data } = await supabase
     .from("users")
     .select("*")
@@ -49,7 +52,7 @@ async function checkAuth(session: Session | null, currentPath: string) {
   if (data?.role && data.role) {
     console.log(`session role from ${data.role}`);
   }
-  
+
   if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
     let targetRoute = "/login";
 
@@ -66,16 +69,6 @@ async function checkAuth(session: Session | null, currentPath: string) {
       router.replace(targetRoute as Href);
     }
   }
-
-  // if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
-  //   let targetRoute = "/login";
-
-  //   if (data?.role === "driver") targetRoute = "/(tabs)";
-
-  //   if (currentPath !== targetRoute) {
-  //     router.replace(targetRoute as Href);
-  //   }
-  // }
 }
 
 export default function RootLayout() {

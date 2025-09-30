@@ -1,68 +1,107 @@
-import { useTheme } from '@/app/contexts/theme-context';
-import { supabase } from '@/app/utils/supabase';
-import { router } from 'expo-router';
-import React from 'react';
-import {
-  Linking,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from "@/app/contexts/theme-context";
+import { supabase } from "@/app/utils/supabase";
+import { router } from "expo-router";
+import React from "react";
+import { Linking, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Settings() {
-  const [email, setEmail] = React.useState('');
-  const [username, setUsername] = React.useState('');
+  const [email, setEmail] = React.useState("");
+  const [username, setUsername] = React.useState("");
   const { theme, toggleTheme } = useTheme();
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      router.push('/login');
-      console.log('Logout successful');
+      router.push("/login");
+      console.log("Logout successful");
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     }
   };
 
   React.useEffect(() => {
-    const checkSession = async () => {
+    let mounted = true;
+
+    const loadUser = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
       if (!session) {
-        router.push('/login');
-      } else {
-        setEmail(session.user?.email as string);
-        setUsername(session.user?.role as string);
+        router.push("/login");
+        return;
+      }
+
+      // ✅ Auth email comes from session
+      if (mounted) setEmail(session.user.email ?? "");
+
+      // ✅ Username comes from your users table
+      const { data, error } = await supabase
+        .from("users")
+        .select("*") // adjust field name if different
+        .eq("id", session.user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching username:", error.message);
+      } else if (mounted) {
+        setUsername(data?.email ?? "");
       }
     };
-    checkSession();
-  }, []);
 
+    loadUser();
+
+    // ✅ Subscribe to auth changes (refresh UI on login/logout)
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (!session) {
+          router.push("/login");
+        } else {
+          setEmail(session.user.email ?? "");
+          const { data } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
+          setUsername(data?.email ?? "");
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription?.subscription.unsubscribe();
+    };
+  }, []);
   // Colors based on theme
-  const background = theme === 'dark' ? '#121212' : '#f0f4f8';
-  const cardBg = theme === 'dark' ? '#525252ff' : '#fff';  
-  const textColor = theme === 'dark' ? '#fff' : '#000';
+  const background = theme === "dark" ? "#121212" : "#f0f4f8";
+  const cardBg = theme === "dark" ? "#525252ff" : "#fff";
+  const textColor = theme === "dark" ? "#fff" : "#000";
 
   return (
-    <SafeAreaView style={{ flex: 1, padding: 16, backgroundColor: '#f0f4f8' }}>
+    <SafeAreaView style={{ flex: 1, padding: 16, backgroundColor: "#f0f4f8" }}>
       <View>
         {/* Account Section */}
-        <View 
+        <View
           style={{
             marginTop: 32,
             padding: 24,
             backgroundColor: cardBg,
             borderRadius: 16,
-            shadowColor: '#000',
+            shadowColor: "#000",
             shadowOpacity: 0.1,
             shadowRadius: 8,
             elevation: 4,
           }}
         >
           <Text
-            style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: textColor }}
+            style={{
+              fontSize: 20,
+              fontWeight: "bold",
+              marginBottom: 16,
+              color: textColor,
+            }}
           >
             Account
           </Text>
@@ -81,14 +120,19 @@ export default function Settings() {
             padding: 24,
             backgroundColor: cardBg,
             borderRadius: 16,
-            shadowColor: '#000',
+            shadowColor: "#000",
             shadowOpacity: 0.1,
             shadowRadius: 8,
             elevation: 4,
           }}
         >
           <Text
-            style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: textColor }}
+            style={{
+              fontSize: 20,
+              fontWeight: "bold",
+              marginBottom: 16,
+              color: textColor,
+            }}
           >
             Preferences
           </Text>
@@ -129,8 +173,8 @@ export default function Settings() {
           {/* Notifications (placeholder) */}
           <View
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
+              flexDirection: "row",
+              alignItems: "center",
               marginBottom: 12,
             }}
           >
@@ -141,16 +185,16 @@ export default function Settings() {
               style={{
                 width: 40,
                 height: 24,
-                backgroundColor: '#4caf50',
+                backgroundColor: "#4caf50",
                 borderRadius: 12,
-                justifyContent: 'center',
+                justifyContent: "center",
               }}
             >
               <View
                 style={{
                   width: 20,
                   height: 20,
-                  backgroundColor: '#fff',
+                  backgroundColor: "#fff",
                   borderRadius: 10,
                   marginLeft: 18,
                 }}
@@ -166,14 +210,19 @@ export default function Settings() {
             padding: 24,
             backgroundColor: cardBg,
             borderRadius: 16,
-            shadowColor: '#000',
+            shadowColor: "#000",
             shadowOpacity: 0.1,
             shadowRadius: 8,
             elevation: 4,
           }}
         >
           <Text
-            style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: textColor }}
+            style={{
+              fontSize: 20,
+              fontWeight: "bold",
+              marginBottom: 16,
+              color: textColor,
+            }}
           >
             Support
           </Text>
@@ -181,17 +230,23 @@ export default function Settings() {
           {/* Contact Us */}
           <TouchableOpacity
             onPress={() =>
-              Linking.openURL('mailto:brianv@soltrack.co.za?subject=Support Request')
+              Linking.openURL(
+                "mailto:brianv@soltrack.co.za?subject=Support Request"
+              )
             }
           >
-            <Text style={{ fontSize: 16, color: '#1976d2', marginBottom: 12 }}>
+            <Text style={{ fontSize: 16, color: "#1976d2", marginBottom: 12 }}>
               Contact Us
             </Text>
           </TouchableOpacity>
 
           {/* Privacy Policy */}
-          <TouchableOpacity onPress={() => Linking.openURL('https://popia.co.za')}>
-            <Text style={{ fontSize: 16, color: '#1976d2' }}>Privacy Policy</Text>
+          <TouchableOpacity
+            onPress={() => Linking.openURL("https://popia.co.za")}
+          >
+            <Text style={{ fontSize: 16, color: "#1976d2" }}>
+              Privacy Policy
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -201,13 +256,13 @@ export default function Settings() {
             <Text
               style={{
                 fontSize: 16,
-                color: '#d32f2f',
+                color: "#d32f2f",
                 marginTop: 32,
-                textAlign: 'center',
-                fontWeight: 'bold',
+                textAlign: "center",
+                fontWeight: "bold",
               }}
             >
-              Logout 
+              Logout
             </Text>
           </TouchableOpacity>
         </View>
@@ -215,6 +270,3 @@ export default function Settings() {
     </SafeAreaView>
   );
 }
-    
-
-
