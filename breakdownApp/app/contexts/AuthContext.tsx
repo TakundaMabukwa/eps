@@ -29,6 +29,8 @@ interface UserData {
 interface AuthState {
   // Auth state
   isLoading: boolean;
+  // Indicates we've completed the first full validation pass (so guards can act safely)
+  isHydrated: boolean;
   isAuthenticated: boolean;
   session: Session | null;
   user: User | null;
@@ -61,6 +63,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false); // first validation pass completed
 
   // Computed values
   const isAuthenticated = !!session && !!user && !!userData;
@@ -168,6 +171,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await signOut();
     } finally {
       setIsLoading(false);
+      setIsHydrated(true); // mark hydration complete after first attempt
       console.log("🏁 Auth validation completed");
     }
   };
@@ -213,6 +217,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setUserData(null);
       setIsLoading(false); // Make sure loading is set to false
+  setIsHydrated(true); // ensure guards don't stay in pre-hydration limbo
 
       // Sign out from Supabase
       await supabase.auth.signOut();
@@ -298,6 +303,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value: AuthState = {
     // State
     isLoading,
+    isHydrated,
     isAuthenticated,
     session,
     user,
@@ -335,29 +341,20 @@ interface AuthGuardProps {
 
 // Component to protect authenticated routes
 export function AuthGuard({ children, fallback }: AuthGuardProps) {
-  const { isLoading, isAuthenticated, hasValidRole } = useAuth();
+  const { isLoading, isHydrated, isAuthenticated, hasValidRole } = useAuth();
   const allow = isAuthenticated && hasValidRole();
 
-  // When user is fully logged out & not loading, push them to auth stack
-  if (!isLoading && !allow) {
-    // Avoid spamming navigation on every render
-    setTimeout(() => {
-      try {
-        if (router.canGoBack()) {
-          router.replace('/(auth)/login');
-        } else {
-          router.replace('/(auth)/login');
-        }
-      } catch {}
-    }, 0);
+  // Before hydration completes, never redirect (prevents flicker)
+  if (!isHydrated) {
+    return (
+      fallback || (
+        <InlineFallback message={isLoading ? 'Loading session...' : 'Preparing...'} />
+      )
+    );
   }
 
   if (!allow) {
-    return (
-      fallback || (
-        <InlineFallback message={isLoading ? 'Loading session...' : 'Redirecting to login...'} />
-      )
-    );
+    return <Redirect href="/(auth)/login" />;
   }
 
   return <>{children}</>;
@@ -365,19 +362,19 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
 
 // Component to protect unauthenticated routes (like login page)
 export function GuestGuard({ children, fallback }: AuthGuardProps) {
-  const { isLoading, isAuthenticated, hasValidRole } = useAuth();
+  const { isLoading, isHydrated, isAuthenticated, hasValidRole } = useAuth();
   const authed = isAuthenticated && hasValidRole();
 
-  if (!isLoading && authed) {
-    setTimeout(() => {
-      try {
-        router.replace('/(tabs)');
-      } catch {}
-    }, 0);
+  if (!isHydrated) {
+    return (
+      fallback || (
+        <InlineFallback message={isLoading ? 'Loading session...' : 'Preparing...'} />
+      )
+    );
   }
 
   if (authed) {
-    return fallback || <InlineFallback message="Redirecting..." />;
+    return <Redirect href="/(tabs)" />;
   }
 
   return <>{children}</>;

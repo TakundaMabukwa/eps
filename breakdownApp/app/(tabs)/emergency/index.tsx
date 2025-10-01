@@ -33,6 +33,7 @@ const EmergencyScreenConditional = () => {
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const checkInspection = useCallback(async () => {
+    // Prevent running multiple times concurrently
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) {
@@ -41,24 +42,29 @@ const EmergencyScreenConditional = () => {
       }
       const userId = userData.user.id;
 
-      const { data: driverData } = await supabase
+      const { data: driverData, error: driverError } = await supabase
         .from("drivers")
         .select("id")
         .eq("user_id", userId)
         .single();
 
-      if (!driverData) {
+      if (driverError || !driverData) {
         setInspectionDone(false);
         return;
       }
 
-      const { data: inspectionData } = await supabase
+      const { data: inspectionData, error: inspError } = await supabase
         .from("vehicle_inspections")
         .select("*")
         .eq("driver_id", driverData.id)
         .order("inspection_date", { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (inspError) {
+        setInspectionDone(false);
+        return;
+      }
 
       const inspectionDate = inspectionData?.updated_at
         ? new Date(inspectionData.updated_at).toISOString().slice(0, 10)
@@ -69,15 +75,16 @@ const EmergencyScreenConditional = () => {
       const todayDate = new Date().toISOString().slice(0, 10);
 
       if (createdDate === todayDate || inspectionDate === todayDate) {
-        setInspectionDone(true); // ✅ inspection done
-      } else {
-        setInspectionDone(false); // ✅ not done yet
-        router.replace("/(tabs)/inspection"); // redirect once
+        setInspectionDone(true); // inspection done today
+        return;
       }
+
+      // Not done today
+      setInspectionDone(false);
     } catch (err) {
       setInspectionDone(false);
     }
-  }, [router]);
+  }, []);
 
   // 🔥 Run check whenever screen comes into focus
   useFocusEffect(
@@ -104,7 +111,7 @@ const EmergencyScreenConditional = () => {
         </Text>
         <TouchableOpacity
           style={styles.goInspectionButton}
-          onPress={() => router.replace("/(tabs)/inspection")}
+          onPress={() => router.push("/(tabs)/inspection")}
         >
           <Text style={styles.goInspectionButtonText}>Go Do Inspection</Text>
         </TouchableOpacity>
