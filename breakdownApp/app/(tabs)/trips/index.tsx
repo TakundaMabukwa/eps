@@ -2,6 +2,7 @@
 // From here we should be able to update the trip status
 // e.g. when the trip is started, completed, or cancelled
 
+import { useAuth } from "@/app/contexts/AuthContext";
 import { supabase } from "@/app/utils/supabase";
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
@@ -36,6 +37,8 @@ interface Props {
 
 export default function TripCard({ trip, onStatusChange }: Props) {
   const [tripData, setTripData] = React.useState<Trip | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const { user } = useAuth(); // Use AuthContext instead
 
   const fetchTripData = async () => {
     const { data: tripData, error: tripError } = await supabase
@@ -71,10 +74,11 @@ export default function TripCard({ trip, onStatusChange }: Props) {
 
   return (
     <View style={styles.card}>
-
       <View>
         <Text style={styles.title}>Trip's Coming Soon</Text>
-        <Text style={styles.label}>Stay Tuned! Will be used for additional stops adn etc</Text>
+        <Text style={styles.label}>
+          Stay Tuned! Will be used for additional stops and etc
+        </Text>
       </View>
       {/* <Text style={styles.title}>Trip {tripData?.trip_id || "Unknown"}</Text>
       <Text style={styles.label}>

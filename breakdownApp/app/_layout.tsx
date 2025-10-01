@@ -1,113 +1,16 @@
-import { Session } from "@supabase/supabase-js";
 import { useFonts } from "expo-font";
-import {
-  router,
-  SplashScreen,
-  Stack,
-  usePathname,
-  type Href,
-} from "expo-router";
+import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import "react-native-reanimated";
 import { ThemeProvider, useTheme } from "./contexts/theme-context";
-import { supabase } from "./utils/supabase";
-
-async function checkAuth(session: Session | null, currentPath: string) {
-  const resetPaths = [
-    "/reset-password",
-    "/new-password",
-    "/otp",
-    "/forgot-password",
-  ];
-
-  if (!session) {
-    console.log("no session");
-    await supabase.auth.signOut(); // force logout, clear storage
-    if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
-      router.replace("/login");
-    }
-    return;
-  }
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    console.log("user fetch error or missing user", error?.message);
-    await supabase.auth.signOut(); // also clear if user is missing
-    if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
-      router.replace("/login");
-    }
-    return;
-  }
-  
-  const { data } = await supabase
-    .from("users")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-  if (data?.role && data.role) {
-    console.log(`session role from ${data.role}`);
-  }
-
-  if (!resetPaths.includes(currentPath) && currentPath !== "/login") {
-    let targetRoute = "/login";
-
-    if (data?.role === "driver") {
-      targetRoute = "/(tabs)";
-    } else {
-      console.log(
-        `Unknown or removed role: ${data?.role}, redirecting to login`
-      );
-      targetRoute = "/login";
-    }
-
-    if (currentPath !== targetRoute) {
-      router.replace(targetRoute as Href);
-    }
-  }
-}
+import { AuthProvider } from "./contexts/AuthContext";
+import AuthDebugInfo from "@/components/AuthDebugInfo";
 
 export default function RootLayout() {
-  const { theme } = useTheme();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-  const pathname = usePathname();
-  const latestPathname = useRef(pathname);
-
-  useEffect(() => {
-    latestPathname.current = pathname;
-  }, [pathname]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function initialCheck() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (mounted) await checkAuth(session, latestPathname.current);
-    }
-
-    initialCheck();
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (mounted) {
-          await checkAuth(session, latestPathname.current);
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription?.subscription.unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     if (loaded) {
@@ -119,10 +22,22 @@ export default function RootLayout() {
     return null;
   }
 
+  return (
+    <AuthProvider>
+      <ThemeProvider>
+        <RootLayoutContent />
+      </ThemeProvider>
+    </AuthProvider>
+  );
+}
+
+function RootLayoutContent() {
+  const { theme } = useTheme();
   const background = theme === "dark" ? "#121212" : "#f0f4f8";
 
   return (
-    <ThemeProvider>
+    <>
+      {/* <AuthDebugInfo /> */}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -133,9 +48,10 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
-    </ThemeProvider>
+    </>
   );
 }

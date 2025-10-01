@@ -16,7 +16,8 @@ import * as yup from "yup";
 import { ThemedText } from "../../components/ThemedText";
 import { Colors } from "../../constants/Colors";
 import { useColorScheme } from "../../hooks/useColorScheme";
-import { supabase } from "../utils/supabase";
+import { useAuth } from "../contexts/AuthContext";
+
 const loginValidationSchema = yup.object().shape({
   email: yup
     .string()
@@ -32,75 +33,23 @@ export default function Login() {
   const navigation = useNavigation();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { signIn, isLoading } = useAuth();
   const [showPassword, setShowPassword] = React.useState(false);
 
-  const handleLogin = async (values: {
-    email: string;
-    password: string;
-    // phone: string
-  }) => {
-    // try {
-    //   setIsLoading(true);
-    //   const { data: existingDriver, error: driverError } = await supabase
-    //     .from("users")
-    //     .select("*")
-    //     .eq("email", values.email)
-    //     .eq("role", "driver")
-    //     .single();
+  const handleLogin = async (values: { email: string; password: string }) => {
+    const result = await signIn(values.email, values.password);
 
-    //   // if (driverError && driverError.code !== "PGRST116") {
-    //   //   console.log("Driver Check Error:", driverError);
-    //   //   Alert.alert("Error", "Could not check Role.");
-    //   //   setIsLoading(false);
-    //   //   return;
-    //   // }
-    //   // if (!existingDriver) {
-    //   //   setIsLoading(false);
-    //   //   Alert.alert("Login failed", "No driver profile found with this email.");
-    //   //   return;
-    //   // }
-    //   const { data, error } = await supabase.auth.signInWithPassword({
-    //     email: values.email,
-    //     password: values.password,
-    //   });
-
-    //   if (error) throw error;
-    //   if (!data.user) {
-    //     Alert.alert('Login failed', 'Error checking for this requested driver.');
-    //     setIsLoading(false);
-    //     return;
-    //   }
-
-    //   setIsLoading(false);
-    //   console.log('User logged in:', data.user);
-    //   router.push('/(tabs)');
-
-    // } catch (error) {
-    //   setIsLoading(false);
-    //   Alert.alert('Login failed', 'Please check your email and password');
-    // }
-    setIsLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: values.email,
-      password: values.password,
-    });
-
-    if (error) {
-      setIsLoading(false);
-      Alert.alert("Login failed", error.message);
+    if (!result.success) {
+      Alert.alert(
+        "Login Failed",
+        result.error || "An error occurred during login"
+      );
       return;
     }
 
-    if (!data.user) {
-      setIsLoading(false);
-      Alert.alert("Login failed", "No user found");
-      return;
-    }
-
-    setIsLoading(false);
-    console.log("Driver logged in:", data.user);
+    console.log("Login successful");
     router.push("/(tabs)");
+    // No need to manually navigate - AuthGuard will handle this
   };
 
   return (

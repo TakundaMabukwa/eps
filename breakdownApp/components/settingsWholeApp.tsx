@@ -1,79 +1,26 @@
 import { useTheme } from "@/app/contexts/theme-context";
-import { supabase } from "@/app/utils/supabase";
-import { router } from "expo-router";
+import { useAuth } from "@/app/contexts/AuthContext";
 import React from "react";
 import { Linking, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Settings() {
-  const [email, setEmail] = React.useState("");
-  const [username, setUsername] = React.useState("");
   const { theme, toggleTheme } = useTheme();
+  const { signOut, userData, user } = useAuth();
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
-      router.push("/login");
-      console.log("Logout successful");
+      console.log("Initiating logout...");
+      await signOut();
+      console.log("Logout completed");
     } catch (error) {
       console.error("Logout error:", error);
     }
   };
 
-  React.useEffect(() => {
-    let mounted = true;
+  const email = user?.email || "";
+  const username = userData?.email || "";
 
-    const loadUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-
-      // ✅ Auth email comes from session
-      if (mounted) setEmail(session.user.email ?? "");
-
-      // ✅ Username comes from your users table
-      const { data, error } = await supabase
-        .from("users")
-        .select("*") // adjust field name if different
-        .eq("id", session.user.id)
-        .single();
-
-      if (error) {
-        console.error("Error fetching username:", error.message);
-      } else if (mounted) {
-        setUsername(data?.email ?? "");
-      }
-    };
-
-    loadUser();
-
-    // ✅ Subscribe to auth changes (refresh UI on login/logout)
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!session) {
-          router.push("/login");
-        } else {
-          setEmail(session.user.email ?? "");
-          const { data } = await supabase
-            .from("users")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-          setUsername(data?.email ?? "");
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription?.subscription.unsubscribe();
-    };
-  }, []);
   // Colors based on theme
   const background = theme === "dark" ? "#121212" : "#f0f4f8";
   const cardBg = theme === "dark" ? "#525252ff" : "#fff";

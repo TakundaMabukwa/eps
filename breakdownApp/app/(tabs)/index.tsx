@@ -14,40 +14,29 @@ import { Colors } from "../../constants/Colors";
 import { useColorScheme } from "../../hooks/useColorScheme";
 import LocationScreen from "../hooks/locationHock";
 import { supabase } from "../utils/supabase";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState<string | null>(null);
   const theme = Colors[colorScheme];
   const [inspection, setInspection] = React.useState<any | null>(null); // single object or null
   const [inspectionDone, setInspectionDone] = useState<boolean | null>(null); // null while loading
+  const { user } = useAuth(); // Use AuthContext instead
 
-  //   const fetchData = async () => {
-  //     const { data: userData } = await supabase.auth.getUser();
-  //     if (!userData?.user) {
-  //       return;
-  //     }
-
-  //     const { data, error } = await supabase
-  //       .from('vehicle_inspections')
-  //       .select('*')
-  //       .eq('user_id', userData.user.id)
-  //       .order('inspection_date', { ascending: false })
-  //       .single();
-  //     if (error && error.code !== 'PGRST116') {
-  //       console.error("Select error:", error);
-  //     } else {
-  //       console.log("Latest inspection:", data?.inspected);
-  //       console.log("Latest inspection data:", data);
-  //       setInspection(data);
-  //     }
-  //   };
-
-  //   fetchData();
-  // }, []);
-
+  const fetchData = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      await supabase.auth.signOut();
+      router.replace("/login");
+      return;
+    }
+  };
   // navigation helper functions
   useEffect(() => {
+    fetchData();
     const checkInspection = async () => {
       try {
         const { data: userData, error: userError } =
