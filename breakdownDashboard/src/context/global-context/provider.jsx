@@ -55,7 +55,7 @@ import * as c_api from '@/context/clients-context/api'
 // components
 import AlertScreen from '@/components/layout/alert-screen'
 import DialogScreen from '@/components/layout/dialog-screen'
-import DataViewer from '@/components/debug/DataViewer'
+// import DataViewer from '@/components/debug/DataViewer'
 
 // hooks
 import {

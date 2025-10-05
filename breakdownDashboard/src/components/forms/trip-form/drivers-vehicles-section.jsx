@@ -40,20 +40,12 @@ export function DriversVehiclesSection({
     cost_centres?.data.find((c) => c.id === formData.costCentre)?.name ||
     current_user?.currentUser?.costCentre
 
-  // Replace all occurrences of vehicles?.data with vehicles (and fallback to [])
-  const horses = (vehicles || []).filter(
-    (v) => v.type === 'vehicle' && v.costCentre === selectedCostCentre
-  )
-  const trailers = (vehicles || []).filter(
-    (v) => v.type === 'trailer' && v.costCentre === selectedCostCentre
-  )
-  const available_drivers = drivers?.data?.filter(
-    (d) => d.status === 'available' && d.costCentre === selectedCostCentre
-  )
-
-  const available_vehicles = horses?.filter((v) => v.status === 'available')
-
-  const available_trailers = trailers?.filter((t) => t.status === 'available')
+  // Show all vehicles and drivers from props (no filtering)
+  const horses = vehicles || []
+  const trailers = vehicles ? vehicles.filter((v) => v.type === 'trailer') : []
+  const available_drivers = drivers || []
+  const available_vehicles = horses
+  const available_trailers = trailers
 
   return (
     <div className="space-y-6">
@@ -107,11 +99,11 @@ export function DriversVehiclesSection({
                       <SelectValue placeholder="Select vehicle" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* {available_vehicles.map((v) => (
+                      {available_vehicles.map((v) => (
                         <SelectItem key={v.id} value={v.id}>
                           {v.model} ({v.regNumber})
                         </SelectItem>
-                      ))} */}
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -166,11 +158,11 @@ export function DriversVehiclesSection({
                           <SelectValue placeholder="Select driver" />
                         </SelectTrigger>
                         <SelectContent>
-                          {/* {available_drivers.map((d) => (
+                          {available_drivers.map((d) => (
                             <SelectItem key={d.id} value={d.id}>
-                              {d.name} - {d.license}
+                              {d.first_name} - {d.license_number}
                             </SelectItem>
-                          ))} */}
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -233,11 +225,11 @@ export function DriversVehiclesSection({
                         <SelectValue placeholder="Select trailer" />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* {available_trailers.map((t) => (
+                        {available_trailers.map((t) => (
                           <SelectItem key={t.id} value={t.id}>
                             {t.model} ({t.regNumber}) - {t.type}
                           </SelectItem>
-                        ))} */}
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

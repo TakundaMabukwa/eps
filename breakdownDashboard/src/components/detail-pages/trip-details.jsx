@@ -154,7 +154,9 @@ export default function TripDetails({ id }) {
   const { toast } = useToast()
   const { trips, tripsDispatch } = useGlobalContext()
 
-  const trip = trips?.data?.find((t) => t.id === id)
+  // Try to find trip in context
+  const [trip, setTrip] = useState(() => trips?.data?.find((t) => t.id === id))
+  const [loading, setLoading] = useState(!trip)
 
   // Status update state
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
@@ -168,6 +170,51 @@ export default function TripDetails({ id }) {
   const handleGoBack = () => {
     router.back()
   }
+
+  // Fetch trip data from Supabase if not found in context
+  useEffect(() => {
+    if (!trip && id) {
+      setLoading(true)
+      // Dynamically import supabase client for client-side usage
+      import('@/lib/supabase/client')
+        .then(({ createClient }) => {
+          const supabase = createClient()
+          supabase
+            .from('trips')
+            .select('*')
+            .eq('id', id)
+            .single()
+            .then(({ data, error }) => {
+              if (error || !data) {
+                toast({
+                  title: 'Error',
+                  description: 'Could not load trip details.',
+                  variant: 'destructive',
+                })
+              } else {
+                setTrip(data)
+              }
+            })
+            .finally(() => setLoading(false))
+        })
+        .catch(() => {
+          toast({
+            title: 'Error',
+            description: 'Could not load trip details.',
+            variant: 'destructive',
+          })
+          setLoading(false)
+        })
+    }
+  }, [id, trip, toast])
+
+  // Update statusUpdate state when trip changes
+  useEffect(() => {
+    setStatusUpdate({
+      status: trip?.status || 'pending',
+      statusNotes: trip?.statusNotes || '',
+    })
+  }, [trip])
 
   // Handle status update
   const handleStatusUpdate = async () => {
@@ -270,27 +317,47 @@ export default function TripDetails({ id }) {
     { label: 'Total Expenses', value: calculateTotalExpenses() },
   ]
 
-  useEffect(() => {
-    // If trip is not found, redirect to trips list
-    if (!trip) {
-      return []
-    }
+  // useEffect(() => {
+  //   // If trip is not found, redirect to trips list
+  //   if (!trip) {
+  //     return []
+  //   }
 
-    // Extract pickup and dropoff locations
-    const pickupLocations =
-      trip.pickupLocations?.map((location) => ({
-        label: location.address,
-        value: location.address,
-      })) || []
-    const dropoffLocations =
-      trip.dropoffLocations?.map((location) => ({
-        label: location.address,
-        value: location.address,
-      })) || []
-    setLocations([...pickupLocations, ...dropoffLocations])
-  }, [trip])
+  //   // Extract pickup and dropoff locations
+  //   const pickupLocations =
+  //     trip.pickupLocations?.map((location) => ({
+  //       label: location.address,
+  //       value: location.address,
+  //     })) || []
+  //   const dropoffLocations =
+  //     trip.dropoffLocations?.map((location) => ({
+  //       label: location.address,
+  //       value: location.address,
+  //     })) || []
+  //   setLocations([...pickupLocations, ...dropoffLocations])
+  // }, [trip])
 
   console.log('locations :>> ', locations)
+
+  // If loading, show skeleton or loading state
+  if (loading) {
+    return (
+      <div className="p-8">
+        <Skeleton className="h-8 w-1/3 mb-4" />
+        <Skeleton className="h-64 w-full mb-4" />
+        <Skeleton className="h-32 w-full mb-4" />
+      </div>
+    )
+  }
+
+  // If trip still not found, show not found message
+  if (!trip) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        Trip not found.
+      </div>
+    )
+  }
 
   return (
     <div className=" space-y-6">
@@ -626,253 +693,3 @@ export default function TripDetails({ id }) {
   )
 }
 
-// import { useParams, useRouter } from 'next/navigation'
-// import { Button } from '@/components/ui/button'
-// import {
-//   Card,
-//   CardContent,
-//   CardDescription,
-//   CardHeader,
-//   CardTitle,
-// } from '@/components/ui/card'
-// import { Badge } from '@/components/ui/badge'
-// import {
-//   ArrowLeft,
-//   Edit,
-//   Trash2,
-//   Clock,
-//   Play,
-//   AlertTriangle,
-//   CheckCircle,
-// } from 'lucide-react'
-// import { useGlobalContext } from '@/context/global-context'
-
-// // Mock data for trips
-// const trips = [
-//   {
-//     id: 'TRP-001',
-//     pickupLocation: 'San Francisco, CA',
-//     dropoffLocation: 'Los Angeles, CA',
-//     driver: 'John Doe',
-//     driverPhone: '+1 (555) 123-4567',
-//     driverEmail: 'john.doe@example.com',
-//     vehicle: 'Truck (T-2023)',
-//     vehicleId: 'VEH-001',
-//     departureTime: '2023-04-15 08:00 AM',
-//     estimatedArrival: '2023-04-15 04:30 PM',
-//     actualArrival: '2023-04-15 04:45 PM',
-//     status: 'completed',
-//     costCentre: 'North Region',
-//     progress: 100,
-//     distance: '615 km',
-//     duration: '8h 30m',
-//     cargo: 'Electronics',
-//     cargoWeight: '15 tons',
-//     priority: 'High',
-//     notes: 'Delivery for Apple Inc. headquarters',
-//     customer: 'Apple Inc.',
-//     customerContact: 'Sarah Johnson',
-//     customerPhone: '+1 (555) 987-6543',
-//     customerEmail: 'sarah.johnson@apple.com',
-//     waypoints: [
-//       {
-//         location: 'Bakersfield, CA',
-//         arrivalTime: '2023-04-15 11:30 AM',
-//         departureTime: '2023-04-15 12:00 PM',
-//         status: 'completed',
-//       },
-//       {
-//         location: 'Santa Clarita, CA',
-//         arrivalTime: '2023-04-15 02:15 PM',
-//         departureTime: '2023-04-15 02:45 PM',
-//         status: 'completed',
-//       },
-//     ],
-//     updates: [
-//       {
-//         timestamp: '2023-04-15 08:00 AM',
-//         message: 'Trip started from San Francisco',
-//         user: 'System',
-//       },
-//       {
-//         timestamp: '2023-04-15 11:30 AM',
-//         message: 'Arrived at Bakersfield waypoint',
-//         user: 'John Doe',
-//       },
-//       {
-//         timestamp: '2023-04-15 12:00 PM',
-//         message: 'Departed from Bakersfield',
-//         user: 'John Doe',
-//       },
-//       {
-//         timestamp: '2023-04-15 02:15 PM',
-//         message: 'Arrived at Santa Clarita waypoint',
-//         user: 'John Doe',
-//       },
-//       {
-//         timestamp: '2023-04-15 02:45 PM',
-//         message: 'Departed from Santa Clarita',
-//         user: 'John Doe',
-//       },
-//       {
-//         timestamp: '2023-04-15 04:45 PM',
-//         message: 'Arrived at destination in Los Angeles',
-//         user: 'John Doe',
-//       },
-//       {
-//         timestamp: '2023-04-15 05:00 PM',
-//         message: 'Delivery completed and signed off',
-//         user: 'John Doe',
-//       },
-//     ],
-//     expenses: [
-//       {
-//         type: 'Fuel',
-//         amount: '$350',
-//         date: '2023-04-15',
-//         notes: 'Full tank refill in San Francisco',
-//       },
-//       {
-//         type: 'Toll',
-//         amount: '$25',
-//         date: '2023-04-15',
-//         notes: 'Highway toll',
-//       },
-//       {
-//         type: 'Meal',
-//         amount: '$15',
-//         date: '2023-04-15',
-//         notes: 'Driver lunch',
-//       },
-//     ],
-//   },
-//   // Additional trips would be here...
-// ]
-
-// // Function to get status badge
-// const getStatusBadge = (status) => {
-//   switch (status) {
-//     case 'scheduled':
-//       return (
-//         <Badge
-//           variant="outline"
-//           className="bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
-//         >
-//           <Clock className="h-3 w-3 mr-1" /> Scheduled
-//         </Badge>
-//       )
-//     case 'in-progress':
-//       return (
-//         <Badge className="bg-blue-500 hover:bg-blue-600">
-//           <Play className="h-3 w-3 mr-1" /> In Progress
-//         </Badge>
-//       )
-//     case 'delayed':
-//       return (
-//         <Badge variant="destructive">
-//           <AlertTriangle className="h-3 w-3 mr-1" /> Delayed
-//         </Badge>
-//       )
-//     case 'completed':
-//       return (
-//         <Badge
-//           variant="outline"
-//           className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-800"
-//         >
-//           <CheckCircle className="h-3 w-3 mr-1" /> Completed
-//         </Badge>
-//       )
-//     default:
-//       return <Badge>{status}</Badge>
-//   }
-// }
-
-// export default function TripDetails({ id }) {
-//   const router = useRouter()
-//   const {
-//     trips: { data },
-//   } = useGlobalContext()
-//   const trips = data
-
-//   console.log('trips :>> ', trips)
-//   // Find the trip with the matching ID
-//   const trip = trips?.data?.find((t) => t.id === id) || {
-//     id: 'Not Found',
-//     pickupLocation: 'Unknown',
-//     dropoffLocation: 'Unknown',
-//     driver: 'Unknown',
-//     vehicle: 'Unknown',
-//     status: 'unknown',
-//   }
-
-//   // Column definitions for waypoints
-//   const waypointColumns = [
-//     {
-//       accessorKey: 'location',
-//       header: 'Location',
-//     },
-//     {
-//       accessorKey: 'arrivalTime',
-//       header: 'Arrival Time',
-//     },
-//     {
-//       accessorKey: 'departureTime',
-//       header: 'Departure Time',
-//     },
-//     {
-//       accessorKey: 'status',
-//       header: 'Status',
-//       cell: ({ row }) => (
-//         <Badge
-//           variant={
-//             row.getValue('status') === 'completed' ? 'success' : 'secondary'
-//           }
-//         >
-//           {row.getValue('status')}
-//         </Badge>
-//       ),
-//     },
-//   ]
-
-//   // Column definitions for updates
-//   const updateColumns = [
-//     {
-//       accessorKey: 'timestamp',
-//       header: 'Timestamp',
-//     },
-//     {
-//       accessorKey: 'message',
-//       header: 'Message',
-//     },
-//     {
-//       accessorKey: 'user',
-//       header: 'User',
-//     },
-//   ]
-
-//   // Column definitions for expenses
-//   const expenseColumns = [
-//     {
-//       accessorKey: 'type',
-//       header: 'Type',
-//     },
-//     {
-//       accessorKey: 'amount',
-//       header: 'Amount',
-//     },
-//     {
-//       accessorKey: 'date',
-//       header: 'Date',
-//     },
-//     {
-//       accessorKey: 'notes',
-//       header: 'Notes',
-//     },
-//   ]
-
-//   return (
-//     <div className="container mx-auto py-6 space-y-6">
-//       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
-//     </div>
-//   )
-// }

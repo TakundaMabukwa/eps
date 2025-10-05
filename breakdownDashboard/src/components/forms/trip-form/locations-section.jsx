@@ -32,57 +32,65 @@ export function LocationsSection({
   addDropoffLocation,
   removeDropoffLocation,
   handleStopPointChange,
+  clients,
 }) {
-  const { clients, stop_points } = useGlobalContext()
+  const { stop_points } = useGlobalContext()
 
-  console.log('stop_points :>> ', stop_points?.data)
-  // get locations
-  // console.log(
-  //   'clients :>> ',
-  //   clients?.data?.find((c) => c.name === formData.selectedClient)
-  //     ?.pickupLocations
-  // )
-  const getLocations = () => {
+  // Only show locations from the selected client, parsing JSON fields if needed
+  const getSelectedClient = () => {
     if (formData.selectedClient && formData.selectedClient !== 'new') {
-      const selectedClient = clients?.data?.find(
-        (client) => client.name === formData.selectedClient
+      return (
+        clients?.find((client) => client.id === formData.selectedClient) ||
+        null
       )
-      return selectedClient?.pickupLocations || []
     }
-    return []
-  }
-  // Get pickup locations from selected client or all clients
-  const getPickupLocations = () => {
-    if (formData.selectedClient && formData.selectedClient !== 'new') {
-      const selectedClient = clients?.data?.find(
-        (client) => client.name === formData.selectedClient
-      )
-      return selectedClient?.pickupLocations || []
-    }
-    // If no specific client selected, show all pickup locations from all clients
-    return (
-      clients?.data?.flatMap((client) => client.pickupLocations || []) || []
-    )
+    return null
   }
 
-  // Get dropoff locations from selected client or all clients
-  const getDropoffLocations = () => {
-    if (formData.selectedClient && formData.selectedClient !== 'new') {
-      const selectedClient = clients?.data?.find(
-        (client) => client.name === formData.selectedClient
-      )
+  const selectedClient = getSelectedClient()
 
-      return selectedClient?.dropoffLocations || []
+  // Parse pickup_locations and dropoff_locations if they are JSON strings
+  let pickupLocations = []
+  let dropoffLocations = []
+  if (selectedClient) {
+    if (typeof selectedClient.pickupLocations === 'string') {
+      try {
+        pickupLocations = JSON.parse(selectedClient.pickupLocations)
+      } catch {
+        pickupLocations = []
+      }
+    } else if (Array.isArray(selectedClient.pickupLocations)) {
+      pickupLocations = selectedClient.pickupLocations
     }
-    // If no specific client selected, show all dropoff locations from all clients
-    return (
-      clients?.data?.flatMap((client) => client.dropoffLocations || []) || []
-    )
+    if (typeof selectedClient.pickup_locations === 'string') {
+      try {
+        pickupLocations = JSON.parse(selectedClient.pickup_locations)
+      } catch {
+        // ignore
+      }
+    }
+
+    if (typeof selectedClient.dropoffLocations === 'string') {
+      try {
+        dropoffLocations = JSON.parse(selectedClient.dropoffLocations)
+      } catch {
+        dropoffLocations = []
+      }
+    } else if (Array.isArray(selectedClient.dropoffLocations)) {
+      dropoffLocations = selectedClient.dropoffLocations
+    }
+    if (typeof selectedClient.dropoff_locations === 'string') {
+      try {
+        dropoffLocations = JSON.parse(selectedClient.dropoff_locations)
+      } catch {
+        // ignore
+      }
+    }
   }
 
   // Handle pickup location selection from client data
   const handlePickupLocationSelect = (index, locationId) => {
-    const allPickupLocations = getPickupLocations()
+    const allPickupLocations = pickupLocations
     const selectedLocation = allPickupLocations.find(
       (loc) => loc.id === locationId
     )
@@ -114,7 +122,7 @@ export function LocationsSection({
 
   // Handle dropoff location selection from client data
   const handleDropoffLocationSelect = (index, locationId) => {
-    const allDropoffLocations = getDropoffLocations()
+    const allDropoffLocations = dropoffLocations
     const selectedLocation = allDropoffLocations.find(
       (loc) => loc.id === locationId
     )
@@ -196,24 +204,20 @@ export function LocationsSection({
       updatedStopPoints.length > 0
         ? updatedStopPoints
         : [
-            {
-              name: '',
-              address: '',
-              contactPerson: '',
-              contactNumber: '',
-              operatingHours: '',
-              scheduledTime: '',
-              notes: '',
-            },
-          ]
+          {
+            name: '',
+            address: '',
+            contactPerson: '',
+            contactNumber: '',
+            operatingHours: '',
+            scheduledTime: '',
+            notes: '',
+          },
+        ]
     if (handleStopPointChange) {
       handleStopPointChange(finalStopPoints)
     }
   }
-
-  const pickupLocations = getPickupLocations()
-  const dropoffLocations = getDropoffLocations()
-  const stopPoints = stop_points?.data || []
 
   return (
     <div className="space-y-6">

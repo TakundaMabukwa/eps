@@ -48,11 +48,17 @@ const TripForm = ({ onClose, id }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [{ data: driversData }, { data: vehiclesData }, { data: clientsData }, { data: costCentresData }, { data: stopPointsData }] = await Promise.all([
+        const [
+          { data: driversData },
+          { data: vehiclesData },
+          { data: clientsData },
+          { data: costCentresData },
+          { data: stopPointsData }
+        ] = await Promise.all([
           supabase.from('drivers').select('*'),
           supabase.from('vehiclesc').select('*'),
           supabase.from('clients').select('*'),
-          supabase.from('breakdown_cost_centers').select('*'), // <-- updated table name
+          supabase.from('breakdown_cost_centers').select('*'),
           supabase.from('stop_points').select('*'),
         ])
         setDrivers(driversData || [])
@@ -137,11 +143,12 @@ const TripForm = ({ onClose, id }) => {
     fetchTrip()
   }, [id])
 
-  // Handle client selection
+  // Handle client selection and auto-populate locations and assignments
   const handleClientChange = (clientId) => {
     if (clientId === "new") {
       setFormState((prev) => ({
         ...prev,
+        id: undefined,
         selectedClient: '',
         clientDetails: {
           name: '',
@@ -150,12 +157,34 @@ const TripForm = ({ onClose, id }) => {
           address: '',
           contactPerson: '',
         },
+        pickupLocations: [
+          {
+            location: '',
+            address: '',
+            contactPerson: '',
+            contactNumber: '',
+            operatingHours: '',
+            scheduledTime: '',
+            notes: '',
+          },
+        ],
+        dropoffLocations: [
+          {
+            location: '',
+            address: '',
+            contactPerson: '',
+            contactNumber: '',
+            operatingHours: '',
+            scheduledTime: '',
+            notes: '',
+          },
+        ],
       }))
       return
     }
     const selectedClient = clients.find((client) => client.id === clientId)
     if (selectedClient) {
-      // attempt to determine a cost centre from the client record
+      // Determine cost centre from client record
       let clientCostCentre =
         selectedClient.costCentre ||
         selectedClient.cost_centre ||
@@ -163,14 +192,57 @@ const TripForm = ({ onClose, id }) => {
         selectedClient.cost_centre_id ||
         null
 
-      // If cost centres are available as objects, try to map names to ids
       if (clientCostCentre && typeof clientCostCentre === 'string' && costCentres.length) {
-        // try to find by id first, then by name
         const foundById = costCentres.find((cc) => cc.id === clientCostCentre)
         const foundByName = costCentres.find((cc) => cc.name === clientCostCentre)
         if (foundById) clientCostCentre = foundById.id
         else if (foundByName) clientCostCentre = foundByName.id
       }
+
+      // Auto-populate pickup and dropoff locations from client fields
+      const pickupLocations = selectedClient.pickupLocations && selectedClient.pickupLocations.length > 0
+        ? selectedClient.pickupLocations.map(loc => ({
+          location: loc.name || '',
+          address: loc.address || '',
+          contactPerson: loc.contactPerson || '',
+          contactNumber: loc.contactNumber || '',
+          operatingHours: loc.operatingHours || '',
+          scheduledTime: '',
+          notes: '',
+        }))
+        : [
+          {
+            location: '',
+            address: '',
+            contactPerson: '',
+            contactNumber: '',
+            operatingHours: '',
+            scheduledTime: '',
+            notes: '',
+          },
+        ]
+
+      const dropoffLocations = selectedClient.dropoffLocations && selectedClient.dropoffLocations.length > 0
+        ? selectedClient.dropoffLocations.map(loc => ({
+          location: loc.name || '',
+          address: loc.address || '',
+          contactPerson: loc.contactPerson || '',
+          contactNumber: loc.contactNumber || '',
+          operatingHours: loc.operatingHours || '',
+          scheduledTime: '',
+          notes: '',
+        }))
+        : [
+          {
+            location: '',
+            address: '',
+            contactPerson: '',
+            contactNumber: '',
+            operatingHours: '',
+            scheduledTime: '',
+            notes: '',
+          },
+        ]
 
       setFormState((prev) => ({
         ...prev,
@@ -183,8 +255,8 @@ const TripForm = ({ onClose, id }) => {
           contactPerson: selectedClient.contactPerson || '',
         },
         costCentre: clientCostCentre || prev.costCentre,
-        pickupLocations: selectedClient.pickupLocations || prev.pickupLocations,
-        dropoffLocations: selectedClient.dropoffLocations || prev.dropoffLocations,
+        pickupLocations,
+        dropoffLocations,
       }))
     }
   }
@@ -593,6 +665,7 @@ const TripForm = ({ onClose, id }) => {
     e.preventDefault()
     setLoading(true)
     try {
+      // Remove id from tripData if it's undefined, empty, or not a number (let DB auto-assign)
       const tripData = {
         ...formState,
         route: `${formState.origin} to ${formState.destination}`,
@@ -600,6 +673,9 @@ const TripForm = ({ onClose, id }) => {
         vehicle: formState.vehicles[0]?.name || 'Unassigned',
         vehicleAssignments: formState.vehicleAssignments,
         distance: 'Calculating...',
+      }
+      if (!tripData.id || isNaN(Number(tripData.id))) {
+        delete tripData.id
       }
       // Insert or update trip
       const { error } = await supabase.from('trips').upsert([tripData])

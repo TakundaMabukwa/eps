@@ -16,17 +16,8 @@ const DetailActionBar = ({ id, title, description }) => {
 
   console.log('pathname :>> ', pathname)
   const router = useRouter()
-  const {
-    current_user: {
-      currentUser: { permissions },
-    },
-  } = useAuth()
   const { onEdit, routes } = useGlobalContext()
 
-  const accessibleRoutes = getPermittedAccessRoutes(permissions, routes)
-
-  const canEdit = accessibleRoutes.filter((p) => p.href.includes(pathname))
-  console.log('canEdit :>> ', canEdit[0]?.access !== 'write')
   return (
     <div className="flex flex-col md:flex-row justify-between gap-4 items-center">
       <div className="flex items-center gap-4 ">
@@ -45,7 +36,6 @@ const DetailActionBar = ({ id, title, description }) => {
         <Button
           variant="outline"
           onClick={() => onEdit({ id })}
-          disabled={canEdit[0]?.access !== 'write'}
         >
           <Edit className="mr-2 h-4 w-4" /> Edit
         </Button>

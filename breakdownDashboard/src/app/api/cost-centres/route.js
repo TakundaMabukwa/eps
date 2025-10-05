@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 
-async function getCompanyId(supabase, user) {
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY // Use service role for server-side
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+async function getUserFromRequest(request) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return { user: null, error: 'Missing token' }
+  const { data, error } = await supabase.auth.getUser(token)
+  return { user: data?.user, error }
+}
+
+async function getCompanyId(user) {
   if (user?.user_metadata?.company_id) return user.user_metadata.company_id
   if (user?.user_metadata?.clientId) return user.user_metadata.clientId
 
@@ -19,18 +29,14 @@ async function getCompanyId(supabase, user) {
 // *****************************
 // get cost centres
 // *****************************
-export async function GET() {
-  const supabase = createRouteHandlerClient({ cookies })
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+export async function GET(request) {
+  const { user, error: authError } = await getUserFromRequest(request)
 
   if (authError || !user) {
     return NextResponse.json({ error: 'not a valid user' }, { status: 401 })
   }
 
-  const companyId = await getCompanyId(supabase, user)
+  const companyId = await getCompanyId(user)
   if (!companyId) {
     return NextResponse.json({ error: 'missing company id' }, { status: 400 })
   }
@@ -38,7 +44,7 @@ export async function GET() {
   const { data: costCentres, error } = await supabase
     .from('cost_centres')
     .select('*')
-    .eq('company', companyId)
+    // .eq('company', companyId)
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
@@ -50,17 +56,13 @@ export async function GET() {
 // add cost centres
 // *****************************
 export async function POST(request) {
-  const supabase = createRouteHandlerClient({ cookies })
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+  const { user, error: authError } = await getUserFromRequest(request)
 
   if (authError || !user) {
     return NextResponse.json({ error: 'not a valid user' }, { status: 401 })
   }
 
-  const companyId = await getCompanyId(supabase, user)
+  const companyId = await getCompanyId(user)
   if (!companyId) {
     return NextResponse.json({ error: 'missing company id' }, { status: 400 })
   }

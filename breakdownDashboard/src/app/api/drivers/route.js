@@ -1,157 +1,100 @@
-// import * as dummy from '../../../../dummy-data'
-
-// next
 import { NextResponse } from 'next/server'
-
-// database
-import { auth, db } from '@/lib/server-db'
-
-// helpers
-import { getUserScopedDrivers } from '@/utils/drivers'
+import { supabase } from '@/lib/supabase'
 import { verifyAuth } from '@/utils/verify-auth'
 import { logUserActivity } from '@/utils/logUserActivity'
 
-// Mock database
-// const drivers = dummy.drivers_data
-
-// *****************************
-// get drivers
-// *****************************
+// GET: List drivers for authenticated user
 export async function GET(request) {
-  const token = await verifyAuth(auth, db, request, 'verifyIdToken')
-
+  const token = await verifyAuth(request)
   if (!token) {
-    return NextResponse.json({ error: 'not a valid user' }, { status: 500 })
+    return NextResponse.json({ error: 'not a valid user' }, { status: 401 })
   }
 
-  try {
-    const drivers = await getUserScopedDrivers(token)
-    return NextResponse.json(drivers)
-  } catch (err) {
-    console.log({ error: err.message })
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  const { data, error } = await supabase
+    .from('drivers')
+    .select('*')
+    .eq('client_id', token.clientId)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  return NextResponse.json(data)
 }
 
-// *****************************
-// add driver
-// *****************************
+// POST: Add a new driver
 export async function POST(request) {
-  const token = await verifyAuth(auth, db, request, 'verifyIdToken')
-
+  const token = await verifyAuth(request)
   if (!token) {
-    return NextResponse.json({ error: 'not a valid user' }, { status: 500 })
+    return NextResponse.json({ error: 'not a valid user' }, { status: 401 })
   }
 
   try {
     const body = await request.json()
-    const clientId = token.clientId
 
-    const driversRef = db.collection(`companies/${clientId}/drivers`)
-    const costCentresRef = db.collection(`companies/${clientId}/costCentres`)
+    // Find cost centre by name
+    const { data: costCentre, error: ccError } = await supabase
+      .from('cost_centres')
+      .select('id')
+      .eq('name', body.costCentre)
+      .eq('client_id', token.clientId)
+      .single()
 
-    // Lookup costCentreId by name
-    const costCentreSnap = await costCentresRef
-      .where('name', '==', body.costCentre)
-      .limit(1)
-      .get()
-
-    if (costCentreSnap.empty) {
-      return NextResponse.json(
-        { error: 'Cost centre not found' },
-        { status: 404 }
-      )
+    if (ccError || !costCentre) {
+      return NextResponse.json({ error: 'Cost centre not found' }, { status: 404 })
     }
 
-    const costCentreDoc = costCentreSnap.docs[0]
-    const costCentreId = costCentreDoc.id
-
-    // Get last used driver ID
-    const lastSnap = await driversRef.orderBy('id', 'desc').limit(1).get()
+    // Get last driver id for this client
+    const { data: lastDriver } = await supabase
+      .from('drivers')
+      .select('id')
+      .eq('client_id', token.clientId)
+      .order('id', { ascending: false })
+      .limit(1)
+      .single()
 
     let lastIdNum = 0
-    if (!lastSnap.empty) {
-      const lastId = lastSnap.docs[0].data().id
-      lastIdNum = parseInt(lastId.split('-')[1]) || 0
+    if (lastDriver && lastDriver.id) {
+      const match = lastDriver.id.match(/DRV-(\d+)/)
+      lastIdNum = match ? parseInt(match[1]) : 0
     }
-
     const newId = `DRV-${String(lastIdNum + 1).padStart(3, '0')}`
 
-    // Create the driver object
-    const newDriver = {
-      ...body,
-      clientId,
-      costCentreId,
-      id: newId,
-      status: body.status || 'active',
-      createdAt: new Date().toISOString().split('T')[0],
+    // Insert new driver
+    const { data: newDriver, error: insertError } = await supabase
+      .from('drivers')
+      .insert([{
+        ...body,
+        id: newId,
+        client_id: token.clientId,
+        cost_centre_id: costCentre.id,
+        status: body.status || 'active',
+        created_at: new Date().toISOString().split('T')[0],
+      }])
+      .select()
+      .single()
+
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    const docRef = await driversRef.add(newDriver)
-    await driversRef.doc(docRef.id).update({ uid: docRef.id })
+    // Optionally: increment driver count on cost centre (if you store it)
+    // await supabase.rpc('increment_driver_count', { cost_centre_id: costCentre.id })
 
-    // Increment vehicle count on cost centre
-    const costCentreData = costCentreDoc.data()
-    await costCentresRef.doc(costCentreId).update({
-      drivers: (costCentreData.vehicles || 0) + 1,
-    })
-
-    // update recentActivities
+    // Log activity
     const ip =
       request.headers.get('x-forwarded-for') ||
       request.headers.get('x-real-ip') ||
-      request.ip || // depending on your hosting environment
+      request.ip ||
       'unknown'
-
-    await logUserActivity(db, token, {
+    await logUserActivity(supabase, token, {
       timestamp: new Date().toISOString(),
       activity: 'Added Driver',
       ip: ip === '::1' ? 'localhost' : ip,
     })
-    return NextResponse.json({ id: docRef.id, ...newDriver }, { status: 201 })
-  } catch (error) {
-    const firebaseError = error?.errorInfo?.code || error.code || ''
-    let errorMessage = firebaseError
 
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json(newDriver, { status: 201 })
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
-
-//  const body = await request.json()
-
-//   // Generate a new ID
-//   const lastId =
-//     drivers.length > 0
-//       ? Number.parseInt(drivers[drivers.length - 1].id.split('-')[1])
-//       : 0
-//   const newId = `DRV-${String(lastId + 1).padStart(3, '0')}`
-
-// const newDriver = {
-//   id: newId,
-//   name: body.name || '',
-//   phone: body.phone || '',
-//   email: body.email || '',
-//   license: body.license || '',
-//   licenseExpiry: body.licenseExpiry || '',
-//   experience: body.experience || '',
-//   status: body.status || 'active',
-//   costCentre: body.costCentre || '',
-//   currentVehicle: body.currentVehicle || '',
-//   address: body.address || '',
-//   dateOfBirth: body.dateOfBirth || '',
-//   emergencyContact: body.emergencyContact || '',
-//   emergencyPhone: body.emergencyPhone || '',
-//   hireDate: body.hireDate || '',
-//   certifications: body.certifications || [],
-//   medicalExamExpiry: body.medicalExamExpiry || '',
-//   drivingRecord: body.drivingRecord || {
-//     violations: 0,
-//     accidents: 0,
-//     lastReviewDate: '',
-//   },
-//   currentTrip: null,
-//   recentTrips: [],
-// }
-
-// drivers.push(newDriver)
-// return NextResponse.json(drivers, { status: 201 })

@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/(protected)/layout.tsx", "src/components/map/display-map.jsx", "src/components/layout/dialog-screen.jsx", "src/app/(protected)/fleetManager/routes/page.jsx", "src/components/forms/client-form.jsx", "src/app/(protected)/fleetManager/trips/page.jsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/(protected)/layout.tsx", "src/components/map/display-map.jsx", "src/components/layout/dialog-screen.jsx", "src/app/(protected)/fleetManager/routes/page.jsx", "src/components/forms/client-form.jsx", "src/app/(protected)/fleetManager/trips/page.jsx", "src/components/detail-pages/trip-details.jsx", "src/app/(protected)/fleetManager/trips/[id]/page.jsx"],
   "exclude": ["node_modules"]
 }

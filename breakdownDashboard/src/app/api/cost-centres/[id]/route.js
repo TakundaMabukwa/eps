@@ -1,29 +1,30 @@
 import { NextResponse } from 'next/server'
-// import * as dummy from '../../../../../dummy-data'
-import { verifyAuth } from '@/utils/verify-auth'
-import { auth, db } from '@/lib/server-db'
+import { supabase } from '@/lib/supabase'
 import { logUserActivity } from '@/utils/logUserActivity'
-// const costCentres = dummy.cost_centre_data
-// *****************************
-// get cost centre
-// *****************************
-// export async function GET(request, { params }) {
-//   const { pageId, id } = await params
 
-//   const data = dummy.cost_centre_data.find((cc) => cc.id === id)
-//   // communicate with database
-//   return NextResponse.json({ pageId, data })
-// }
+// Helper to get user from Supabase Auth
+async function getUser(request) {
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.split('Bearer ')[1]
+  if (!token) return null
+
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) return null
+
+  // You may want to fetch additional user info from your DB if needed
+  // For now, just return the user object
+  return user
+}
 
 // *****************************
 // update cost centre
 // *****************************
 export async function PUT(request, { params }) {
-  const token = await verifyAuth(auth, db, request, 'verifyIdToken')
-  const { id } = await params
+  const user = await getUser(request)
+  const { id } = params
   const body = await request.json()
 
-  if (!token || !token.clientId) {
+  if (!user || !user.id || !user.user_metadata?.clientId) {
     return NextResponse.json(
       { error: 'Not authorized or missing clientId' },
       { status: 401 }
@@ -39,36 +40,42 @@ export async function PUT(request, { params }) {
 
   try {
     // Step 1: Query cost centre by ID field
-    const querySnapshot = await db
-      .collection(`companies/${token.clientId}/costCentres`)
-      .where('id', '==', id)
-      .limit(1)
-      .get()
+    const { data: costCentre, error: fetchError } = await supabase
+      .from('cost_centres')
+      .select('*')
+      .eq('id', id)
+      .eq('client_id', user.user_metadata.clientId)
+      .single()
 
-    if (querySnapshot.empty) {
+    if (fetchError || !costCentre) {
       return NextResponse.json(
         { error: 'Cost centre not found' },
         { status: 404 }
       )
     }
 
-    const doc = querySnapshot.docs[0]
-    const docRef = doc.ref
-
     // Step 2: Merge existing data with new data
-    const updatedData = { ...doc.data(), ...body }
+    const updatedData = { ...costCentre, ...body }
 
-    // Step 3: Update document in Firestore
-    await docRef.set(updatedData, { merge: true })
+    // Step 3: Update document in Supabase
+    const { error: updateError } = await supabase
+      .from('cost_centres')
+      .update(updatedData)
+      .eq('id', id)
+      .eq('client_id', user.user_metadata.clientId)
+
+    if (updateError) {
+      throw updateError
+    }
 
     // update recentActivities
     const ip =
       request.headers.get('x-forwarded-for') ||
       request.headers.get('x-real-ip') ||
-      request.ip || // depending on your hosting environment
+      request.ip ||
       'unknown'
 
-    await logUserActivity(db, token, {
+    await logUserActivity(supabase, user, {
       timestamp: new Date().toISOString(),
       activity: 'Updated Cost Centre',
       ip: ip === '::1' ? 'localhost' : ip,
@@ -88,10 +95,10 @@ export async function PUT(request, { params }) {
 // delete cost centre
 // *****************************
 export async function DELETE(request, { params }) {
-  const token = await verifyAuth(auth, db, request, 'verifyIdToken')
-  const { id } = await params
+  const user = await getUser(request)
+  const { id } = params
 
-  if (!token && !token.clientId) {
+  if (!user || !user.id || !user.user_metadata?.clientId) {
     return NextResponse.json({ error: 'Not a valid user' }, { status: 401 })
   }
 
@@ -103,36 +110,45 @@ export async function DELETE(request, { params }) {
   }
 
   try {
-    const querySnapshot = await db
-      .collection(`companies/${token.clientId}/costCentres`)
-      .where('id', '==', id)
-      .limit(1) // Optional: safety for unique IDs
-      .get()
+    const { data: costCentre, error: fetchError } = await supabase
+      .from('cost_centres')
+      .select('*')
+      .eq('id', id)
+      .eq('client_id', user.user_metadata.clientId)
+      .single()
 
-    if (querySnapshot.empty) {
+    if (fetchError || !costCentre) {
       return NextResponse.json(
         { error: 'Cost centre not found' },
         { status: 404 }
       )
     }
 
-    const doc = querySnapshot.docs[0]
-    if (token.costCentreId == doc.costCentreId) {
+    if (user.user_metadata.costCentreId == costCentre.costCentreId) {
       return NextResponse.json(
         { error: 'Main cost centre can not be deleted' },
         { status: 400 }
       )
     }
-    await doc.ref.delete()
+
+    const { error: deleteError } = await supabase
+      .from('cost_centres')
+      .delete()
+      .eq('id', id)
+      .eq('client_id', user.user_metadata.clientId)
+
+    if (deleteError) {
+      throw deleteError
+    }
 
     // update recentActivities
     const ip =
       request.headers.get('x-forwarded-for') ||
       request.headers.get('x-real-ip') ||
-      request.ip || // depending on your hosting environment
+      request.ip ||
       'unknown'
 
-    await logUserActivity(db, token, {
+    await logUserActivity(supabase, user, {
       timestamp: new Date().toISOString(),
       activity: 'Deleted Cost Centre',
       ip: ip === '::1' ? 'localhost' : ip,

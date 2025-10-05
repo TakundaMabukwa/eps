@@ -10,7 +10,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import TripForm from "../../../../components/forms/trip-form";
-import { initialVehiclesState } from "@/context/vehicles-context/context";
+import { initialTripsState } from "@/context/vehicles-context/context";
 import { createClient } from "@/lib/supabase/client";
 
 export default function TripsPage() {
@@ -43,7 +43,7 @@ export default function TripsPage() {
     csv_rows,
   } = initialTripsState;
 
-  const { columns } = initialVehiclesState;
+  const { columns } = initialTripsState;
 
   return (
     <div className="p-6 space-y-6 w-full">

@@ -1,24 +1,27 @@
 import { NextResponse } from 'next/server'
-// import * as dummy from '../../../../dummy-data'
-import { verifyAuth } from '@/utils/verify-auth'
 import { getUserScopedVehicles } from '@/utils/vehicles'
-import { auth, db } from '@/lib/server-db'
+import { supabase } from '@/lib/supabase-client'
 
-// Mock database
-// let vehicles = dummy.vehicles_data
+// Helper to get user from Supabase session
+async function getUser(request) {
+  const { data, error } = await supabase.auth.getUser(
+    request.headers.get('Authorization')?.replace('Bearer ', '')
+  )
+  if (error || !data?.user) return null
+  return data.user
+}
 
 // *****************************
 // get vehicles
 // *****************************
 export async function GET(request) {
-  const token = await verifyAuth(auth, db, request, 'verifyIdToken')
-
-  if (!token) {
-    return NextResponse.json({ error: 'not a valid user' }, { status: 500 })
+  const user = await getUser(request)
+  if (!user) {
+    return NextResponse.json({ error: 'not a valid user' }, { status: 401 })
   }
 
   try {
-    const vehicles = await getUserScopedVehicles(token)
+    const vehicles = await getUserScopedVehicles(user)
     return NextResponse.json(vehicles)
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
@@ -29,43 +32,45 @@ export async function GET(request) {
 // add vehicle
 // *****************************
 export async function POST(request) {
-  const token = await verifyAuth(auth, db, request, 'verifyIdToken')
-
-  if (!token) {
+  const user = await getUser(request)
+  if (!user) {
     return NextResponse.json({ error: 'not a valid user' }, { status: 401 })
   }
 
   try {
     const body = await request.json()
-    const clientId = token.clientId
-
-    // Firestore references
-    const vehiclesRef = db.collection(`companies/${clientId}/vehicles`)
-    const costCentresRef = db.collection(`companies/${clientId}/costCentres`)
+    const clientId = user.id
 
     // Lookup costCentreId by name
-    const costCentreSnap = await costCentresRef
-      .where('name', '==', body.costCentre)
+    const { data: costCentres, error: costCentreError } = await supabase
+      .from('breakdown_cost_centres')
+      .select('*')
+      // .eq('client_id', clientId)
+      // .eq('name', body.costCentre)
       .limit(1)
-      .get()
+      .maybeSingle()
 
-    if (costCentreSnap.empty) {
+    if (costCentreError || !costCentres) {
       return NextResponse.json(
         { error: 'Cost centre not found' },
         { status: 404 }
       )
     }
 
-    const costCentreDoc = costCentreSnap.docs[0]
-    const costCentreId = costCentreDoc.id
+    const costCentreId = costCentres.id
 
     // Get last used vehicle ID
-    const lastSnap = await vehiclesRef.orderBy('id', 'desc').limit(1).get()
+    const { data: lastVehicle, error: lastVehicleError } = await supabase
+      .from('vehiclesc')
+      .select('id')
+      // .eq('client_id', clientId)
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     let lastIdNum = 0
-    if (!lastSnap.empty) {
-      const lastId = lastSnap.docs[0].data().id
-      lastIdNum = parseInt(lastId.split('-')[1]) || 0
+    if (lastVehicle && lastVehicle.id) {
+      lastIdNum = parseInt(lastVehicle.id.split('-')[1]) || 0
     }
 
     const newId = `VEH-${String(lastIdNum + 1).padStart(3, '0')}`
@@ -73,79 +78,40 @@ export async function POST(request) {
     // Create the vehicle object
     const newVehicle = {
       ...body,
-      clientId,
-      costCentreId,
+      client_id: clientId,
+      cost_centre_id: costCentreId,
       id: newId,
       status: body.status || 'active',
-      createdAt: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString().split('T')[0],
     }
 
-    const docRef = await vehiclesRef.add(newVehicle)
+    const { data: insertedVehicle, error: insertError } = await supabase
+      .from('vehiclesc')
+      .insert([newVehicle])
+      .select()
+      .maybeSingle()
+
+    if (insertError) {
+      throw insertError
+    }
 
     // Increment vehicle count on cost centre
-    const costCentreData = costCentreDoc.data()
-    await costCentresRef.doc(costCentreId).update({
-      vehicles: (costCentreData.vehicles || 0) + 1,
-    })
+    await supabase
+      .from('cost_centres')
+      .update({ vehicles: (costCentres.vehicles || 0) + 1 })
+      .eq('id', costCentreId)
 
-    return NextResponse.json({ id: docRef.id, ...newVehicle }, { status: 201 })
+    return NextResponse.json({ ...insertedVehicle }, { status: 201 })
   } catch (error) {
     console.error('Error adding vehicle:', error)
 
-    const firebaseError = error?.errorInfo?.code || error.code || ''
     let errorMessage = 'Server error'
-
-    if (firebaseError === 'auth/email-already-exists') {
-      errorMessage = 'A user with that email already exists.'
-    } else if (firebaseError === 'auth/invalid-email') {
-      errorMessage = 'Invalid email address.'
-    } else {
-      errorMessage = error.message || 'An unexpected error occurred.'
+    if (error?.code === '23505') {
+      errorMessage = 'A vehicle with that ID already exists.'
+    } else if (error?.message) {
+      errorMessage = error.message
     }
 
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-
-// *****************************
-// // add vehicle
-// // *****************************
-// export async function POST(request) {
-//   const token = await verifyAuth(auth, db, request, 'verifyIdToken')
-
-//   if (!token) {
-//     return NextResponse.json({ error: 'not a valid user' }, { status: 500 })
-//   }
-
-//   try {
-//   } catch (error) {
-//     const firebaseError = error?.errorInfo?.code || error.code || ''
-//     let errorMessage = 'Server error'
-
-//     if (firebaseError === 'auth/email-already-exists') {
-//       errorMessage = 'A user with that email already exists.'
-//     } else if (firebaseError === 'auth/invalid-email') {
-//       errorMessage = 'Invalid email address.'
-//     } else {
-//       errorMessage = error.message || 'An unexpected error occurred.'
-//     }
-
-//     return NextResponse.json({ error: errorMessage }, { status: 500 })
-//   }
-
-//   // // Generate a new ID
-//   // const lastId =
-//   //   vehicles.length > 0
-//   //     ? Number.parseInt(vehicles[vehicles.length - 1].id.split('-')[1])
-//   //     : 0
-//   // const newId = `VEH-${String(lastId + 1).padStart(3, '0')}`
-
-//   // const newVehicle = {
-//   //   ...body,
-//   //   id: newId,
-//   // }
-
-//   // vehicles.push(newVehicle)
-
-//   return NextResponse.json(newVehicle, { status: 201 })
-// }

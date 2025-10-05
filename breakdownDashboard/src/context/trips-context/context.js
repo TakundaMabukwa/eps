@@ -89,10 +89,10 @@ const columns = () => {
       header: createSortableHeader('Cost Centre'),
     },
     {
-      accessorKey: 'clientDetails',
+      accessorKey: 'selectedClient',
       header: createSortableHeader('Client'),
       cell: ({ row }) => {
-        return <div>{row.original.clientDetails?.name}</div>
+        return <div>{row.original.selectedClient?.name}</div>
       },
     },
     {
