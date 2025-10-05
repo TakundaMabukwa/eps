@@ -19,7 +19,9 @@ import {
   Truck,
   Users,
   Wrench,
+  Route,
 } from "lucide-react";
+import GlobalProvider from "@/context/global-context/provider";
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
@@ -37,6 +39,16 @@ const roleNavigation = {
     },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
+    {
+      name: "Cost Centres",
+      href: "/fleetManager/cost-centres",
+      Icon: <Wrench />,
+    },
+    { name: "Clients", href: "/fleetManager/clients", Icon: <Building2 /> },
+    // { name: "Stop Points", href: "/fleetManager/stop-points", Icon: <Route /> },
+    { name: "Trips", href: "/fleetManager/trips", Icon: <Route /> },
+    // { name: "Routes", href: "/fleetManager/routes", Icon: <Truck /> },
+
     // { name: 'Qoute Management', href: '/qoutation', Icon: <Building2 /> },
     // { name: 'Profile', href: '/profile', Icon: <Settings2Icon /> },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
@@ -244,7 +256,9 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
         {/* Page content */}
         <main className="p-6 w-full">
-          <Card className="p-6">{children}</Card>
+          <Card className="p-6">
+            <GlobalProvider>{children}</GlobalProvider>
+          </Card>
         </main>
       </div>
     </div>

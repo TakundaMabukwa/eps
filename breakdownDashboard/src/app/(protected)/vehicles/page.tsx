@@ -1,109 +1,147 @@
-"use client"
+"use client";
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Plus, Truck, Car, FileText, TruckElectricIcon } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogHeader, DialogContent, DialogTrigger, DialogTitle, DialogClose, DialogDescription } from '@/components/ui/dialog'
-import Link from 'next/link'
-
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Truck, Car, FileText, TruckElectricIcon } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogHeader,
+  DialogContent,
+  DialogTrigger,
+  DialogTitle,
+  DialogClose,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import Link from "next/link";
+import { DataTable } from "@/components/ui/data-table";
+import { initialVehiclesState } from "@/context/vehicles-context/context";
 
 const vehicleFormSchema = z.object({
-  id: z.number().int().min(1, 'Registration number is required'),
-  registration_number: z.string().min(1, 'Registration number is required'),
-  engine_number: z.string().min(1, 'Engine number is required'),
-  vin_number: z.string().min(1, 'VIN number is required'),
-  make: z.string().min(1, 'Make is required'),
-  model: z.string().min(1, 'Model is required'),
+  id: z.number().int().min(1, "Registration number is required"),
+  registration_number: z.string().min(1, "Registration number is required"),
+  engine_number: z.string().min(1, "Engine number is required"),
+  vin_number: z.string().min(1, "VIN number is required"),
+  make: z.string().min(1, "Make is required"),
+  model: z.string().min(1, "Model is required"),
   sub_model: z.string().optional(),
-  manufactured_year: z.string().min(1, 'Manufactured year is required'),
-  vehicle_type: z.enum(['vehicle', 'trailer', 'commercial', 'tanker', 'truck', 'specialized'], { required_error: 'Vehicle type is required' }),
-  registration_date: z.string().min(1, 'Registration date is required'),
-  license_expiry_date: z.string().min(1, 'License expiry date is required'),
-  purchase_price: z.string().min(1, 'Purchase price is required'),
-  retail_price: z.string().min(1, 'Retail price is required'),
-  vehicle_priority: z.enum(['high', 'medium', 'low'], { required_error: 'Vehicle priority is required' }),
-  fuel_type: z.enum(['petrol', 'diesel', 'electric', 'hybrid', 'lpg'], { required_error: 'Fuel type is required' }),
-  transmission_type: z.enum(['manual', 'automatic', 'cvt'], { required_error: 'Transmission type is required' }),
+  manufactured_year: z.string().min(1, "Manufactured year is required"),
+  vehicle_type: z.enum(
+    ["vehicle", "trailer", "commercial", "tanker", "truck", "specialized"],
+    { required_error: "Vehicle type is required" }
+  ),
+  registration_date: z.string().min(1, "Registration date is required"),
+  license_expiry_date: z.string().min(1, "License expiry date is required"),
+  purchase_price: z.string().min(1, "Purchase price is required"),
+  retail_price: z.string().min(1, "Retail price is required"),
+  vehicle_priority: z.enum(["high", "medium", "low"], {
+    required_error: "Vehicle priority is required",
+  }),
+  fuel_type: z.enum(["petrol", "diesel", "electric", "hybrid", "lpg"], {
+    required_error: "Fuel type is required",
+  }),
+  transmission_type: z.enum(["manual", "automatic", "cvt"], {
+    required_error: "Transmission type is required",
+  }),
   tank_capacity: z.string().optional(),
   register_number: z.string().optional(),
-  take_on_kilometers: z.string().min(1, 'Take on kilometers is required'),
-  service_intervals: z.string().min(1, 'Service intervals is required'),
+  take_on_kilometers: z.string().min(1, "Take on kilometers is required"),
+  service_intervals: z.string().min(1, "Service intervals is required"),
   boarding_km_hours: z.string().optional(),
   expected_boarding_date: z.string().optional(),
   cost_centres: z.string().optional(),
-  colour: z.string().min(1, 'Colour is required'),
+  colour: z.string().min(1, "Colour is required"),
   created_by: z.string().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   tech_id: z.number().int().optional(),
   driver_id: z.number().int().optional(),
-})
+});
 
-type VehicleFormValues = z.infer<typeof vehicleFormSchema>
-
+type VehicleFormValues = z.infer<typeof vehicleFormSchema>;
 
 interface Technician {
-  id: number
-  name: string,
-  phone: string,
-  email: string
+  id: number;
+  name: string;
+  phone: string;
+  email: string;
 }
 
 interface Driver {
-  id: number
-  first_name: string
-  surname: string
-  cell_number: string
-  email_address?: string | null
+  id: number;
+  first_name: string;
+  surname: string;
+  cell_number: string;
+  email_address?: string | null;
 }
 
-
 export default function Vehicles() {
-  const [vehicles, setVehicles] = useState<VehicleFormValues[]>([])
-  const [isAddingVehicle, setIsAddingVehicle] = useState(false)
+  const [vehicles, setVehicles] = useState<VehicleFormValues[]>([]);
+  const [isAddingVehicle, setIsAddingVehicle] = useState(false);
   const [selectedVehicleReg, setSelectedVehicleReg] = useState("");
-  const router = useRouter()
-  const supabase = createClient()
-  const [search, setSearch] = useState('')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
-  const [drivers, setDrivers] = useState<Driver[]>([])
-  const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
+  const router = useRouter();
+  const supabase = createClient();
+  const [search, setSearch] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(
+    null
+  );
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const getDrivers = async () => {
-      const { data, error } = await supabase
-        .from('drivers')
-        .select('*')
+      const { data, error } = await supabase.from("drivers").select("*");
       if (error) {
-        console.error('Error fetching drivers:', error)
-        setDrivers([])
-        return
+        console.error("Error fetching drivers:", error);
+        setDrivers([]);
+        return;
       }
-      setDrivers(data as [])
-    }
-    getDrivers()
-  }, [])
+      setDrivers(data as []);
+    };
+    getDrivers();
+  }, []);
 
   useEffect(() => {
-    const filtered = drivers.filter(driver =>
-      `${driver.first_name} ${driver.surname}`.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    setFilteredDrivers(filtered)
-  }, [searchTerm, drivers])
+    const filtered = drivers.filter((driver) =>
+      `${driver.first_name} ${driver.surname}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    );
+    setFilteredDrivers(filtered);
+  }, [searchTerm, drivers]);
 
   const useWorkshopId = () => {
     const [workshopId, setWorkshopId] = useState<string | null>(null);
@@ -114,9 +152,9 @@ export default function Vehicles() {
         if (!userId) return;
 
         const { data, error } = await supabase
-          .from('users')
-          .select('workshop_id')
-          .eq('id', userId)
+          .from("users")
+          .select("workshop_id")
+          .eq("id", userId)
           .single();
 
         if (data && !error) {
@@ -130,34 +168,35 @@ export default function Vehicles() {
     return workshopId;
   };
   const workshopId = useWorkshopId();
-  const [technicians, setTechnicians] = useState<Technician[]>([])
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [filteredTechs, setFilteredTechs] = useState<Technician[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  
+  
 
   useEffect(() => {
     const getTechnician = async () => {
       // Fetch technicians
-      const { data: user, error: userError } = await supabase.auth.getUser()
+      const { data: user, error: userError } = await supabase.auth.getUser();
       const currentUser = user.user?.id;
 
       if (!currentUser) {
-        setTechnicians([])
+        setTechnicians([]);
         return;
       }
       const { data: techniciansData, error: techError } = await supabase
-        .from('technicians')
-        .select('*')
-        .eq('type', 'internal')
+        .from("technicians")
+        .select("*")
+        // .eq("type", "internal");
 
-      setTechnicians(techniciansData as [])
+      setTechnicians(techniciansData as []);
 
       if (techError) {
-        console.error('Error fetching technicians:', techError)
-        setTechnicians([])
-        return
+        console.error("Error fetching technicians:", techError);
+        setTechnicians([]);
+        return;
       }
-
-    }
+    };
     getTechnician();
   }, []);
 
@@ -171,160 +210,168 @@ export default function Vehicles() {
   const handleUploadFile = () => {
     if (!selectedFile) return;
     // TODO: Implement upload logic here
-    toast.info(`Uploading: ${selectedFile.name}`)
-  }
+    toast.info(`Uploading: ${selectedFile.name}`);
+  };
 
   // Filter vehicles based on search
-  const filteredVehicles = vehicles.filter(vehicle => {
+  const filteredVehicles = vehicles.filter((vehicle) => {
     const searchLower = search.toLowerCase();
     return (
       vehicle.make.toLowerCase().includes(searchLower) ||
       vehicle.model.toLowerCase().includes(searchLower) ||
       vehicle.registration_number.toLowerCase().includes(searchLower) ||
       vehicle.vehicle_type.toLowerCase().includes(searchLower)
-    )
-  })
+    );
+  });
 
   // Row background color by type
   const getRowBg = (type: string) => {
     switch (type) {
-      case 'vehicle':
-        return 'bg-blue-50';
-      case 'trailer':
-        return 'bg-purple-50';
-      case 'truck':
-        return 'bg-yellow-50';
-      case 'commercial':
-        return 'bg-green-50';
-      case 'tanker':
-        return 'bg-orange-50';
-      case 'specialized':
-        return 'bg-pink-50';
+      case "vehicle":
+        return "bg-blue-50";
+      case "trailer":
+        return "bg-purple-50";
+      case "truck":
+        return "bg-yellow-50";
+      case "commercial":
+        return "bg-green-50";
+      case "tanker":
+        return "bg-orange-50";
+      case "specialized":
+        return "bg-pink-50";
       default:
-        return '';
+        return "";
     }
-  }
-
+  };
 
   const fetchVehicles = async () => {
-    const { data: vehicles, error } = await supabase.from('vehiclesc').select('*').or('type.is.null,type.eq.internal');
+    const { data: vehicles, error } = await supabase
+      .from("vehiclesc")
+      .select("*")
+      .or("type.is.null,type.eq.internal");
     if (error) {
-      console.error("the error is", error.name, error.message)
+      console.error("the error is", error.name, error.message);
     } else {
       // @ts-expect-error
-      setVehicles(vehicles || [])
+      setVehicles(vehicles || []);
     }
-  }
+  };
   useEffect(() => {
-    const vehiclesc = supabase.channel('schema-db-changes')
+    const vehiclesc = supabase
+      .channel("schema-db-changes")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'vehiclesc' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "vehiclesc" },
         (payload) => {
-          console.log('Change received!', payload)
+          console.log("Change received!", payload);
         }
       )
-      .subscribe()
-    fetchVehicles()
+      .subscribe();
+    fetchVehicles();
 
     return () => {
       vehiclesc.unsubscribe;
-    }
-  }, [])
-
+    };
+  }, []);
 
   const form = useForm<VehicleFormValues>({
     resolver: zodResolver(vehicleFormSchema),
     defaultValues: {
-      registration_number: '',
-      engine_number: '',
-      vin_number: '',
-      make: '',
-      model: '',
-      sub_model: '',
-      manufactured_year: '',
-      vehicle_type: 'vehicle',
+      registration_number: "",
+      engine_number: "",
+      vin_number: "",
+      make: "",
+      model: "",
+      sub_model: "",
+      manufactured_year: "",
+      vehicle_type: "vehicle",
       registration_date: new Date().toISOString(),
       license_expiry_date: new Date().toISOString(),
-      purchase_price: '',
-      retail_price: '',
-      vehicle_priority: 'medium',
-      fuel_type: 'petrol',
-      transmission_type: 'manual',
-      tank_capacity: '',
-      register_number: '',
-      take_on_kilometers: '',
-      service_intervals: '',
-      boarding_km_hours: '',
+      purchase_price: "",
+      retail_price: "",
+      vehicle_priority: "medium",
+      fuel_type: "petrol",
+      transmission_type: "manual",
+      tank_capacity: "",
+      register_number: "",
+      take_on_kilometers: "",
+      service_intervals: "",
+      boarding_km_hours: "",
       expected_boarding_date: new Date().toISOString(),
-      cost_centres: '',
-      colour: '',
+      cost_centres: "",
+      colour: "",
       // created_by: '',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
-  })
+  });
 
   const onSubmit = async (data: VehicleFormValues) => {
-    await handleAddVehicle(data)
+    await handleAddVehicle(data);
     fetchVehicles();
-  }
-
+  };
 
   const handleAddVehicle = async (data: VehicleFormValues) => {
     const { data: vehicle, error } = await supabase
-      .from('vehiclesc')
+      .from("vehiclesc")
       // @ts-expect-error
-      .insert(data)
+      .insert(data);
     if (error) {
-      console.error(error.message)
+      console.error(error.message);
     } else {
-      console.log(vehicle)
-      toast.success('Vehicle added successfully')
-      alert("Vehicle added successfully")
+      console.log(vehicle);
+      toast.success("Vehicle added successfully");
+      alert("Vehicle added successfully");
       fetchVehicles();
-      form.reset()
-      setIsAddingVehicle(false)
-      router.refresh()
+      form.reset();
+      setIsAddingVehicle(false);
+      router.refresh();
     }
-  }
+  };
 
   const getVehicleTypeIcon = (type: string) => {
-    return type === 'vehicle' ? <Car className="w-4 h-4" /> : <Truck className="w-4 h-4" />
-  }
+    return type === "vehicle" ? (
+      <Car className="w-4 h-4" />
+    ) : (
+      <Truck className="w-4 h-4" />
+    );
+  };
 
   const getPriorityBadge = (priority: string) => {
     const colors = {
-      high: 'bg-red-100 text-red-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      low: 'bg-green-100 text-green-800'
-    }
-    return <Badge className={colors[priority as keyof typeof colors]}>{priority}</Badge>
-  }
+      high: "bg-red-100 text-red-800",
+      medium: "bg-yellow-100 text-yellow-800",
+      low: "bg-green-100 text-green-800",
+    };
+    return (
+      <Badge className={colors[priority as keyof typeof colors]}>
+        {priority}
+      </Badge>
+    );
+  };
 
   async function handleAssignDriver(vehicleId: number, driverId: number) {
     const { data, error } = await supabase
-      .from('vehiclesc')
+      .from("vehiclesc")
       .update({ driver_id: driverId })
-      .eq('id', vehicleId)
-      .select()
+      .eq("id", vehicleId)
+      .select();
 
     if (error) {
-      console.error("Issue in assigning driver:", error.message)
-      alert("Failed to assign driver: " + error.message)
-      return
+      console.error("Issue in assigning driver:", error.message);
+      alert("Failed to assign driver: " + error.message);
+      return;
     }
-    console.log("Driver assigned successfully:", data)
+    console.log("Driver assigned successfully:", data);
     fetchVehicles();
     // Optionally refresh or update state if needed
   }
 
-
   async function handleAssign(vehicleId: number, techId: number) {
     const { data: datav, error: errorv } = await supabase
-      .from('vehiclesc')
+      .from("vehiclesc")
       .update({ tech_id: techId })
-      .eq('id', vehicleId)
+      .eq("id", vehicleId)
       .select();
 
     if (errorv) {
@@ -335,6 +382,8 @@ export default function Vehicles() {
     console.log("Technician assigned successfully:", datav);
   }
 
+  const { columns } = initialVehiclesState;
+  // console.log("The vehicles are", columns)
 
   return (
     <div className="space-y-6">
@@ -342,7 +391,9 @@ export default function Vehicles() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vehicles</h1>
-          <p className="text-gray-600 mt-1">Manage your vehicle and trailer fleet</p>
+          <p className="text-gray-600 mt-1">
+            Manage your vehicle and trailer fleet
+          </p>
         </div>
         <Button
           onClick={() => setIsAddingVehicle(true)}
@@ -360,7 +411,9 @@ export default function Vehicles() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Fleet</p>
-                <p className="text-2xl font-bold text-gray-900">{vehicles.length}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {vehicles.length}
+                </p>
               </div>
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                 <span className="text-blue-600 text-sm font-semibold">🚗</span>
@@ -374,7 +427,7 @@ export default function Vehicles() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Vehicles</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {vehicles.filter(v => v.vehicle_type === 'vehicle').length}
+                  {vehicles.filter((v) => v.vehicle_type === "vehicle").length}
                 </p>
               </div>
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -389,7 +442,7 @@ export default function Vehicles() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Trailers</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {vehicles.filter(v => v.vehicle_type === 'trailer').length}
+                  {vehicles.filter((v) => v.vehicle_type === "trailer").length}
                 </p>
               </div>
               <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -402,9 +455,11 @@ export default function Vehicles() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">High Priority</p>
+                <p className="text-sm font-medium text-gray-600">
+                  High Priority
+                </p>
                 <p className="text-2xl font-bold text-red-600">
-                  {vehicles.filter(v => v.vehicle_priority === 'high').length}
+                  {vehicles.filter((v) => v.vehicle_priority === "high").length}
                 </p>
               </div>
               <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
@@ -445,7 +500,10 @@ export default function Vehicles() {
 
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Vehicle Type Selection */}
                   <FormField
@@ -454,7 +512,10 @@ export default function Vehicles() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Vehicle Type *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select vehicle type" />
@@ -580,7 +641,10 @@ export default function Vehicles() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fuel Type *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select fuel type" />
@@ -605,7 +669,10 @@ export default function Vehicles() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Transmission *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select transmission" />
@@ -691,14 +758,16 @@ export default function Vehicles() {
                     )}
                   />
 
-
                   <FormField
                     control={form.control}
                     name="vehicle_priority"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Priority *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select priority" />
@@ -789,7 +858,9 @@ export default function Vehicles() {
                 <div className="flex gap-4">
                   <Button
                     onClick={() => handleAddVehicle(form.getValues())}
-                    type="submit" className="bg-blue-600 hover:bg-blue-700">
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
                     <FileText className="w-4 h-4 mr-2" />
                     Save Vehicle
                   </Button>
@@ -816,7 +887,7 @@ export default function Vehicles() {
               <Input
                 placeholder="Search by make, model, registration, or type..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 className="max-w-sm"
               />
             </div>
@@ -838,25 +909,45 @@ export default function Vehicles() {
               </TableHeader>
               <TableBody>
                 {filteredVehicles.map((vehicle, index) => (
-                  <TableRow key={vehicle.id} className={getRowBg(vehicle?.vehicle_type)}>
+                  <TableRow
+                    key={vehicle.id}
+                    className={getRowBg(vehicle?.vehicle_type)}
+                  >
                     <TableCell className="flex items-center gap-2">
                       {getVehicleTypeIcon(vehicle.vehicle_type)}
-                      <span>{vehicle.make} {vehicle.model}</span>
+                      <span>
+                        {vehicle.make} {vehicle.model}
+                      </span>
                     </TableCell>
                     <TableCell>{vehicle.registration_number}</TableCell>
                     <TableCell>{vehicle.manufactured_year}</TableCell>
                     <TableCell>{vehicle.fuel_type}</TableCell>
                     <TableCell>{vehicle.colour}</TableCell>
-                    <TableCell className="capitalize">{vehicle.vehicle_type}</TableCell>
-                    <TableCell>{getPriorityBadge(vehicle.vehicle_priority)}</TableCell>
+                    <TableCell className="capitalize">
+                      {vehicle.vehicle_type}
+                    </TableCell>
+                    <TableCell>
+                      {getPriorityBadge(vehicle.vehicle_priority)}
+                    </TableCell>
                     {/* <TableCell>
                       {technicians.find(tech => tech.id === vehicle.tech_id)?.name || " "}
                     </TableCell> */}
                     <TableCell className="flex items-center gap-2">
-                      {drivers.find(driver => driver.id === vehicle.driver_id) ? (
+                      {drivers.find(
+                        (driver) => driver.id === vehicle.driver_id
+                      ) ? (
                         <>
                           <span>
-                            {drivers.find(driver => driver.id === vehicle.driver_id)?.first_name} {drivers.find(driver => driver.id === vehicle.driver_id)?.surname}
+                            {
+                              drivers.find(
+                                (driver) => driver.id === vehicle.driver_id
+                              )?.first_name
+                            }{" "}
+                            {
+                              drivers.find(
+                                (driver) => driver.id === vehicle.driver_id
+                              )?.surname
+                            }
                           </span>
                           <Button
                             size="sm"
@@ -865,16 +956,18 @@ export default function Vehicles() {
                             onClick={async () => {
                               // Clear driver assignment
                               const { error } = await supabase
-                                .from('vehiclesc')
+                                .from("vehiclesc")
                                 .update({ driver_id: null })
-                                .eq('id', vehicle.id);
+                                .eq("id", vehicle.id);
 
                               if (error) {
-                                alert('Failed to unassign driver: ' + error.message);
+                                alert(
+                                  "Failed to unassign driver: " + error.message
+                                );
                                 console.error(error);
                               } else {
-                                toast.success('Driver unassigned successfully');
-                                alert('Driver unassigned successfully')
+                                toast.success("Driver unassigned successfully");
+                                alert("Driver unassigned successfully");
                                 fetchVehicles();
                                 router.refresh(); // refresh list to show update
                               }
@@ -887,8 +980,6 @@ export default function Vehicles() {
                         <span>Not Assigned</span>
                       )}
                     </TableCell>
-
-
 
                     <TableCell>
                       <div className="flex flex-row gap-3">
@@ -905,12 +996,12 @@ export default function Vehicles() {
                             >
                               Assign
                             </Button> */}
-
                           </DialogTrigger>
                           <DialogContent className="sm:max-w-md w-full">
                             <DialogTitle>Assign Driver</DialogTitle>
                             <DialogDescription>
-                              Assign driver for vehicle with registration: <strong>{selectedVehicleReg}</strong>
+                              Assign driver for vehicle with registration:{" "}
+                              <strong>{selectedVehicleReg}</strong>
                             </DialogDescription>
                             {/* technician search & list */}
                             <Input
@@ -944,7 +1035,10 @@ export default function Vehicles() {
                                     key={driver.id}
                                     onClick={() => {
                                       if (selectedVehicleId) {
-                                        handleAssignDriver(selectedVehicleId, driver.id);
+                                        handleAssignDriver(
+                                          selectedVehicleId,
+                                          driver.id
+                                        );
                                         setDialogOpen(false);
                                       }
                                     }}
@@ -954,9 +1048,10 @@ export default function Vehicles() {
                                   </button>
                                 ))
                               ) : (
-                                <p className="text-center text-sm text-gray-500 py-4">No drivers found</p>
+                                <p className="text-center text-sm text-gray-500 py-4">
+                                  No drivers found
+                                </p>
                               )}
-
                             </div>
                           </DialogContent>
                         </Dialog>
@@ -964,7 +1059,6 @@ export default function Vehicles() {
                         <Link href={`/vehicles/${vehicle.id}`}>
                           <Button variant="default">View</Button>
                         </Link>
-
                       </div>
                     </TableCell>
                   </TableRow>
@@ -975,7 +1069,17 @@ export default function Vehicles() {
         </Card>
       )}
 
-
+      {columns && vehicles && vehicles.length > 0 && (
+        <DataTable
+          columns={columns()}
+          data={vehicles}
+          filterColumn={""}
+          filterPlaceholder={""}
+          // csv_headers={[]}
+          // csv_rows={[]}
+          href={`/vehicles`}
+        />
+      )}
     </div>
-  )
+  );
 }

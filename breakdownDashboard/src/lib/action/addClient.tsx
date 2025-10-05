@@ -87,7 +87,7 @@ export interface TowingCompany {
 export async function addExternalClient(client: ExternalClient) {
   const supabase = await createClient();
   try {
-    const { data, error } = await supabase.from('client').insert([
+    const { data, error } = await supabase.from('clients').insert([
       { ...client }
     ]);
     if (error) throw error;
@@ -100,7 +100,7 @@ export async function addExternalClient(client: ExternalClient) {
 export async function addSubcontractor(sub: Subcontractor) {
   const supabase = await createClient();
   try {
-    const { data, error } = await supabase.from('client').insert([
+    const { data, error } = await supabase.from('clients').insert([
       { ...sub }
     ]);
     if (error) throw error;
@@ -113,7 +113,7 @@ export async function addSubcontractor(sub: Subcontractor) {
 export async function addTowingCompany(company: TowingCompany) {
   const supabase = await createClient();
   try {
-    const { data, error } = await supabase.from('client').insert([
+    const { data, error } = await supabase.from('clients').insert([
       { ...company }
     ]);
     if (error) throw error;

@@ -82,10 +82,9 @@ const CostCentreForm = ({ id, onCancel }) => {
   }
 
   const onSubmit = async (data) => {
-    // upsertCostCentre(id, data, costCentresDispatch)
-    const { data: costDetails, error } = await supabase
-      .from('breakdown_cost_centers')
-      .upsert({
+    // Use the context API so reducers/UI update immediately
+    try {
+      const payload = {
         id: data.id || undefined,
         name: data.name,
         street: data.street,
@@ -100,13 +99,25 @@ const CostCentreForm = ({ id, onCancel }) => {
         established: data.established,
         budget: data.budget,
         description: data.description,
-      }, { onConflict: 'id' });
+      }
 
+      // call the context API which will dispatch the appropriate actions
+      console.debug('upsertCostCentre payload:', payload)
+      await upsertCostCentre(data.id || null, payload, costCentresDispatch)
 
-    if (!error || costDetails) {
-      alert('There was a successful saving the cost center.')
-    } else {
-      console.log('Error saving, Cost center: ', costDetails)
+      // log current context list to help debug DataTable updates
+      try {
+        console.debug('cost_centres after upsert:', cost_centres?.data)
+      } catch (e) {
+        console.error('Error reading cost_centres after upsert', e)
+      }
+
+      // close modal / form
+      if (typeof setModalOpen === 'function') setModalOpen(false)
+      if (typeof onCancel === 'function') onCancel()
+    } catch (err) {
+      console.error('Error saving cost centre via context API', err)
+      alert('There was an error saving the cost centre. Please try again.')
     }
   }
 

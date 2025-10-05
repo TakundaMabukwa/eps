@@ -35,16 +35,17 @@ export function DriversVehiclesSection({
   const { current_user } = useAuth()
   const { cost_centres } = useGlobalContext()
 
-  // console.log('current_user', current_user?.currentUser?.costCentre)
+  console.log('current_user', current_user?.currentUser?.costCentre)
   const selectedCostCentre =
     cost_centres?.data.find((c) => c.id === formData.costCentre)?.name ||
     current_user?.currentUser?.costCentre
 
-  const horses = vehicles?.data.filter(
-    (v) => v.type === 'Vehicle' && v.costCentre === selectedCostCentre
+  // Replace all occurrences of vehicles?.data with vehicles (and fallback to [])
+  const horses = (vehicles || []).filter(
+    (v) => v.type === 'vehicle' && v.costCentre === selectedCostCentre
   )
-  const trailers = vehicles?.data.filter(
-    (v) => v.type === 'Trailer' && v.costCentre === selectedCostCentre
+  const trailers = (vehicles || []).filter(
+    (v) => v.type === 'trailer' && v.costCentre === selectedCostCentre
   )
   const available_drivers = drivers?.data?.filter(
     (d) => d.status === 'available' && d.costCentre === selectedCostCentre

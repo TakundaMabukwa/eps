@@ -13,7 +13,7 @@ import {
   createActionsColumn,
 } from '../ui/data-table'
 import DetailActionBar from '@/components/layout/detail-action-bar'
-import Loading from '@/components/ui/loading'
+// import Loading from '@/components/ui/loading'
 import DetailCard from '@/components/ui/detail-card'
 
 // icons
@@ -573,7 +573,8 @@ export default function ClientDetails({ id }) {
           </Tabs>
         </div>
       ) : (
-        <Loading />
+        // <Loading />
+        <div>Loading...</div>
       )}
     </>
   )

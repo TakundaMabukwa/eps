@@ -68,7 +68,7 @@ export function BasicInfoSection({
               </SelectTrigger>
               <SelectContent>
                 {costCentres?.map((centre) => (
-                  <SelectItem key={centre.id} value={centre.name}>
+                  <SelectItem key={centre.id} value={centre.id}>
                     {centre.name}
                   </SelectItem>
                 ))}

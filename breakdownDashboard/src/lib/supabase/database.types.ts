@@ -14,11 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      billing_log: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string | null
+          process_date: string
+          process_type: string
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          process_date?: string
+          process_type: string
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          process_date?: string
+          process_type?: string
+          status?: string
+        }
+        Relationships: []
+      }
       breakdown_cost_centers: {
         Row: {
           budget: number | null
           city: string | null
           coords: string | null
+          cost_id: string | null
           country: string | null
           description: string | null
           established: string | null
@@ -36,6 +64,7 @@ export type Database = {
           budget?: number | null
           city?: string | null
           coords?: string | null
+          cost_id?: string | null
           country?: string | null
           description?: string | null
           established?: string | null
@@ -53,6 +82,7 @@ export type Database = {
           budget?: number | null
           city?: string | null
           coords?: string | null
+          cost_id?: string | null
           country?: string | null
           description?: string | null
           established?: string | null
@@ -346,14 +376,17 @@ export type Database = {
           address: string | null
           city: string | null
           ck_number: string | null
+          client_id: string | null
           contact_person: string | null
           coords: string | null
           country: string | null
+          dropoff_locations: Json | null
           email: string | null
           id: number
           industry: string | null
           name: string
           phone: string | null
+          pickup_locations: Json | null
           state: string | null
           status: string
           street: string | null
@@ -364,14 +397,17 @@ export type Database = {
           address?: string | null
           city?: string | null
           ck_number?: string | null
+          client_id?: string | null
           contact_person?: string | null
           coords?: string | null
           country?: string | null
+          dropoff_locations?: Json | null
           email?: string | null
           id?: number
           industry?: string | null
           name?: string
           phone?: string | null
+          pickup_locations?: Json | null
           state?: string | null
           status?: string
           street?: string | null
@@ -382,14 +418,17 @@ export type Database = {
           address?: string | null
           city?: string | null
           ck_number?: string | null
+          client_id?: string | null
           contact_person?: string | null
           coords?: string | null
           country?: string | null
+          dropoff_locations?: Json | null
           email?: string | null
           id?: number
           industry?: string | null
           name?: string
           phone?: string | null
+          pickup_locations?: Json | null
           state?: string | null
           status?: string
           street?: string | null
@@ -463,31 +502,22 @@ export type Database = {
       }
       cost_centers: {
         Row: {
-          branch: string | null
           company: string | null
           cost_code: string | null
           created_at: string
-          id: number
-          new_account_number: string | null
-          unique_id: string | null
+          id: string
         }
         Insert: {
-          branch?: string | null
           company?: string | null
           cost_code?: string | null
           created_at?: string
-          id?: number
-          new_account_number?: string | null
-          unique_id?: string | null
+          id?: string
         }
         Update: {
-          branch?: string | null
           company?: string | null
           cost_code?: string | null
           created_at?: string
-          id?: number
-          new_account_number?: string | null
-          unique_id?: string | null
+          id?: string
         }
         Relationships: []
       }
@@ -1031,6 +1061,69 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_vehicle_premiums: {
+        Row: {
+          adjusted_performance_rating: number
+          adjusted_premium: number
+          adjustment_amount: number
+          adjustment_percentage: number
+          base_premium: number
+          created_at: string | null
+          driver_id: string | null
+          driver_name: string
+          efficiency: number
+          id: string
+          is_low_performance: boolean
+          month: number
+          performance_rating: number
+          plate: string
+          safety_score: number
+          tolerance_percentage: number | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          adjusted_performance_rating: number
+          adjusted_premium: number
+          adjustment_amount: number
+          adjustment_percentage: number
+          base_premium: number
+          created_at?: string | null
+          driver_id?: string | null
+          driver_name: string
+          efficiency: number
+          id?: string
+          is_low_performance?: boolean
+          month: number
+          performance_rating: number
+          plate: string
+          safety_score: number
+          tolerance_percentage?: number | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          adjusted_performance_rating?: number
+          adjusted_premium?: number
+          adjustment_amount?: number
+          adjustment_percentage?: number
+          base_premium?: number
+          created_at?: string | null
+          driver_id?: string | null
+          driver_name?: string
+          efficiency?: number
+          id?: string
+          is_low_performance?: boolean
+          month?: number
+          performance_rating?: number
+          plate?: string
+          safety_score?: number
+          tolerance_percentage?: number | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           cell_number: string | null
@@ -1103,43 +1196,118 @@ export type Database = {
         }
         Relationships: []
       }
+      eps_biweekly_category_points: {
+        Row: {
+          created_at: string | null
+          day_driving_cap: number
+          day_driving_earned: number
+          driver_name: string
+          harsh_braking_cap: number
+          harsh_braking_earned: number
+          haul_type: string
+          id: number
+          night_driving_cap: number
+          night_driving_earned: number
+          period_end: string
+          period_start: string
+          plate: string
+          speed_compliance_cap: number
+          speed_compliance_earned: number
+          total_points_earned: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_driving_cap?: number
+          day_driving_earned?: number
+          driver_name: string
+          harsh_braking_cap?: number
+          harsh_braking_earned?: number
+          haul_type: string
+          id?: number
+          night_driving_cap?: number
+          night_driving_earned?: number
+          period_end: string
+          period_start: string
+          plate: string
+          speed_compliance_cap?: number
+          speed_compliance_earned?: number
+          total_points_earned?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_driving_cap?: number
+          day_driving_earned?: number
+          driver_name?: string
+          harsh_braking_cap?: number
+          harsh_braking_earned?: number
+          haul_type?: string
+          id?: number
+          night_driving_cap?: number
+          night_driving_earned?: number
+          period_end?: string
+          period_start?: string
+          plate?: string
+          speed_compliance_cap?: number
+          speed_compliance_earned?: number
+          total_points_earned?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       eps_daily_stats: {
         Row: {
           created_at: string | null
           date: string
+          day_driving_hours: number | null
           driver_name: string
+          first_drive_time: string | null
           id: number
+          last_drive_time: string | null
+          night_driving_hours: number | null
           night_driving_violations: number | null
           plate: string
           route_violations: number | null
           speed_violations: number | null
           total_distance: number | null
+          total_driving_hours: number | null
           total_points: number | null
           total_violations: number | null
         }
         Insert: {
           created_at?: string | null
           date: string
+          day_driving_hours?: number | null
           driver_name: string
+          first_drive_time?: string | null
           id?: number
+          last_drive_time?: string | null
+          night_driving_hours?: number | null
           night_driving_violations?: number | null
           plate: string
           route_violations?: number | null
           speed_violations?: number | null
           total_distance?: number | null
+          total_driving_hours?: number | null
           total_points?: number | null
           total_violations?: number | null
         }
         Update: {
           created_at?: string | null
           date?: string
+          day_driving_hours?: number | null
           driver_name?: string
+          first_drive_time?: string | null
           id?: number
+          last_drive_time?: string | null
+          night_driving_hours?: number | null
           night_driving_violations?: number | null
           plate?: string
           route_violations?: number | null
           speed_violations?: number | null
           total_distance?: number | null
+          total_driving_hours?: number | null
           total_points?: number | null
           total_violations?: number | null
         }
@@ -1280,6 +1448,102 @@ export type Database = {
         }
         Relationships: []
       }
+      eps_drivers: {
+        Row: {
+          additional_info: string | null
+          address: string | null
+          cell_number: string | null
+          cellular: string | null
+          code: string | null
+          created_at: string
+          driver_restriction_code: string | null
+          driver_status: string | null
+          email_address: string | null
+          eps_validation: boolean | null
+          first_name: string
+          id: string
+          identification_document_url: string | null
+          identification_number: string | null
+          is_active: boolean | null
+          license_code: string | null
+          license_expiry_date: string | null
+          license_front_url: string | null
+          license_number: string | null
+          license_rear_url: string | null
+          managed_code: string | null
+          new_account_number: string
+          pdp_expiry_date: string | null
+          professional_driving_permit: boolean | null
+          sa_issued: boolean | null
+          surname: string
+          updated_at: string
+          vehicle_restriction_code: string | null
+          work_permit_url: string | null
+        }
+        Insert: {
+          additional_info?: string | null
+          address?: string | null
+          cell_number?: string | null
+          cellular?: string | null
+          code?: string | null
+          created_at?: string
+          driver_restriction_code?: string | null
+          driver_status?: string | null
+          email_address?: string | null
+          eps_validation?: boolean | null
+          first_name: string
+          id?: string
+          identification_document_url?: string | null
+          identification_number?: string | null
+          is_active?: boolean | null
+          license_code?: string | null
+          license_expiry_date?: string | null
+          license_front_url?: string | null
+          license_number?: string | null
+          license_rear_url?: string | null
+          managed_code?: string | null
+          new_account_number?: string
+          pdp_expiry_date?: string | null
+          professional_driving_permit?: boolean | null
+          sa_issued?: boolean | null
+          surname: string
+          updated_at?: string
+          vehicle_restriction_code?: string | null
+          work_permit_url?: string | null
+        }
+        Update: {
+          additional_info?: string | null
+          address?: string | null
+          cell_number?: string | null
+          cellular?: string | null
+          code?: string | null
+          created_at?: string
+          driver_restriction_code?: string | null
+          driver_status?: string | null
+          email_address?: string | null
+          eps_validation?: boolean | null
+          first_name?: string
+          id?: string
+          identification_document_url?: string | null
+          identification_number?: string | null
+          is_active?: boolean | null
+          license_code?: string | null
+          license_expiry_date?: string | null
+          license_front_url?: string | null
+          license_number?: string | null
+          license_rear_url?: string | null
+          managed_code?: string | null
+          new_account_number?: string
+          pdp_expiry_date?: string | null
+          professional_driving_permit?: boolean | null
+          sa_issued?: boolean | null
+          surname?: string
+          updated_at?: string
+          vehicle_restriction_code?: string | null
+          work_permit_url?: string | null
+        }
+        Relationships: []
+      }
       inspections: {
         Row: {
           category: string | null
@@ -1333,6 +1597,102 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      insurance_summaries: {
+        Row: {
+          add_10_inflation: number
+          claims_3_years: number
+          combined_claims: number
+          combined_monthly_premium: number
+          created_at: string | null
+          file_name: string | null
+          id: string
+          insurer_60_costs: number
+          loss_ratio: number
+          month: number
+          monthly_premium: number
+          monthly_premium_36_months: number
+          processing_timestamp: string | null
+          rate_applicable: number
+          total_claim_inflation_costs: number
+          total_claims_processed: number | null
+          total_fleet_value: number
+          trailer_claims: number
+          trailer_excess: number
+          trailer_fleet_value: number | null
+          trailer_insurer_claim: number
+          trailer_monthly_premium: number
+          truck_claims: number
+          truck_excess: number
+          truck_fleet_value: number | null
+          truck_insurer_claim: number
+          truck_monthly_premium: number
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          add_10_inflation?: number
+          claims_3_years?: number
+          combined_claims?: number
+          combined_monthly_premium?: number
+          created_at?: string | null
+          file_name?: string | null
+          id?: string
+          insurer_60_costs?: number
+          loss_ratio?: number
+          month: number
+          monthly_premium?: number
+          monthly_premium_36_months?: number
+          processing_timestamp?: string | null
+          rate_applicable?: number
+          total_claim_inflation_costs?: number
+          total_claims_processed?: number | null
+          total_fleet_value?: number
+          trailer_claims?: number
+          trailer_excess?: number
+          trailer_fleet_value?: number | null
+          trailer_insurer_claim?: number
+          trailer_monthly_premium?: number
+          truck_claims?: number
+          truck_excess?: number
+          truck_fleet_value?: number | null
+          truck_insurer_claim?: number
+          truck_monthly_premium?: number
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          add_10_inflation?: number
+          claims_3_years?: number
+          combined_claims?: number
+          combined_monthly_premium?: number
+          created_at?: string | null
+          file_name?: string | null
+          id?: string
+          insurer_60_costs?: number
+          loss_ratio?: number
+          month?: number
+          monthly_premium?: number
+          monthly_premium_36_months?: number
+          processing_timestamp?: string | null
+          rate_applicable?: number
+          total_claim_inflation_costs?: number
+          total_claims_processed?: number | null
+          total_fleet_value?: number
+          trailer_claims?: number
+          trailer_excess?: number
+          trailer_fleet_value?: number | null
+          trailer_insurer_claim?: number
+          trailer_monthly_premium?: number
+          truck_claims?: number
+          truck_excess?: number
+          truck_fleet_value?: number | null
+          truck_insurer_claim?: number
+          truck_monthly_premium?: number
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
       }
       inventory: {
         Row: {
@@ -2124,6 +2484,90 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_fleet_stats: {
+        Row: {
+          average_performance_rating: number
+          avg_km_per_day: number
+          avg_km_per_trip: number
+          avg_km_per_vehicle: number
+          avg_trips_per_vehicle: number
+          created_at: string | null
+          harsh_acceleration_events: number
+          harsh_braking_events: number
+          id: string
+          month: number
+          night_driving_violations: number
+          overall_risk_score: number
+          speed_violations: number
+          total_drivers: number
+          total_driving_hours: number
+          total_idle_time: number
+          total_kilometres: number
+          total_speeding_duration: number
+          total_trips: number
+          total_vehicles: number
+          trips_over_5km: number
+          updated_at: string | null
+          vehicles_not_reporting: number
+          vehicles_reporting: number
+          year: number
+        }
+        Insert: {
+          average_performance_rating?: number
+          avg_km_per_day?: number
+          avg_km_per_trip?: number
+          avg_km_per_vehicle?: number
+          avg_trips_per_vehicle?: number
+          created_at?: string | null
+          harsh_acceleration_events?: number
+          harsh_braking_events?: number
+          id?: string
+          month: number
+          night_driving_violations?: number
+          overall_risk_score?: number
+          speed_violations?: number
+          total_drivers?: number
+          total_driving_hours?: number
+          total_idle_time?: number
+          total_kilometres?: number
+          total_speeding_duration?: number
+          total_trips?: number
+          total_vehicles?: number
+          trips_over_5km?: number
+          updated_at?: string | null
+          vehicles_not_reporting?: number
+          vehicles_reporting?: number
+          year: number
+        }
+        Update: {
+          average_performance_rating?: number
+          avg_km_per_day?: number
+          avg_km_per_trip?: number
+          avg_km_per_vehicle?: number
+          avg_trips_per_vehicle?: number
+          created_at?: string | null
+          harsh_acceleration_events?: number
+          harsh_braking_events?: number
+          id?: string
+          month?: number
+          night_driving_violations?: number
+          overall_risk_score?: number
+          speed_violations?: number
+          total_drivers?: number
+          total_driving_hours?: number
+          total_idle_time?: number
+          total_kilometres?: number
+          total_speeding_duration?: number
+          total_trips?: number
+          total_vehicles?: number
+          trips_over_5km?: number
+          updated_at?: string | null
+          vehicles_not_reporting?: number
+          vehicles_reporting?: number
+          year?: number
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount_due: number | null
@@ -2163,6 +2607,63 @@ export type Database = {
           second_month?: number | null
           third_month?: number | null
           total_amount?: number | null
+        }
+        Relationships: []
+      }
+      payments_: {
+        Row: {
+          balance_due: number | null
+          billing_month: string | null
+          company: string | null
+          cost_code: string | null
+          created_at: string
+          due_amount: number | null
+          due_date: string | null
+          id: string
+          invoice_date: string | null
+          last_updated: string | null
+          overdue_30_days: number | null
+          overdue_60_days: number | null
+          overdue_90_days: number | null
+          paid_amount: number | null
+          payment_status: string | null
+          reference: string | null
+        }
+        Insert: {
+          balance_due?: number | null
+          billing_month?: string | null
+          company?: string | null
+          cost_code?: string | null
+          created_at?: string
+          due_amount?: number | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          last_updated?: string | null
+          overdue_30_days?: number | null
+          overdue_60_days?: number | null
+          overdue_90_days?: number | null
+          paid_amount?: number | null
+          payment_status?: string | null
+          reference?: string | null
+        }
+        Update: {
+          balance_due?: number | null
+          billing_month?: string | null
+          company?: string | null
+          cost_code?: string | null
+          created_at?: string
+          due_amount?: number | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          last_updated?: string | null
+          overdue_30_days?: number | null
+          overdue_60_days?: number | null
+          overdue_90_days?: number | null
+          paid_amount?: number | null
+          payment_status?: string | null
+          reference?: string | null
         }
         Relationships: []
       }
@@ -2564,6 +3065,7 @@ export type Database = {
         Row: {
           cargo: string | null
           cargo_weight: string | null
+          cargoWeight: number | null
           client_details: Json | null
           cost_centre: string | null
           destination: string | null
@@ -2594,6 +3096,7 @@ export type Database = {
         Insert: {
           cargo?: string | null
           cargo_weight?: string | null
+          cargoWeight?: number | null
           client_details?: Json | null
           cost_centre?: string | null
           destination?: string | null
@@ -2624,6 +3127,7 @@ export type Database = {
         Update: {
           cargo?: string | null
           cargo_weight?: string | null
+          cargoWeight?: number | null
           client_details?: Json | null
           cost_centre?: string | null
           destination?: string | null
@@ -3424,6 +3928,698 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_rewards: {
+        Row: {
+          claim_type: string
+          created_at: string | null
+          driver_name: string
+          eligibility: string
+          excess_amount: number
+          gross_incurred: number
+          id: string
+          insurance_summary_id: string | null
+          insurer_claim_amount: number
+          month: number
+          plate: string
+          reward_amount: number
+          total_points: number
+          vehicle_type: string
+          year: number
+        }
+        Insert: {
+          claim_type: string
+          created_at?: string | null
+          driver_name: string
+          eligibility?: string
+          excess_amount?: number
+          gross_incurred?: number
+          id?: string
+          insurance_summary_id?: string | null
+          insurer_claim_amount?: number
+          month: number
+          plate: string
+          reward_amount?: number
+          total_points?: number
+          vehicle_type: string
+          year: number
+        }
+        Update: {
+          claim_type?: string
+          created_at?: string | null
+          driver_name?: string
+          eligibility?: string
+          excess_amount?: number
+          gross_incurred?: number
+          id?: string
+          insurance_summary_id?: string | null
+          insurer_claim_amount?: number
+          month?: number
+          plate?: string
+          reward_amount?: number
+          total_points?: number
+          vehicle_type?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_rewards_insurance_summary_id_fkey"
+            columns: ["insurance_summary_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_summaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          _10m_cable_for_camera_4pin: string | null
+          _10m_cable_for_camera_4pin_rental: string | null
+          _1m_extension_cable: string | null
+          _1m_extension_cable_rental: string | null
+          _3m_extension_cable: string | null
+          _3m_extension_cable_rental: string | null
+          _4ch_mdvr: string | null
+          _4ch_mdvr_rental: string | null
+          _4ch_mdvr_sub: string | null
+          _5ch_mdvr: string | null
+          _5ch_mdvr_rental: string | null
+          _5ch_mdvr_sub: string | null
+          _5m_cable_6pin: string | null
+          _5m_cable_6pin_rental: string | null
+          _5m_cable_for_camera_4pin: string | null
+          _5m_cable_for_camera_4pin_rental: string | null
+          _7m_harness_for_probe: string | null
+          _7m_harness_for_probe_rental: string | null
+          _8ch_mdvr: string | null
+          _8ch_mdvr_rental: string | null
+          _8ch_mdvr_sub: string | null
+          a2_dash_cam: string | null
+          a2_dash_cam_rental: string | null
+          a2_dash_cam_sub: string | null
+          a2_mec_5: string | null
+          a2_mec_5_rental: string | null
+          a3_dash_cam_ai: string | null
+          a3_dash_cam_ai_rental: string | null
+          account_number: string | null
+          adas_02_road_facing: string | null
+          adas_02_road_facing_rental: string | null
+          after_hours: string | null
+          beame_1: string | null
+          beame_1_rental: string | null
+          beame_1_sub: string | null
+          beame_2: string | null
+          beame_2_rental: string | null
+          beame_2_sub: string | null
+          beame_3: string | null
+          beame_3_rental: string | null
+          beame_3_sub: string | null
+          beame_4: string | null
+          beame_4_rental: string | null
+          beame_4_sub: string | null
+          beame_5: string | null
+          beame_5_rental: string | null
+          beame_5_sub: string | null
+          branch: string | null
+          breathaloc: string | null
+          breathaloc_rental: string | null
+          buzzer: string | null
+          buzzer_rental: string | null
+          cia: string | null
+          cia_rental: string | null
+          colour: string | null
+          company: string | null
+          consultancy: string | null
+          controlroom: string | null
+          corpconnect_data_no: string | null
+          corpconnect_sim_no: string | null
+          created_at: string
+          data_number: string | null
+          dms01_driver_facing: string | null
+          dms01_driver_facing_rental: string | null
+          dual_probe_rental: string | null
+          dual_probe_sub: string | null
+          early_warning: string | null
+          early_warning_rental: string | null
+          engine: string | null
+          flat_panic: string | null
+          flat_panic_rental: string | null
+          fleet_number: string | null
+          fm_unit: string | null
+          fm_unit_rental: string | null
+          fm_unit_sub: string | null
+          fuel_probe_1: string | null
+          fuel_probe_2: string | null
+          gps: string | null
+          gps_rental: string | null
+          gsm: string | null
+          gsm_rental: string | null
+          id: number
+          idata: string | null
+          idata_rental: string | null
+          industrial_panic: string | null
+          industrial_panic_rental: string | null
+          keypad: string | null
+          keypad_rental: string | null
+          keypad_waterproof: string | null
+          main_fm_harness: string | null
+          main_fm_harness_rental: string | null
+          maintenance: string | null
+          make: string | null
+          mic: string | null
+          mic_rental: string | null
+          model: string | null
+          new_account_number: string | null
+          pfk_10m: string | null
+          pfk_10m_rental: string | null
+          pfk_15m: string | null
+          pfk_15m_rental: string | null
+          pfk_20m: string | null
+          pfk_20m_rental: string | null
+          pfk_5m: string | null
+          pfk_5m_rental: string | null
+          pfk_corpconnect_data_number: string | null
+          pfk_corpconnect_sim_number: string | null
+          pfk_dome_1: string | null
+          pfk_dome_1_rental: string | null
+          pfk_dome_2: string | null
+          pfk_dome_2_rental: string | null
+          pfk_driver_facing: string | null
+          pfk_driver_facing_rental: string | null
+          pfk_main_unit: string | null
+          pfk_main_unit_rental: string | null
+          pfk_main_unit_sub: string | null
+          pfk_road_facing: string | null
+          pfk_road_facing_rental: string | null
+          reg: string | null
+          roaming: string | null
+          roller_door_switches: string | null
+          roller_door_switches_rental: string | null
+          sd_card_1tb: string | null
+          sd_card_1tb_rental: string | null
+          sd_card_250gb: string | null
+          sd_card_250gb_rental: string | null
+          sd_card_256gb: string | null
+          sd_card_256gb_rental: string | null
+          sd_card_2tb: string | null
+          sd_card_2tb_rental: string | null
+          sd_card_480gb: string | null
+          sd_card_480gb_rental: string | null
+          sd_card_512gb: string | null
+          sd_card_512gb_rental: string | null
+          sim_card_number: string | null
+          sim_id: string | null
+          single_probe_rental: string | null
+          single_probe_sub: string | null
+          sky_ican: string | null
+          sky_ican_rental: string | null
+          sky_idata: string | null
+          sky_idata_rental: string | null
+          sky_on_batt_ign_rental: string | null
+          sky_on_batt_ign_unit_ip: string | null
+          sky_on_batt_ign_unit_serial_number: string | null
+          sky_on_batt_sub: string | null
+          sky_safety: string | null
+          sky_scout_12v_ip: string | null
+          sky_scout_12v_rental: string | null
+          sky_scout_12v_serial_number: string | null
+          sky_scout_12v_sub: string | null
+          sky_scout_24v_ip: string | null
+          sky_scout_24v_rental: string | null
+          sky_scout_24v_serial_number: string | null
+          sky_scout_24v_sub: string | null
+          skylink_data_number: string | null
+          skylink_pro_ip: string | null
+          skylink_pro_rental: string | null
+          skylink_pro_serial_number: string | null
+          skylink_pro_sub: string | null
+          skylink_sim_card_no: string | null
+          skylink_trailer_sub: string | null
+          skylink_trailer_unit_ip: string | null
+          skylink_trailer_unit_rental: string | null
+          skylink_trailer_unit_serial_number: string | null
+          skylink_voice_kit_ip: string | null
+          skylink_voice_kit_rental: string | null
+          skylink_voice_kit_serial_number: string | null
+          skylink_voice_kit_sub: string | null
+          speaker: string | null
+          speaker_rental: string | null
+          tag: string | null
+          tag_: string | null
+          tag_reader: string | null
+          tag_reader_: string | null
+          tag_reader_rental: string | null
+          tag_reader_rental_: string | null
+          tag_rental: string | null
+          tag_rental_: string | null
+          total_rental: number | null
+          total_rental_sub: number | null
+          total_sub: number | null
+          tpiece: string | null
+          tpiece_rental: string | null
+          unique_id: string | null
+          vin: string | null
+          vw100ip_driver_facing_ip: string | null
+          vw100ip_driver_facing_rental: string | null
+          vw300_dakkie_dome_1: string | null
+          vw300_dakkie_dome_1_rental: string | null
+          vw300_dakkie_dome_2: string | null
+          vw300_dakkie_dome_2_rental: string | null
+          vw303_driver_facing_camera: string | null
+          vw303_driver_facing_camera_rental: string | null
+          vw306_dvr_road_facing_for_4ch_8ch: string | null
+          vw306_dvr_road_facing_for_4ch_8ch_rental: string | null
+          vw306m_a2_dash_cam: string | null
+          vw306m_a2_dash_cam_rental: string | null
+          vw400_dome_1: string | null
+          vw400_dome_1_rental: string | null
+          vw400_dome_2: string | null
+          vw400_dome_2_rental: string | null
+          vw502_dual_lens_camera: string | null
+          vw502_dual_lens_camera_rental: string | null
+          vw502f_road_facing_camera: string | null
+          vw502f_road_facing_camera_rental: string | null
+          year: string | null
+        }
+        Insert: {
+          _10m_cable_for_camera_4pin?: string | null
+          _10m_cable_for_camera_4pin_rental?: string | null
+          _1m_extension_cable?: string | null
+          _1m_extension_cable_rental?: string | null
+          _3m_extension_cable?: string | null
+          _3m_extension_cable_rental?: string | null
+          _4ch_mdvr?: string | null
+          _4ch_mdvr_rental?: string | null
+          _4ch_mdvr_sub?: string | null
+          _5ch_mdvr?: string | null
+          _5ch_mdvr_rental?: string | null
+          _5ch_mdvr_sub?: string | null
+          _5m_cable_6pin?: string | null
+          _5m_cable_6pin_rental?: string | null
+          _5m_cable_for_camera_4pin?: string | null
+          _5m_cable_for_camera_4pin_rental?: string | null
+          _7m_harness_for_probe?: string | null
+          _7m_harness_for_probe_rental?: string | null
+          _8ch_mdvr?: string | null
+          _8ch_mdvr_rental?: string | null
+          _8ch_mdvr_sub?: string | null
+          a2_dash_cam?: string | null
+          a2_dash_cam_rental?: string | null
+          a2_dash_cam_sub?: string | null
+          a2_mec_5?: string | null
+          a2_mec_5_rental?: string | null
+          a3_dash_cam_ai?: string | null
+          a3_dash_cam_ai_rental?: string | null
+          account_number?: string | null
+          adas_02_road_facing?: string | null
+          adas_02_road_facing_rental?: string | null
+          after_hours?: string | null
+          beame_1?: string | null
+          beame_1_rental?: string | null
+          beame_1_sub?: string | null
+          beame_2?: string | null
+          beame_2_rental?: string | null
+          beame_2_sub?: string | null
+          beame_3?: string | null
+          beame_3_rental?: string | null
+          beame_3_sub?: string | null
+          beame_4?: string | null
+          beame_4_rental?: string | null
+          beame_4_sub?: string | null
+          beame_5?: string | null
+          beame_5_rental?: string | null
+          beame_5_sub?: string | null
+          branch?: string | null
+          breathaloc?: string | null
+          breathaloc_rental?: string | null
+          buzzer?: string | null
+          buzzer_rental?: string | null
+          cia?: string | null
+          cia_rental?: string | null
+          colour?: string | null
+          company?: string | null
+          consultancy?: string | null
+          controlroom?: string | null
+          corpconnect_data_no?: string | null
+          corpconnect_sim_no?: string | null
+          created_at?: string
+          data_number?: string | null
+          dms01_driver_facing?: string | null
+          dms01_driver_facing_rental?: string | null
+          dual_probe_rental?: string | null
+          dual_probe_sub?: string | null
+          early_warning?: string | null
+          early_warning_rental?: string | null
+          engine?: string | null
+          flat_panic?: string | null
+          flat_panic_rental?: string | null
+          fleet_number?: string | null
+          fm_unit?: string | null
+          fm_unit_rental?: string | null
+          fm_unit_sub?: string | null
+          fuel_probe_1?: string | null
+          fuel_probe_2?: string | null
+          gps?: string | null
+          gps_rental?: string | null
+          gsm?: string | null
+          gsm_rental?: string | null
+          id?: number
+          idata?: string | null
+          idata_rental?: string | null
+          industrial_panic?: string | null
+          industrial_panic_rental?: string | null
+          keypad?: string | null
+          keypad_rental?: string | null
+          keypad_waterproof?: string | null
+          main_fm_harness?: string | null
+          main_fm_harness_rental?: string | null
+          maintenance?: string | null
+          make?: string | null
+          mic?: string | null
+          mic_rental?: string | null
+          model?: string | null
+          new_account_number?: string | null
+          pfk_10m?: string | null
+          pfk_10m_rental?: string | null
+          pfk_15m?: string | null
+          pfk_15m_rental?: string | null
+          pfk_20m?: string | null
+          pfk_20m_rental?: string | null
+          pfk_5m?: string | null
+          pfk_5m_rental?: string | null
+          pfk_corpconnect_data_number?: string | null
+          pfk_corpconnect_sim_number?: string | null
+          pfk_dome_1?: string | null
+          pfk_dome_1_rental?: string | null
+          pfk_dome_2?: string | null
+          pfk_dome_2_rental?: string | null
+          pfk_driver_facing?: string | null
+          pfk_driver_facing_rental?: string | null
+          pfk_main_unit?: string | null
+          pfk_main_unit_rental?: string | null
+          pfk_main_unit_sub?: string | null
+          pfk_road_facing?: string | null
+          pfk_road_facing_rental?: string | null
+          reg?: string | null
+          roaming?: string | null
+          roller_door_switches?: string | null
+          roller_door_switches_rental?: string | null
+          sd_card_1tb?: string | null
+          sd_card_1tb_rental?: string | null
+          sd_card_250gb?: string | null
+          sd_card_250gb_rental?: string | null
+          sd_card_256gb?: string | null
+          sd_card_256gb_rental?: string | null
+          sd_card_2tb?: string | null
+          sd_card_2tb_rental?: string | null
+          sd_card_480gb?: string | null
+          sd_card_480gb_rental?: string | null
+          sd_card_512gb?: string | null
+          sd_card_512gb_rental?: string | null
+          sim_card_number?: string | null
+          sim_id?: string | null
+          single_probe_rental?: string | null
+          single_probe_sub?: string | null
+          sky_ican?: string | null
+          sky_ican_rental?: string | null
+          sky_idata?: string | null
+          sky_idata_rental?: string | null
+          sky_on_batt_ign_rental?: string | null
+          sky_on_batt_ign_unit_ip?: string | null
+          sky_on_batt_ign_unit_serial_number?: string | null
+          sky_on_batt_sub?: string | null
+          sky_safety?: string | null
+          sky_scout_12v_ip?: string | null
+          sky_scout_12v_rental?: string | null
+          sky_scout_12v_serial_number?: string | null
+          sky_scout_12v_sub?: string | null
+          sky_scout_24v_ip?: string | null
+          sky_scout_24v_rental?: string | null
+          sky_scout_24v_serial_number?: string | null
+          sky_scout_24v_sub?: string | null
+          skylink_data_number?: string | null
+          skylink_pro_ip?: string | null
+          skylink_pro_rental?: string | null
+          skylink_pro_serial_number?: string | null
+          skylink_pro_sub?: string | null
+          skylink_sim_card_no?: string | null
+          skylink_trailer_sub?: string | null
+          skylink_trailer_unit_ip?: string | null
+          skylink_trailer_unit_rental?: string | null
+          skylink_trailer_unit_serial_number?: string | null
+          skylink_voice_kit_ip?: string | null
+          skylink_voice_kit_rental?: string | null
+          skylink_voice_kit_serial_number?: string | null
+          skylink_voice_kit_sub?: string | null
+          speaker?: string | null
+          speaker_rental?: string | null
+          tag?: string | null
+          tag_?: string | null
+          tag_reader?: string | null
+          tag_reader_?: string | null
+          tag_reader_rental?: string | null
+          tag_reader_rental_?: string | null
+          tag_rental?: string | null
+          tag_rental_?: string | null
+          total_rental?: number | null
+          total_rental_sub?: number | null
+          total_sub?: number | null
+          tpiece?: string | null
+          tpiece_rental?: string | null
+          unique_id?: string | null
+          vin?: string | null
+          vw100ip_driver_facing_ip?: string | null
+          vw100ip_driver_facing_rental?: string | null
+          vw300_dakkie_dome_1?: string | null
+          vw300_dakkie_dome_1_rental?: string | null
+          vw300_dakkie_dome_2?: string | null
+          vw300_dakkie_dome_2_rental?: string | null
+          vw303_driver_facing_camera?: string | null
+          vw303_driver_facing_camera_rental?: string | null
+          vw306_dvr_road_facing_for_4ch_8ch?: string | null
+          vw306_dvr_road_facing_for_4ch_8ch_rental?: string | null
+          vw306m_a2_dash_cam?: string | null
+          vw306m_a2_dash_cam_rental?: string | null
+          vw400_dome_1?: string | null
+          vw400_dome_1_rental?: string | null
+          vw400_dome_2?: string | null
+          vw400_dome_2_rental?: string | null
+          vw502_dual_lens_camera?: string | null
+          vw502_dual_lens_camera_rental?: string | null
+          vw502f_road_facing_camera?: string | null
+          vw502f_road_facing_camera_rental?: string | null
+          year?: string | null
+        }
+        Update: {
+          _10m_cable_for_camera_4pin?: string | null
+          _10m_cable_for_camera_4pin_rental?: string | null
+          _1m_extension_cable?: string | null
+          _1m_extension_cable_rental?: string | null
+          _3m_extension_cable?: string | null
+          _3m_extension_cable_rental?: string | null
+          _4ch_mdvr?: string | null
+          _4ch_mdvr_rental?: string | null
+          _4ch_mdvr_sub?: string | null
+          _5ch_mdvr?: string | null
+          _5ch_mdvr_rental?: string | null
+          _5ch_mdvr_sub?: string | null
+          _5m_cable_6pin?: string | null
+          _5m_cable_6pin_rental?: string | null
+          _5m_cable_for_camera_4pin?: string | null
+          _5m_cable_for_camera_4pin_rental?: string | null
+          _7m_harness_for_probe?: string | null
+          _7m_harness_for_probe_rental?: string | null
+          _8ch_mdvr?: string | null
+          _8ch_mdvr_rental?: string | null
+          _8ch_mdvr_sub?: string | null
+          a2_dash_cam?: string | null
+          a2_dash_cam_rental?: string | null
+          a2_dash_cam_sub?: string | null
+          a2_mec_5?: string | null
+          a2_mec_5_rental?: string | null
+          a3_dash_cam_ai?: string | null
+          a3_dash_cam_ai_rental?: string | null
+          account_number?: string | null
+          adas_02_road_facing?: string | null
+          adas_02_road_facing_rental?: string | null
+          after_hours?: string | null
+          beame_1?: string | null
+          beame_1_rental?: string | null
+          beame_1_sub?: string | null
+          beame_2?: string | null
+          beame_2_rental?: string | null
+          beame_2_sub?: string | null
+          beame_3?: string | null
+          beame_3_rental?: string | null
+          beame_3_sub?: string | null
+          beame_4?: string | null
+          beame_4_rental?: string | null
+          beame_4_sub?: string | null
+          beame_5?: string | null
+          beame_5_rental?: string | null
+          beame_5_sub?: string | null
+          branch?: string | null
+          breathaloc?: string | null
+          breathaloc_rental?: string | null
+          buzzer?: string | null
+          buzzer_rental?: string | null
+          cia?: string | null
+          cia_rental?: string | null
+          colour?: string | null
+          company?: string | null
+          consultancy?: string | null
+          controlroom?: string | null
+          corpconnect_data_no?: string | null
+          corpconnect_sim_no?: string | null
+          created_at?: string
+          data_number?: string | null
+          dms01_driver_facing?: string | null
+          dms01_driver_facing_rental?: string | null
+          dual_probe_rental?: string | null
+          dual_probe_sub?: string | null
+          early_warning?: string | null
+          early_warning_rental?: string | null
+          engine?: string | null
+          flat_panic?: string | null
+          flat_panic_rental?: string | null
+          fleet_number?: string | null
+          fm_unit?: string | null
+          fm_unit_rental?: string | null
+          fm_unit_sub?: string | null
+          fuel_probe_1?: string | null
+          fuel_probe_2?: string | null
+          gps?: string | null
+          gps_rental?: string | null
+          gsm?: string | null
+          gsm_rental?: string | null
+          id?: number
+          idata?: string | null
+          idata_rental?: string | null
+          industrial_panic?: string | null
+          industrial_panic_rental?: string | null
+          keypad?: string | null
+          keypad_rental?: string | null
+          keypad_waterproof?: string | null
+          main_fm_harness?: string | null
+          main_fm_harness_rental?: string | null
+          maintenance?: string | null
+          make?: string | null
+          mic?: string | null
+          mic_rental?: string | null
+          model?: string | null
+          new_account_number?: string | null
+          pfk_10m?: string | null
+          pfk_10m_rental?: string | null
+          pfk_15m?: string | null
+          pfk_15m_rental?: string | null
+          pfk_20m?: string | null
+          pfk_20m_rental?: string | null
+          pfk_5m?: string | null
+          pfk_5m_rental?: string | null
+          pfk_corpconnect_data_number?: string | null
+          pfk_corpconnect_sim_number?: string | null
+          pfk_dome_1?: string | null
+          pfk_dome_1_rental?: string | null
+          pfk_dome_2?: string | null
+          pfk_dome_2_rental?: string | null
+          pfk_driver_facing?: string | null
+          pfk_driver_facing_rental?: string | null
+          pfk_main_unit?: string | null
+          pfk_main_unit_rental?: string | null
+          pfk_main_unit_sub?: string | null
+          pfk_road_facing?: string | null
+          pfk_road_facing_rental?: string | null
+          reg?: string | null
+          roaming?: string | null
+          roller_door_switches?: string | null
+          roller_door_switches_rental?: string | null
+          sd_card_1tb?: string | null
+          sd_card_1tb_rental?: string | null
+          sd_card_250gb?: string | null
+          sd_card_250gb_rental?: string | null
+          sd_card_256gb?: string | null
+          sd_card_256gb_rental?: string | null
+          sd_card_2tb?: string | null
+          sd_card_2tb_rental?: string | null
+          sd_card_480gb?: string | null
+          sd_card_480gb_rental?: string | null
+          sd_card_512gb?: string | null
+          sd_card_512gb_rental?: string | null
+          sim_card_number?: string | null
+          sim_id?: string | null
+          single_probe_rental?: string | null
+          single_probe_sub?: string | null
+          sky_ican?: string | null
+          sky_ican_rental?: string | null
+          sky_idata?: string | null
+          sky_idata_rental?: string | null
+          sky_on_batt_ign_rental?: string | null
+          sky_on_batt_ign_unit_ip?: string | null
+          sky_on_batt_ign_unit_serial_number?: string | null
+          sky_on_batt_sub?: string | null
+          sky_safety?: string | null
+          sky_scout_12v_ip?: string | null
+          sky_scout_12v_rental?: string | null
+          sky_scout_12v_serial_number?: string | null
+          sky_scout_12v_sub?: string | null
+          sky_scout_24v_ip?: string | null
+          sky_scout_24v_rental?: string | null
+          sky_scout_24v_serial_number?: string | null
+          sky_scout_24v_sub?: string | null
+          skylink_data_number?: string | null
+          skylink_pro_ip?: string | null
+          skylink_pro_rental?: string | null
+          skylink_pro_serial_number?: string | null
+          skylink_pro_sub?: string | null
+          skylink_sim_card_no?: string | null
+          skylink_trailer_sub?: string | null
+          skylink_trailer_unit_ip?: string | null
+          skylink_trailer_unit_rental?: string | null
+          skylink_trailer_unit_serial_number?: string | null
+          skylink_voice_kit_ip?: string | null
+          skylink_voice_kit_rental?: string | null
+          skylink_voice_kit_serial_number?: string | null
+          skylink_voice_kit_sub?: string | null
+          speaker?: string | null
+          speaker_rental?: string | null
+          tag?: string | null
+          tag_?: string | null
+          tag_reader?: string | null
+          tag_reader_?: string | null
+          tag_reader_rental?: string | null
+          tag_reader_rental_?: string | null
+          tag_rental?: string | null
+          tag_rental_?: string | null
+          total_rental?: number | null
+          total_rental_sub?: number | null
+          total_sub?: number | null
+          tpiece?: string | null
+          tpiece_rental?: string | null
+          unique_id?: string | null
+          vin?: string | null
+          vw100ip_driver_facing_ip?: string | null
+          vw100ip_driver_facing_rental?: string | null
+          vw300_dakkie_dome_1?: string | null
+          vw300_dakkie_dome_1_rental?: string | null
+          vw300_dakkie_dome_2?: string | null
+          vw300_dakkie_dome_2_rental?: string | null
+          vw303_driver_facing_camera?: string | null
+          vw303_driver_facing_camera_rental?: string | null
+          vw306_dvr_road_facing_for_4ch_8ch?: string | null
+          vw306_dvr_road_facing_for_4ch_8ch_rental?: string | null
+          vw306m_a2_dash_cam?: string | null
+          vw306m_a2_dash_cam_rental?: string | null
+          vw400_dome_1?: string | null
+          vw400_dome_1_rental?: string | null
+          vw400_dome_2?: string | null
+          vw400_dome_2_rental?: string | null
+          vw502_dual_lens_camera?: string | null
+          vw502_dual_lens_camera_rental?: string | null
+          vw502f_road_facing_camera?: string | null
+          vw502f_road_facing_camera_rental?: string | null
+          year?: string | null
+        }
+        Relationships: []
+      }
       vehicles_ip: {
         Row: {
           a2_dash_cam: string | null
@@ -4194,9 +5390,121 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      comprehensive_monthly_summary: {
+        Row: {
+          avg_adjusted_premium: number | null
+          avg_performance_rating: number | null
+          claims_3_years: number | null
+          created_at: string | null
+          loss_ratio: number | null
+          month: number | null
+          monthly_premium: number | null
+          overall_risk_score: number | null
+          total_claims_processed: number | null
+          total_drivers_with_premiums: number | null
+          total_fleet_value: number | null
+          total_kilometres: number | null
+          total_reward_amount: number | null
+          total_vehicle_rewards: number | null
+          year: number | null
+        }
+        Relationships: []
+      }
+      cron_job_schedule_help: {
+        Row: {
+          active: boolean | null
+          command: string | null
+          description: string | null
+          jobname: string | null
+          schedule: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          command?: string | null
+          description?: never
+          jobname?: string | null
+          schedule?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          command?: string | null
+          description?: never
+          jobname?: string | null
+          schedule?: string | null
+        }
+        Relationships: []
+      }
+      driver_performance_trends: {
+        Row: {
+          adjusted_performance_rating: number | null
+          adjusted_premium: number | null
+          adjustment_amount: number | null
+          base_premium: number | null
+          driver_id: string | null
+          driver_name: string | null
+          is_low_performance: boolean | null
+          month: number | null
+          performance_rating: number | null
+          plate: string | null
+          prev_adjusted_premium: number | null
+          prev_performance_rating: number | null
+          year: number | null
+        }
+        Relationships: []
+      }
+      monthly_premium_summary: {
+        Row: {
+          avg_adjusted_performance_rating: number | null
+          avg_performance_rating: number | null
+          low_performance_drivers: number | null
+          month: number | null
+          total_adjusted_premium: number | null
+          total_adjustment_amount: number | null
+          total_base_premium: number | null
+          total_drivers: number | null
+          year: number | null
+        }
+        Relationships: []
+      }
+      payments_dashboard: {
+        Row: {
+          balance_due: number | null
+          company: string | null
+          cost_code: string | null
+          invoice_count: number | null
+          last_due_date: string | null
+          last_invoice_date: string | null
+          overdue_30_days: number | null
+          overdue_60_days: number | null
+          overdue_90_days: number | null
+          payment_status: string | null
+          total_due: number | null
+          total_paid: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      calculate_monthly_billing: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      calculate_premium_with_tolerance: {
+        Args: {
+          p_base_premium: number
+          p_efficiency: number
+          p_safety_score: number
+          p_tolerance_percentage?: number
+        }
+        Returns: {
+          adjusted_performance_rating: number
+          adjusted_premium: number
+          adjustment_amount: number
+          adjustment_percentage: number
+          is_low_performance: boolean
+          performance_rating: number
+        }[]
+      }
       generate_job_number: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -4204,6 +5512,42 @@ export type Database = {
       generate_quotation_number: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_available_months: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          has_fleet_stats: boolean
+          has_premiums: boolean
+          has_rewards: boolean
+          has_summaries: boolean
+          month_val: number
+          record_count: number
+          year_val: number
+        }[]
+      }
+      get_month_summary: {
+        Args: { target_month: number; target_year: number }
+        Returns: {
+          fleet_stats: Json
+          premium_data: Json
+          rewards_data: Json
+          summary_data: Json
+        }[]
+      }
+      get_payments_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          balance_due: number
+          company: string
+          cost_code: string
+          last_invoice_date: string
+          overdue_30: number
+          overdue_60: number
+          overdue_90: number
+          payment_status: string
+          total_due: number
+          total_paid: number
+        }[]
       }
       gtrgm_compress: {
         Args: { "": unknown }
@@ -4225,6 +5569,20 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      insert_monthly_premiums: {
+        Args: {
+          p_base_premium: number
+          p_driver_data: Json
+          p_month: number
+          p_tolerance_percentage?: number
+          p_year: number
+        }
+        Returns: undefined
+      }
+      monthly_billing_process: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       reset_loan_vehicles: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -4241,6 +5599,10 @@ export type Database = {
         Args: { "": string }
         Returns: string[]
       }
+      trigger_monthly_billing: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       unaccent: {
         Args: { "": string }
         Returns: string
@@ -4248,6 +5610,10 @@ export type Database = {
       unaccent_init: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      update_overdue_amounts: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       update_payment_months: {
         Args: Record<PropertyKey, never>

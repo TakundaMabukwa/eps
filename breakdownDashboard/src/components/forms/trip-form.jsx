@@ -1,15 +1,15 @@
 'use client'
 
 import { format } from 'date-fns'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Save } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-//import { BasicInfoSection } from './trip-form/basic-info-section'
-//import { ClientSection } from './trip-form/client-section'
+import { BasicInfoSection } from './trip-form/basic-info-section'
+import { ClientSection } from './trip-form/client-section'
 import { DriversVehiclesSection } from './trip-form/drivers-vehicles-section'
 import { LocationsSection } from './trip-form/locations-section'
-//import { WaypointsSection } from './trip-form/waypoints-section'
+import { WaypointsSection } from './trip-form/waypoints-section'
 
 import { useGlobalContext } from '@/context/global-context/context'
 import DynamicInput from '@/components/ui/dynamic-input'
@@ -26,138 +26,121 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { createClient } from '@/lib/supabase/client'
 
 // hooks
 import { getAddressCoordinates } from '@/hooks/get-address-coordinates'
 
-const TripForm = ({ onCancel, id }) => {
-  const {
-    trips,
-    tripsDispatch,
-    t_api,
-    drivers,
-    vehicles,
-    stop_points,
-    cost_centres,
-    clients: _clients,
-  } = useGlobalContext()
-  const costCentres = cost_centres?.data
-  const stopPoints = stop_points?.data
-  const clients = _clients?.data
+const TripForm = ({ onClose, id }) => {
+  const supabase = createClient()
+
+  // Local state for fetched data
+  const [drivers, setDrivers] = useState([])
+  const [vehicles, setVehicles] = useState([])
+  const [clients, setClients] = useState([])
+  const [costCentres, setCostCentres] = useState([])
+  const [stopPoints, setStopPoints] = useState([])
   const [loading, setLoading] = useState(false)
-
-  // Form state
-  const trip = trips?.data.find((t) => t.id === id)
-  const lastId =
-    trips?.length > 0
-      ? Number.parseInt(trips[trips.length - 1].id.split('-')[1])
-      : 0
-  const newId = `TRP-${String(lastId + 1).padStart(3, '0')}`
-
-  const [formData, setFormData] = useState({
-    id: trip?.id || newId,
-    orderNumber: trip?.orderNumber || '',
-    rate: trip?.rate || '',
-    status: 'pending',
-    startDate: trip?.departureTime || format(new Date(), 'yyyy-MM-dd'),
-    endDate: trip?.estimatedArrivalTime || format(new Date(), 'yyyy-MM-dd'),
-    costCentre: trip?.costCentre || '',
-    origin: trip?.pickupLocation || '',
-    destination: '',
-    cargo: trip?.cargo || '',
-    cargoWeight: trip?.cargoWeight || '',
-    notes: trip?.notes || '',
-    drivers: trip?.drivers || [{ id: '', name: '' }],
-    // remove after testing
-    vehicles: [{ id: trip?.vehicleId, name: trip?.vehicle }] || [
-      { id: '', name: '' },
-    ],
-    // updated vehicle
-    vehicleAssignments: trip?.vehicleAssignments || [
-      {
-        vehicle: { id: '', name: '' },
-        drivers: [{ id: '', name: '' }],
-        trailers: [],
-      },
-    ],
-    pickupLocations: [
-      {
-        location: '',
-        address: '',
-        contactPerson: '',
-        contactNumber: '',
-        operatingHours: '',
-        scheduledTime: '',
-        notes: '',
-      },
-    ],
-    dropoffLocations: [
-      {
-        location: '',
-        address: '',
-        contactPerson: '',
-        contactNumber: '',
-        operatingHours: '',
-        scheduledTime: '',
-        notes: '',
-      },
-    ],
-    waypoints: [],
-    selectedStopPoints: [],
-    stopPoints: trip?.stopPoints || [
-      {
-        name: '',
-        address: '',
-        contactPerson: '',
-        contactNumber: '',
-        operatingHours: '',
-        scheduledTime: '',
-        notes: '',
-      },
-    ],
-    selectedClient: trip?.selectedClient || '',
-    clientDetails: {
-      name:
-        clients?.find((client) => client.name === trip?.selectedClient)?.name ||
-        '',
-      email:
-        clients?.find((client) => client.name === trip?.selectedClient)
-          ?.email || '',
-      phone:
-        clients?.find((client) => client.name === trip?.selectedClient)
-          ?.phone || '',
-      address:
-        clients?.find((client) => client.name === trip?.selectedClient)
-          ?.address || '',
-      contactPerson:
-        clients?.find((client) => client.name === trip?.selectedClient)
-          ?.contactPerson || '',
-    },
-    status: trip?.status || 'pending',
-    statusNotes: trip?.statusNotes || '',
-  })
-
+  const [formState, setFormState] = useState(null)
   const [currentTab, setCurrentTab] = useState(0)
+
+  // Fetch all reference data from Supabase on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [{ data: driversData }, { data: vehiclesData }, { data: clientsData }, { data: costCentresData }, { data: stopPointsData }] = await Promise.all([
+          supabase.from('drivers').select('*'),
+          supabase.from('vehiclesc').select('*'),
+          supabase.from('clients').select('*'),
+          supabase.from('breakdown_cost_centers').select('*'), // <-- updated table name
+          supabase.from('stop_points').select('*'),
+        ])
+        setDrivers(driversData || [])
+        setVehicles(vehiclesData || [])
+        setClients(clientsData || [])
+        setCostCentres(costCentresData || [])
+        setStopPoints(stopPointsData || [])
+      } catch (err) {
+        console.error('Error fetching reference data:', err)
+      }
+    }
+    fetchData()
+  }, [])
+
+  // Fetch trip if editing
+  useEffect(() => {
+    const fetchTrip = async () => {
+      if (!id) {
+        // New trip
+        setFormState({
+          id: undefined,
+          trip_id: `TRP-${Date.now()}`,
+          orderNumber: '',
+          rate: '',
+          status: 'pending',
+          startDate: format(new Date(), 'yyyy-MM-dd'),
+          endDate: format(new Date(), 'yyyy-MM-dd'),
+          costCentre: '',
+          origin: '',
+          destination: '',
+          cargo: '',
+          cargoWeight: '',
+          notes: '',
+          drivers: [],
+          vehicles: [],
+          vehicleAssignments: [],
+          pickupLocations: [
+            {
+              location: '',
+              address: '',
+              contactPerson: '',
+              contactNumber: '',
+              operatingHours: '',
+              scheduledTime: '',
+              notes: '',
+            },
+          ],
+          dropoffLocations: [
+            {
+              location: '',
+              address: '',
+              contactPerson: '',
+              contactNumber: '',
+              operatingHours: '',
+              scheduledTime: '',
+              notes: '',
+            },
+          ],
+          waypoints: [],
+          selectedStopPoints: [],
+          stopPoints: [],
+          selectedClient: '',
+          clientDetails: {
+            name: '',
+            email: '',
+            phone: '',
+            address: '',
+            contactPerson: '',
+          },
+          statusNotes: '',
+        })
+      } else {
+        // Editing: fetch trip from Supabase
+        const { data: trip, error } = await supabase.from('trips').select('*').eq('id', id).single()
+        if (error) {
+          console.error('Error fetching trip:', error)
+          return
+        }
+        setFormState(trip)
+      }
+    }
+    fetchTrip()
+  }, [id])
 
   // Handle client selection
   const handleClientChange = (clientId) => {
-    //  console.log('clientId :>> ', clientId)
-    const selectedClient = clients?.find((client) => client.name === clientId)
-
-    if (selectedClient) {
-      setFormData((prev) => ({
-        ...prev,
-        selectedClient: clientId,
-        clientDetails: {
-          name: selectedClient.name || '',
-          email: selectedClient.email || '',
-          phone: selectedClient.phone || '',
-          address: selectedClient.address || '',
-          contactPerson: selectedClient.contactPerson || '',
-        },
-      }))
-    } else {
-      setFormData((prev) => ({
+    if (clientId === "new") {
+      setFormState((prev) => ({
         ...prev,
         selectedClient: '',
         clientDetails: {
@@ -168,12 +151,47 @@ const TripForm = ({ onCancel, id }) => {
           contactPerson: '',
         },
       }))
+      return
+    }
+    const selectedClient = clients.find((client) => client.id === clientId)
+    if (selectedClient) {
+      // attempt to determine a cost centre from the client record
+      let clientCostCentre =
+        selectedClient.costCentre ||
+        selectedClient.cost_centre ||
+        selectedClient.costCentreId ||
+        selectedClient.cost_centre_id ||
+        null
+
+      // If cost centres are available as objects, try to map names to ids
+      if (clientCostCentre && typeof clientCostCentre === 'string' && costCentres.length) {
+        // try to find by id first, then by name
+        const foundById = costCentres.find((cc) => cc.id === clientCostCentre)
+        const foundByName = costCentres.find((cc) => cc.name === clientCostCentre)
+        if (foundById) clientCostCentre = foundById.id
+        else if (foundByName) clientCostCentre = foundByName.id
+      }
+
+      setFormState((prev) => ({
+        ...prev,
+        selectedClient: clientId,
+        clientDetails: {
+          name: selectedClient.name || '',
+          email: selectedClient.email || '',
+          phone: selectedClient.phone || '',
+          address: selectedClient.address || '',
+          contactPerson: selectedClient.contactPerson || '',
+        },
+        costCentre: clientCostCentre || prev.costCentre,
+        pickupLocations: selectedClient.pickupLocations || prev.pickupLocations,
+        dropoffLocations: selectedClient.dropoffLocations || prev.dropoffLocations,
+      }))
     }
   }
 
   // Handle client details change
   const handleClientDetailsChange = (field, value) => {
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       clientDetails: {
         ...prev.clientDetails,
@@ -184,10 +202,10 @@ const TripForm = ({ onCancel, id }) => {
 
   // Handle stop point selection for waypoints
   const handleStopPointSelection = (stopPointId, checked) => {
-    const stopPoint = stopPoints.data.find((point) => point.id === stopPointId)
+    const stopPoint = stopPoints.find((point) => point.id === stopPointId)
 
     if (checked) {
-      setFormData((prev) => ({
+      setFormState((prev) => ({
         ...prev,
         selectedStopPoints: [...prev.selectedStopPoints, stopPointId],
         waypoints: [
@@ -202,7 +220,7 @@ const TripForm = ({ onCancel, id }) => {
         ],
       }))
     } else {
-      setFormData((prev) => ({
+      setFormState((prev) => ({
         ...prev,
         selectedStopPoints: prev.selectedStopPoints.filter(
           (id) => id !== stopPointId
@@ -217,7 +235,7 @@ const TripForm = ({ onCancel, id }) => {
   // Handle input change
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       [name]: value,
     }))
@@ -225,7 +243,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Handle date change
   const handleDateChange = (field, date) => {
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       [field]: date ? format(date, 'yyyy-MM-dd') : '',
     }))
@@ -233,7 +251,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Handle select change
   const handleSelectChange = (field, value) => {
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       [field]: value,
     }))
@@ -241,14 +259,14 @@ const TripForm = ({ onCancel, id }) => {
 
   // Vehicle Assignment Handlers
   const handleVehicleChange = (vehicleIndex, vehicleId) => {
-    const selectedVehicle = vehicles.data.find(
+    const selectedVehicle = vehicles.find(
       (vehicle) => vehicle.id === vehicleId
     )
     const vehicleName = selectedVehicle
       ? `${selectedVehicle.model} (${selectedVehicle.regNumber})`
       : ''
 
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedAssignments = [...prev.vehicleAssignments]
       updatedAssignments[vehicleIndex] = {
         ...updatedAssignments[vehicleIndex],
@@ -262,7 +280,7 @@ const TripForm = ({ onCancel, id }) => {
   }
 
   const addVehicle = () => {
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       vehicleAssignments: [
         ...prev.vehicleAssignments,
@@ -276,7 +294,7 @@ const TripForm = ({ onCancel, id }) => {
   }
 
   const removeVehicle = (vehicleIndex) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedAssignments = [...prev.vehicleAssignments]
       updatedAssignments.splice(vehicleIndex, 1)
       return {
@@ -297,12 +315,12 @@ const TripForm = ({ onCancel, id }) => {
 
   // Driver Handlers for specific vehicles
   const handleVehicleDriverChange = (vehicleIndex, driverIndex, driverId) => {
-    const selectedDriver = drivers?.data.find(
+    const selectedDriver = drivers.find(
       (driver) => driver.id === driverId
     )
     const driverName = selectedDriver ? selectedDriver.name : ''
 
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedAssignments = [...prev.vehicleAssignments]
       const updatedDrivers = [...updatedAssignments[vehicleIndex].drivers]
       updatedDrivers[driverIndex] = { id: driverId, name: driverName }
@@ -318,7 +336,7 @@ const TripForm = ({ onCancel, id }) => {
   }
 
   const addVehicleDriver = (vehicleIndex) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedAssignments = [...prev.vehicleAssignments]
       updatedAssignments[vehicleIndex] = {
         ...updatedAssignments[vehicleIndex],
@@ -335,7 +353,7 @@ const TripForm = ({ onCancel, id }) => {
   }
 
   const removeVehicleDriver = (vehicleIndex, driverIndex) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedAssignments = [...prev.vehicleAssignments]
       const updatedDrivers = [...updatedAssignments[vehicleIndex].drivers]
       updatedDrivers.splice(driverIndex, 1)
@@ -357,14 +375,14 @@ const TripForm = ({ onCancel, id }) => {
     trailerIndex,
     trailerId
   ) => {
-    const selectedTrailer = vehicles?.data.find(
+    const selectedTrailer = vehicles.find(
       (trailer) => trailer.id === trailerId
     )
     const trailerName = selectedTrailer
       ? `${selectedTrailer.model} (${selectedTrailer.regNumber})`
       : ''
 
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedAssignments = [...prev.vehicleAssignments]
       const updatedTrailers = [...updatedAssignments[vehicleIndex].trailers]
       updatedTrailers[trailerIndex] = { id: trailerId, name: trailerName }
@@ -380,7 +398,7 @@ const TripForm = ({ onCancel, id }) => {
   }
 
   const addVehicleTrailer = (vehicleIndex) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedAssignments = [...prev.vehicleAssignments]
       updatedAssignments[vehicleIndex] = {
         ...updatedAssignments[vehicleIndex],
@@ -397,7 +415,7 @@ const TripForm = ({ onCancel, id }) => {
   }
 
   const removeVehicleTrailer = (vehicleIndex, trailerIndex) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedAssignments = [...prev.vehicleAssignments]
       const updatedTrailers = [...updatedAssignments[vehicleIndex].trailers]
       updatedTrailers.splice(trailerIndex, 1)
@@ -414,12 +432,12 @@ const TripForm = ({ onCancel, id }) => {
 
   // Handle driver selection
   const handleDriverChange = (index, driverId) => {
-    const selectedDriver = drivers?.data.find(
+    const selectedDriver = drivers.find(
       (driver) => driver.id === driverId
     )
     const driverName = selectedDriver ? selectedDriver.name : ''
 
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedDrivers = [...prev.drivers]
       updatedDrivers[index] = { id: driverId, name: driverName }
       return {
@@ -431,7 +449,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Add driver
   const addDriver = () => {
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       drivers: [...prev.drivers, { id: '', name: '' }],
     }))
@@ -439,7 +457,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Remove driver
   const removeDriver = (index) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedDrivers = [...prev.drivers]
       updatedDrivers.splice(index, 1)
       return {
@@ -452,7 +470,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Handle pickup location change
   const handlePickupLocationChange = (index, field, value) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedLocations = [...prev.pickupLocations]
       updatedLocations[index] = { ...updatedLocations[index], [field]: value }
       return {
@@ -464,7 +482,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Add pickup location
   const addPickupLocation = () => {
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       pickupLocations: [
         ...prev.pickupLocations,
@@ -483,7 +501,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Remove pickup location
   const removePickupLocation = (index) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedLocations = [...prev.pickupLocations]
       updatedLocations.splice(index, 1)
       return {
@@ -508,7 +526,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Handle dropoff location change
   const handleDropoffLocationChange = (index, field, value) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedLocations = [...prev.dropoffLocations]
       updatedLocations[index] = { ...updatedLocations[index], [field]: value }
       return {
@@ -520,7 +538,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Add dropoff location
   const addDropoffLocation = () => {
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       dropoffLocations: [
         ...prev.dropoffLocations,
@@ -539,7 +557,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Remove dropoff location
   const removeDropoffLocation = (index) => {
-    setFormData((prev) => {
+    setFormState((prev) => {
       const updatedLocations = [...prev.dropoffLocations]
       updatedLocations.splice(index, 1)
       return {
@@ -564,7 +582,7 @@ const TripForm = ({ onCancel, id }) => {
 
   // Handle stop points change
   const handleStopPointsChange = (stopPoints) => {
-    setFormData((prev) => ({
+    setFormState((prev) => ({
       ...prev,
       stopPoints: stopPoints,
     }))
@@ -573,30 +591,28 @@ const TripForm = ({ onCancel, id }) => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault()
-
-    const tripData = {
-      ...formData,
-      route: `${formData.origin} to ${formData.destination}`,
-      driver: formData.drivers[0]?.name || 'Unassigned',
-      vehicle: formData.vehicles[0]?.name || 'Unassigned',
-      vehicleAssignments: formData.vehicleAssignments,
-      distance: calculateDistance(),
+    setLoading(true)
+    try {
+      const tripData = {
+        ...formState,
+        route: `${formState.origin} to ${formState.destination}`,
+        driver: formState.drivers[0]?.name || 'Unassigned',
+        vehicle: formState.vehicles[0]?.name || 'Unassigned',
+        vehicleAssignments: formState.vehicleAssignments,
+        distance: 'Calculating...',
+      }
+      // Insert or update trip
+      const { error } = await supabase.from('trips').upsert([tripData])
+      if (error) throw error
+      onClose()
+    } catch (err) {
+      console.error('Error saving trip:', err)
+      alert('Failed to save trip. Please try again.')
     }
-    //  console.log('id :>> ', id)
-    //  console.log('tripData :>> ', tripData)
-    t_api.upsertTrip(id, tripData, tripsDispatch)
-    onCancel()
+    setLoading(false)
   }
 
-  // Calculate estimated distance
-  const calculateDistance = () => {
-    return 'Calculating...'
-  }
-
-  // Handle cancel
-  const handleCancel = () => {
-    onCancel()
-  }
+  if (!formState) return <div>Loading...</div>
 
   const tabs = [
     { name: 'Trip Information', value: 'trip' },
@@ -609,21 +625,21 @@ const TripForm = ({ onCancel, id }) => {
     {
       htmlFor: 'id',
       label: 'ID',
-      value: formData.id,
+      value: formState.id,
       required: false,
       readOnly: true,
     },
     {
       htmlFor: 'orderNumber',
       label: 'Order Number',
-      value: formData.orderNumber,
+      value: formState.orderNumber,
       placeholder: 'Enter order number',
       required: true,
     },
     {
       htmlFor: 'rate',
       label: 'Rate',
-      value: formData.rate,
+      value: formState.rate,
       placeholder: 'Enter rate',
       type: 'number',
       required: true,
@@ -633,7 +649,7 @@ const TripForm = ({ onCancel, id }) => {
       htmlFor: 'costCentre',
       label: 'Cost Centre',
       placeholder: 'Select cost centre',
-      value: formData.costCentre,
+      value: formState.costCentre,
       required: true,
       options: costCentres?.map((cc) => {
         return { value: cc.id, label: cc.name }
@@ -644,27 +660,27 @@ const TripForm = ({ onCancel, id }) => {
       htmlFor: 'startDate',
       label: 'Start Date',
       type: 'date',
-      value: formData.startDate,
+      value: formState.startDate,
       required: true,
     },
     {
       htmlFor: 'endDate',
       label: 'Expected End Date',
       type: 'date',
-      value: formData.endDate,
+      value: formState.endDate,
       required: true,
     },
     {
       htmlFor: 'cargo',
       label: 'Cargo Description/Commodity',
-      value: formData.cargo,
+      value: formState.cargo,
       placeholder: 'describe the cargo',
       required: true,
     },
     {
       htmlFor: 'cargoWeight',
       label: 'Cargo Weight',
-      value: formData.cargoWeight,
+      value: formState.cargoWeight,
       placeholder: 'e.g., 24 tons',
       type: 'number',
       required: true,
@@ -675,7 +691,7 @@ const TripForm = ({ onCancel, id }) => {
     {
       htmlFor: 'clientName',
       label: 'Client Name',
-      value: formData.clientDetails.name,
+      value: formState.clientDetails.name,
       field: 'name',
       placeholder: 'Enter client name',
       required: true,
@@ -683,7 +699,7 @@ const TripForm = ({ onCancel, id }) => {
     {
       htmlFor: 'contactPerson',
       label: 'Client Contact Person',
-      value: formData.clientDetails.contactPerson,
+      value: formState.clientDetails.contactPerson,
       field: 'contactPerson',
       placeholder: 'Enter contact Person',
       required: true,
@@ -691,7 +707,7 @@ const TripForm = ({ onCancel, id }) => {
     {
       htmlFor: 'clientPhone',
       label: 'Client Phone Number',
-      value: formData.clientDetails.phone,
+      value: formState.clientDetails.phone,
       field: 'phone',
       placeholder: 'Enter phone number',
       required: true,
@@ -699,7 +715,7 @@ const TripForm = ({ onCancel, id }) => {
     {
       htmlFor: 'clientEmail',
       label: 'Client Email',
-      value: formData.clientDetails.email,
+      value: formState.clientDetails.email,
       field: 'email',
       placeholder: 'Enter email address',
       required: true,
@@ -711,10 +727,10 @@ const TripForm = ({ onCancel, id }) => {
       <div className="flex items-center gap-2">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
-            {trip?.id ? `Edit Trip` : 'Add New Trip'}
+            {id ? `Edit Trip` : 'Add New Trip'}
           </h2>
           <p className="text-muted-foreground">
-            {trip?.id ? trip.clientDetails.name : 'Enter Trip Details'}
+            {id ? formState.clientDetails.name : 'Enter Trip Details'}
           </p>
         </div>
       </div>
@@ -754,7 +770,7 @@ const TripForm = ({ onCancel, id }) => {
                     Select Client (Optional)
                   </Label>
                   <Select
-                    value={formData.selectedClient}
+                    value={formState.selectedClient || "new"}
                     onValueChange={handleClientChange}
                   >
                     <SelectTrigger
@@ -768,7 +784,7 @@ const TripForm = ({ onCancel, id }) => {
                         New Client (Manual Entry)
                       </SelectItem>
                       {clients?.map((client) => (
-                        <SelectItem key={client.id} value={client.name}>
+                        <SelectItem key={client.id} value={client.id}>
                           {client.name}
                         </SelectItem>
                       ))}
@@ -790,8 +806,8 @@ const TripForm = ({ onCancel, id }) => {
                           )
                         }
                         placeholder={client.placeholder}
-                        disabled={!!formData.selectedClient}
-                        className={!!formData.selectedClient && 'bg-muted'}
+                        disabled={!!formState.selectedClient}
+                        className={!!formState.selectedClient && 'bg-muted'}
                       />
                     </div>
                   )
@@ -801,13 +817,13 @@ const TripForm = ({ onCancel, id }) => {
                 <Label htmlFor="clientAddress">Address</Label>
                 <Textarea
                   id="clientAddress"
-                  value={formData.clientDetails.address}
+                  value={formState.clientDetails.address}
                   onChange={(e) =>
                     handleClientDetailsChange('address', e.target.value)
                   }
                   placeholder="Enter client address"
                   rows={3}
-                  disabled={!!formData.selectedClient}
+                  disabled={!!formState.selectedClient}
                   className="w-full border-[#d3d3d3]"
                 />
               </div>
@@ -831,7 +847,7 @@ const TripForm = ({ onCancel, id }) => {
                   <Textarea
                     id="notes"
                     name="notes"
-                    value={formData.notes}
+                    value={formState.notes}
                     onChange={handleChange}
                     placeholder="Additional information about this trip"
                     rows={4}
@@ -844,7 +860,7 @@ const TripForm = ({ onCancel, id }) => {
 
           <TabsContent value="vehicle" className="space-y-6">
             <DriversVehiclesSection
-              formData={formData}
+              formData={formState}
               handleDriverChange={handleDriverChange}
               addDriver={addDriver}
               removeDriver={removeDriver}
@@ -864,7 +880,7 @@ const TripForm = ({ onCancel, id }) => {
 
           <TabsContent value="location" className="space-y-6">
             <LocationsSection
-              formData={formData}
+              formData={formState}
               handlePickupLocationChange={handlePickupLocationChange}
               addPickupLocation={addPickupLocation}
               removePickupLocation={removePickupLocation}
@@ -885,7 +901,7 @@ const TripForm = ({ onCancel, id }) => {
                 <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select
-                    value={formData.status}
+                    value={formState.status}
                     onValueChange={(value) =>
                       handleSelectChange('status', value)
                     }
@@ -921,7 +937,7 @@ const TripForm = ({ onCancel, id }) => {
                   <Textarea
                     id="statusNotes"
                     name="statusNotes"
-                    value={formData.statusNotes || ''}
+                    value={formState.statusNotes || ''}
                     onChange={handleChange}
                     placeholder="Add any notes about the status change"
                     rows={3}
@@ -937,7 +953,7 @@ const TripForm = ({ onCancel, id }) => {
           <Button
             type="button"
             variant="outline"
-            onClick={handleCancel}
+            onClick={onClose}
             disabled={loading}
           >
             Cancel

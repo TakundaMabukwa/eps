@@ -12,7 +12,9 @@ const roles = [
   },
   {
     name: 'fleet manager',
-    path: ['/fleetManager', '/jobsFleet', '/dashboard', '/drivers', '/vehicles', '/technician', '/profile', '/logs', '/login', '/signup', '/', '/logout', '/qoutation'],
+    path: ['/fleetManager', '/jobsFleet', '/dashboard', '/drivers', '/vehicles',
+      '/technician', '/profile', '/logs', '/login', '/signup', '/', '/logout',
+      '/qoutation', '/fleetManager/trips', '/fleetManager/inspections'],
   },
   {
     name: 'customer',
