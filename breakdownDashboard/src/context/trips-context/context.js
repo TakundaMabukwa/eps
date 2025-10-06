@@ -48,164 +48,153 @@ const tableInfo = {
     {
       value: 'all',
       title: 'All Trips',
-      filterColumn: 'id',
+      filterColumn: 'trip_id',
       filterPlaceholder: 'Search trips...',
     },
     {
       value: 'pending',
       title: 'Scheduled',
-      filterColumn: 'id',
+      filterColumn: 'status',
       filterBy: 'pending',
       filterPlaceholder: 'Search scheduled trips...',
     },
     {
       value: 'active',
       title: 'Active',
-      filterColumn: 'id',
+      filterColumn: 'status',
       filterBy: ['in-progress', 'delayed'],
       filterPlaceholder: 'Search active trips...',
     },
-
     {
       value: 'completed',
       title: 'Completed',
-      filterColumn: 'id',
+      filterColumn: 'status',
       filterBy: 'completed',
       filterPlaceholder: 'Search completed trips...',
     },
   ],
 }
 
-const columns = () => {
-  return [
-    createCheckboxColumn(),
-    {
-      accessorKey: 'id',
-      header: createSortableHeader('Trip ID'),
-      cell: ({ row }) => <div>{row.getValue('id')}</div>,
+const columns = () => [
+  createCheckboxColumn(),
+  {
+    accessorKey: 'trip_id',
+    header: createSortableHeader('Trip ID'),
+    cell: ({ row }) => <div>{row.getValue('trip_id')}</div>,
+  },
+  {
+    accessorKey: 'orderNumber',
+    header: createSortableHeader('Order #'),
+  },
+  {
+    accessorKey: 'cost_centre',
+    header: createSortableHeader('Cost Centre'),
+  },
+  {
+    accessorKey: 'selectedClient',
+    header: createSortableHeader('Client'),
+    cell: ({ row }) => {
+      // Prefer clientDetails.name if available
+      return <div>{row.original.clientDetails?.name || row.original.selectedClient}</div>
     },
-    {
-      accessorKey: 'costCentre',
-      header: createSortableHeader('Cost Centre'),
+  },
+  {
+    accessorKey: 'origin',
+    header: createSortableHeader('Origin'),
+  },
+  {
+    accessorKey: 'destination',
+    header: createSortableHeader('Destination'),
+  },
+  {
+    accessorKey: 'cargo',
+    header: createSortableHeader('Cargo'),
+  },
+  {
+    accessorKey: 'cargo_weight',
+    header: createSortableHeader('Cargo Weight'),
+  },
+  {
+    accessorKey: 'vehicles',
+    header: createSortableHeader('Vehicles'),
+    cell: ({ row }) => {
+      const vehicles = row.original.vehicles || row.original.vehicleAssignments || []
+      return <div>{Array.isArray(vehicles) ? vehicles.length : 0}</div>
     },
-    {
-      accessorKey: 'selectedClient',
-      header: createSortableHeader('Client'),
-      cell: ({ row }) => {
-        return <div>{row.original.selectedClient?.name}</div>
-      },
+  },
+  {
+    accessorKey: 'drivers',
+    header: createSortableHeader('Drivers'),
+    cell: ({ row }) => {
+      const drivers = row.original.drivers || []
+      return <div>{Array.isArray(drivers) ? drivers.length : 0}</div>
     },
-    {
-      accessorKey: 'origin',
-      header: createSortableHeader('Route'),
-      cell: ({ row }) => (
-        <div className="flex flex-col">
-          <div className="text-sm">{row.getValue('origin')}</div>
-          <div className="text-sm text-gray-500">
-            {row.original.destination}
-          </div>
-        </div>
-      ),
+  },
+  {
+    accessorKey: 'startDate',
+    header: createSortableHeader('Start Date'),
+  },
+  {
+    accessorKey: 'end_date',
+    header: createSortableHeader('End Date'),
+  },
+  {
+    accessorKey: 'status',
+    header: createSortableHeader('Status'),
+    cell: ({ row }) => getTripStatusBadge(row.getValue('status')),
+  },
+  {
+    id: 'actions',
+    header: 'actions',
+    cell: ({ row }) => {
+      const trip = row.original
+      return createActionsColumn({ data: trip })
     },
-    {
-      accessorKey: 'vehicleAssignments',
-      header: createSortableHeader('Vehicles & Drivers'),
-      cell: ({ row }) => {
-        const assignments = row.original.vehicleAssignments || []
-        return (
-          <div className="justify-center items-center">
-            <div className="text-sm font-medium">
-              {assignments.length} vehicles
-            </div>
-            <div className="text-xs text-gray-500">
-              {assignments.reduce(
-                (total, assignment) =>
-                  total + (assignment.drivers?.length || 0),
-                0
-              )}{' '}
-              drivers
-            </div>
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: 'startDate',
-      header: createSortableHeader('Start Date'),
-    },
-    {
-      accessorKey: 'status',
-      header: createSortableHeader('Status'),
-      cell: ({ row }) => getTripStatusBadge(row.getValue('status')),
-    },
-    {
-      accessorKey: 'progress',
-      header: createSortableHeader('Progress'),
-      cell: ({ row }) => (
-        <div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-            <div
-              className={`h-2.5 rounded-full ${
-                row.original.status === 'delayed'
-                  ? 'bg-red-500'
-                  : 'bg-green-500'
-              }`}
-              style={{ width: `${row.getValue('progress')}%` }}
-            ></div>
-          </div>
-          <span className="text-xs text-gray-500">
-            {row.getValue('progress')}%
-          </span>
-        </div>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'actions',
-      cell: ({ row }) => {
-        const trip = row.original
-
-        return createActionsColumn({ data: trip })
-      },
-    },
-  ]
-}
+  },
+]
 
 // data
 const data = []
 
 const headers = [
   'Trip ID',
+  'Order #',
   'Cost Centre',
   'Client',
   'Origin',
   'Destination',
-  'Vehicles Assigned',
-  'Drivers Assigned',
+  'Cargo',
+  'Cargo Weight',
+  'Vehicles',
+  'Drivers',
   'Start Date',
+  'End Date',
   'Status',
-  'Progress (%)',
 ]
 
 const rows = (data) => {
   return data.map((item) => {
-    const vehicles = item.vehicleAssignments?.length || 0
-    const drivers = item.vehicleAssignments?.reduce(
-      (total, v) => total + (v.drivers?.length || 0),
-      0
-    )
+    const vehicles = Array.isArray(item.vehicles)
+      ? item.vehicles.length
+      : Array.isArray(item.vehicleAssignments)
+      ? item.vehicleAssignments.length
+      : 0
+    const drivers = Array.isArray(item.drivers) ? item.drivers.length : 0
 
     return [
-      item.id || '',
-      item.costCentre || '',
-      item.clientDetails?.name || '',
+      item.trip_id || '',
+      item.orderNumber || '',
+      item.cost_centre || '',
+      item.clientDetails?.name || item.selectedClient || '',
       item.origin || '',
       item.destination || '',
+      item.cargo || '',
+      item.cargo_weight || '',
       vehicles,
       drivers,
       item.startDate || '',
+      item.end_date || '',
       item.status || '',
-      item.progress != null ? item.progress : '',
     ]
   })
 }

@@ -1,20 +1,14 @@
-// See all the allocated trips here and navigate to the trip details
-// From here we should be able to update the trip status
-// e.g. when the trip is started, completed, or cancelled
-
-import { useAuth } from "@/app/contexts/AuthContext";
 import { supabase } from "@/app/utils/supabase";
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-
-interface Driver {
-  id: string;
-  name: string;
-}
-
-interface Vehicle {
-  name: string;
-}
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  FlatList,
+} from "react-native";
+import { Picker } from "@react-native-picker/picker";
 
 interface Trip {
   id: number;
@@ -26,93 +20,154 @@ interface Trip {
   cargo_weight: string;
   driver: string;
   vehicle: string;
+  vehicleAssignments?: string; // JSON string
 }
 
-interface Props {
+const STATUS_OPTIONS = [
+  { label: "Accept", value: "accepted" },
+  { label: "Reject", value: "rejected" },
+  { label: "Arrived at Loading", value: "arrived-at-loading" },
+  { label: "Staging Area", value: "staging-area" },
+  { label: "Loading", value: "loading" },
+  { label: "On Trip", value: "on-trip" },
+  { label: "Completed", value: "completed" },
+  { label: "Rejected", value: "rejected" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "Stopped", value: "stopped" },
+  { label: "Offloading", value: "offloading" },
+  { label: "Weighing In/Out", value: "weighing" },
+  { label: "Delivered", value: "delivered" },
+];
+
+function TripCard({
+  trip,
+  onStatusChange,
+}: {
   trip: Trip;
   onStatusChange?: (status: string) => void;
-}
+}) {
+  const [loading, setLoading] = useState(false);
 
-// Add destination, origin, and other details as needed
-
-export default function TripCard({ trip, onStatusChange }: Props) {
-  const [tripData, setTripData] = React.useState<Trip | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const { user } = useAuth(); // Use AuthContext instead
-
-  const fetchTripData = async () => {
-    const { data: tripData, error: tripError } = await supabase
+  const handleStatusChange = async (newStatus: string) => {
+    setLoading(true);
+    const { error } = await supabase
       .from("trips")
-      .select("*")
-      .single();
-
-    if (tripError) {
-      console.error("Error fetching trip data:", tripError);
-    } else {
-      setTripData(tripData as Trip);
-    }
-  };
-  useEffect(() => {
-    fetchTripData();
-  }, []);
-
-  const handleUpdateStatus = async (newStatus: "accepted" | "rejected") => {
-    const { data, error } = await supabase
-      .from("trips")
-      .update({
-        status: newStatus,
-      })
-      .eq("id", trip.id);
-
+      .update({ status: newStatus })
+      .eq("trip_id", trip.trip_id);
+    setLoading(false);
     if (error) {
       Alert.alert("Error", `Failed to update status: ${error.message}`);
     } else {
       onStatusChange?.(newStatus);
-      Alert.alert("Success", `Trip ${newStatus}`);
+      Alert.alert("Success", `Trip status updated to ${newStatus}`);
     }
   };
 
   return (
     <View style={styles.card}>
-      <View>
-        <Text style={styles.title}>Trip's Coming Soon</Text>
-        <Text style={styles.label}>
-          Stay Tuned! Will be used for additional stops and etc
-        </Text>
-      </View>
-      {/* <Text style={styles.title}>Trip {tripData?.trip_id || "Unknown"}</Text>
+      <Text style={styles.title}>Trip {trip.trip_id}</Text>
       <Text style={styles.label}>
-        Status:{" "}
-        <Text style={styles.status}>{tripData?.status || "Unknown"}</Text>
+        Status: <Text style={styles.status}>{trip.status}</Text>
       </Text>
-      <Text style={styles.label}>Driver: {tripData?.driver || "Unknown"}</Text>
+      <Picker
+        selectedValue={trip.status}
+        onValueChange={handleStatusChange}
+        style={styles.picker}
+        enabled={!loading}
+      >
+        {STATUS_OPTIONS.map((opt) => (
+          <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+        ))}
+      </Picker>
+      <Text style={styles.label}>Driver: {trip.driver}</Text>
+      <Text style={styles.label}>Vehicle: {trip.vehicle}</Text>
       <Text style={styles.label}>
-        Vehicle: {tripData?.vehicle || "Unknown"}
+        Cargo: {trip.cargo} ({trip.cargo_weight} kg)
       </Text>
       <Text style={styles.label}>
-        Cargo: {tripData?.cargo || "Unknown"} ({tripData?.cargo_weight || 0} kg)
+        Dates: {trip.start_date} - {trip.end_date}
       </Text>
-      <Text style={styles.label}>
-        Dates: {tripData?.start_date || "Unknown"} -{" "}
-        {tripData?.end_date || "Unknown"}
-      </Text> */}
-
-      {/* <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[styles.button, styles.acceptButton]}
-          onPress={() => handleUpdateStatus("accepted")}
-        >
-          <Text style={styles.buttonText}>Accept</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.rejectButton]}
-          onPress={() => handleUpdateStatus("rejected")}
-        >
-          <Text style={styles.buttonText}>Reject</Text>
-        </TouchableOpacity>
-      </View> */}
+      {loading && <ActivityIndicator size="small" color="#2980b9" />}
     </View>
+  );
+}
+
+export default function TripsScreen() {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchTrips = async () => {
+    setLoading(true);
+    // Get current user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      Alert.alert("Error", "User not authenticated.");
+      setTrips([]);
+      setLoading(false);
+      return;
+    }
+    const userId = user.id;
+
+    // Fetch all trips
+    const { data, error } = await supabase.from("trips").select("*");
+    if (error) {
+      Alert.alert("Error", "Could not fetch trips.");
+      setTrips([]);
+      setLoading(false);
+      return;
+    }
+
+    // Filter trips where current user is a driver
+    const filteredTrips = (data as Trip[]).filter((trip) => {
+      try {
+        const assignments = trip.vehicleAssignments
+          ? JSON.parse(trip.vehicleAssignments)
+          : [];
+        // assignments is an array of objects with a 'drivers' array
+        return assignments.some((assignment: any) =>
+          assignment.drivers?.some((driver: any) => driver.id === userId)
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    setTrips(data as Trip[]);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchTrips();
+  }, []);
+
+  const handleStatusChange = (tripId: string, newStatus: string) => {
+    setTrips((prev) =>
+      prev.map((t) => (t.trip_id === tripId ? { ...t, status: newStatus } : t))
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.card}>
+        <ActivityIndicator size="large" color="#2980b9" />
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={trips}
+      keyExtractor={(item) => item.trip_id}
+      renderItem={({ item }) => (
+        <TripCard
+          trip={item}
+          onStatusChange={(status) => handleStatusChange(item.trip_id, status)}
+        />
+      )}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    />
   );
 }
 
@@ -143,27 +198,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#2980b9",
   },
-  buttonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 16,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 12,
+  picker: {
+    marginVertical: 8,
+    backgroundColor: "#f0f0f0",
     borderRadius: 8,
-    marginHorizontal: 5,
-    alignItems: "center",
-  },
-  acceptButton: {
-    backgroundColor: "#27ae60",
-  },
-  rejectButton: {
-    backgroundColor: "#c0392b",
-  },
-  buttonText: {
-    color: "white",
-    fontWeight: "700",
-    fontSize: 16,
   },
 });

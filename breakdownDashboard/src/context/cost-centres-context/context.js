@@ -59,65 +59,56 @@ const columns = () => {
     {
       accessorKey: 'id',
       header: createSortableHeader('ID'),
-      // header: 'ID',
-      // cell: ({ row }) => (
-      //   <div className="font-medium">{row.getValue('id')}</div>
-      // ),
     },
     {
       accessorKey: 'name',
       header: createSortableHeader('Name'),
     },
     {
-      accessorKey: 'city',
-      header: createSortableHeader('City'),
-    },
-    {
       accessorKey: 'manager',
       header: createSortableHeader('Manager'),
     },
     {
-      accessorKey: 'users',
-      header: createSortableHeader('Users'),
-      cell: ({ row }) => (
-        <Badge
-          variant="outline"
-          className="bg-pink-50 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-pink-200 dark:border-pink-800"
-        >
-          {row.getValue('users')}
-        </Badge>
-      ),
+      accessorKey: 'manager_email',
+      header: createSortableHeader('Manager Email'),
     },
     {
-      accessorKey: 'vehicles',
-      header: createSortableHeader('Vehicles'),
-      cell: ({ row }) => (
-        <Badge
-          variant="outline"
-          className="bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-800"
-        >
-          {row.getValue('vehicles')}
-        </Badge>
-      ),
+      accessorKey: 'manager_phone',
+      header: createSortableHeader('Manager Phone'),
     },
     {
-      accessorKey: 'activeTrips',
-      header: createSortableHeader('Active Trips'),
+      accessorKey: 'status',
+      header: createSortableHeader('Status'),
       cell: ({ row }) => (
         <Badge
           variant="outline"
           className="bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-800"
         >
-          {row.getValue('activeTrips')}
+          {row.getValue('status')}
         </Badge>
       ),
+    },
+    {
+      accessorKey: 'established',
+      header: createSortableHeader('Established'),
+    },
+    {
+      accessorKey: 'budget',
+      header: createSortableHeader('Budget'),
+    },
+    {
+      accessorKey: 'full_address',
+      header: createSortableHeader('Full Address'),
+    },
+    {
+      accessorKey: 'description',
+      header: createSortableHeader('Description'),
     },
     {
       id: 'actions',
       header: 'Actions',
       cell: ({ row }) => {
         const costCentre = row.original
-
         return createActionsColumn({ data: costCentre })
       },
     },
@@ -129,11 +120,14 @@ const rows = (data) => {
     return [
       item.id || '',
       item.name || '',
-      item.location || '',
       item.manager || '',
-      item.users != null ? item.users : '',
-      item.vehicles != null ? item.vehicles : '',
-      item.activeTrips != null ? item.activeTrips : '',
+      item.manager_email || '',
+      item.manager_phone || '',
+      item.status || '',
+      item.established || '',
+      item.budget != null ? item.budget : '',
+      item.full_address || '',
+      item.description || '',
     ]
   })
 }
@@ -141,11 +135,14 @@ const rows = (data) => {
 const headers = [
   'ID',
   'Name',
-  'Location',
   'Manager',
-  'Users',
-  'Vehicles',
-  'Active Trips',
+  'Manager Email',
+  'Manager Phone',
+  'Status',
+  'Established',
+  'Budget',
+  'Full Address',
+  'Description',
 ]
 
 // context

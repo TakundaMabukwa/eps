@@ -4,7 +4,12 @@ import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { useGlobalContext } from "@/context/global-context/context";
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { ClientForm } from "../../../../components/forms/client-form";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { initialClientState } from "@/context/clients-context/context";
@@ -81,10 +86,7 @@ export default function ClientsPage() {
       </div>
 
       {/* Client Form Modal */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogHeader>
-          <DialogTitle>Add New Client</DialogTitle>
-        </DialogHeader>
+      <Dialog open={open} onOpenChange={setOpen} modal={true}>
         <DialogContent className="max-h-[90vh] overflow-y-auto min-w-2/4">
           <ClientForm onCancel={() => setOpen(false)} id={undefined} />
         </DialogContent>

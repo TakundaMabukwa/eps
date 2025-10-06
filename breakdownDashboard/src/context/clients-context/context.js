@@ -53,7 +53,7 @@ const tableInfo = {
   filterPlaceholder: 'Filter clients...',
 }
 
-export const columns = ( ) => {
+export const columns = () => {
   return [
     createCheckboxColumn(),
     {
@@ -71,10 +71,24 @@ export const columns = ( ) => {
       ),
     },
     {
-      accessorKey: 'contactPerson',
-      header: createSortableHeader('Contact'),
+      accessorKey: 'contact_person',
+      header: createSortableHeader('Contact Person'),
       cell: ({ row }) => (
-        <div className="font-medium">{row.getValue('contactPerson')}</div>
+        <div className="font-medium">{row.getValue('contact_person')}</div>
+      ),
+    },
+    {
+      accessorKey: 'email',
+      header: createSortableHeader('Email'),
+      cell: ({ row }) => (
+        <div className="font-medium">{row.getValue('email')}</div>
+      ),
+    },
+    {
+      accessorKey: 'phone',
+      header: createSortableHeader('Phone'),
+      cell: ({ row }) => (
+        <div className="font-medium">{row.getValue('phone')}</div>
       ),
     },
     {
@@ -85,26 +99,31 @@ export const columns = ( ) => {
       ),
     },
     {
-      accessorKey: 'locations',
-      header: createSortableHeader('Locations'),
+      accessorKey: 'pickup_locations',
+      header: createSortableHeader('Pickup Locations'),
       cell: ({ row }) => {
-        const pickupCount = row.original.pickupLocations?.length || 0
-        const dropoffCount = row.original.dropoffLocations?.length || 0
+        const pickupCount = row.original.pickup_locations?.length || 0
         return (
-          // <div className="flex items-center gap-2">
-          //   <MapPin className="h-4 w-4 text-muted-foreground" />
-          //   <div className="text-sm">
-          //  <div className="font-medium">{pickupCount + dropoffCount} total</div>
-          //     <div className="text-xs text-muted-foreground">
-          //       {pickupCount} pickup, {dropoffCount} dropoff
-          //     </div>
-          //   </div>
-          // </div>
           <Badge
             variant="outline"
             className="bg-pink-50 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-pink-200 dark:border-pink-800"
           >
-            {pickupCount + dropoffCount}
+            {pickupCount}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: 'dropoff_locations',
+      header: createSortableHeader('Dropoff Locations'),
+      cell: ({ row }) => {
+        const dropoffCount = row.original.dropoff_locations?.length || 0
+        return (
+          <Badge
+            variant="outline"
+            className="bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-800"
+          >
+            {dropoffCount}
           </Badge>
         )
       },
@@ -123,26 +142,19 @@ export const columns = ( ) => {
       ),
     },
     {
-      accessorKey: 'totalSpend',
-      header: createSortableHeader('Total Spend'),
-      cell: ({ row }) => <div>R{row.getValue('totalSpend')}</div>,
+      accessorKey: 'ck_number',
+      header: createSortableHeader('CK Number'),
+      cell: ({ row }) => <div>{row.getValue('ck_number')}</div>,
     },
     {
-      accessorKey: 'activeTrips',
-      header: createSortableHeader('Active Trips'),
-      cell: ({ row }) => (
-        <div className="text-center">
-          <Badge
-            variant={row.getValue('activeTrips') > 0 ? 'default' : 'secondary'}
-          >
-            {row.getValue('activeTrips')}
-          </Badge>
-        </div>
-      ),
+      accessorKey: 'tax_number',
+      header: createSortableHeader('Tax Number'),
+      cell: ({ row }) => <div>{row.getValue('tax_number')}</div>,
     },
     {
-      accessorKey: 'totalTrips',
-      header: createSortableHeader('Total Trips'),
+      accessorKey: 'vat_number',
+      header: createSortableHeader('VAT Number'),
+      cell: ({ row }) => <div>{row.getValue('vat_number')}</div>,
     },
     {
       id: 'actions',
@@ -157,43 +169,49 @@ export const columns = ( ) => {
 
 export const fetchData = async () => {
   // fetch data from your API or database
-  const {data, error} = await supabase.from('clients').select('*');
+  const { data, error } = await supabase.from('clients').select('*')
   if (error) {
-    console.error('Error fetching clients:', error);
-    return [];
+    console.error('Error fetching clients:', error)
+    return []
   }
   if (data) {
-    return data;
+    // No mapping needed if you use snake_case in columns
+    return data
   }
 }
 
 const headers = [
   'ID',
   'Client',
-  'Contact',
-  'Industry',
-  'Locations',
+  'Contact Person',
+  'Email',
+  'Phone',
+  'Pickup Locations',
+  'Dropoff Locations',
   'Status',
-  'Total Spend',
-  'Active Trips',
-  'Total Trips',
+  'CK Number',
+  'Tax Number',
+  'VAT Number',
 ]
 
 const rows = (data) => {
   return data.map((item) => {
-    const pickup = item.pickupLocations?.length || 0
-    const dropoff = item.dropoffLocations?.length || 0
+    const pickup = item.pickup_locations?.length || 0
+    const dropoff = item.dropoff_locations?.length || 0
 
     return [
       item.id || '',
       item.name || '',
-      item.contactPerson || '',
+      item.contact_person || '',
+      item.email || '',
+      item.phone || '',
       item.industry || '',
-      pickup + dropoff,
+      pickup,
+      dropoff,
       item.status || '',
-      item.totalSpend != null ? item.totalSpend : '',
-      item.activeTrips != null ? item.activeTrips : '',
-      item.totalTrips != null ? item.totalTrips : '',
+      item.ck_number || '',
+      item.tax_number || '',
+      item.vat_number || '',
     ]
   })
 }

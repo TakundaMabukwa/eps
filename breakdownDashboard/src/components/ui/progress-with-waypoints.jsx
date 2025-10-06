@@ -11,7 +11,7 @@ export function ProgressWithWaypoints({
     variant = 'default',
 }) {
     return (
-        <div className={cn('w-full space-y-2', className)}>
+        <div className={cn('w-full space-y-5 p-3', className)}>
             <div className="relative">
                 <Progress value={value} className="h-2" />
 

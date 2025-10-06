@@ -266,20 +266,35 @@ export default function TripDetails({ id }) {
     return true
   }
 
-  // Calculate trip progress
+  // Define the ordered statuses for progress
+  const TRIP_STATUSES = [
+    'pending',         // Arrived at loading
+    'in-progress',     // Staging area
+    'loading',          // Loading
+    'stopped',         // Stopped
+    'arrived',         // Offloading
+    'weighing',        // Weighing in/out
+    'delivered',       // Delivered
+    'Accept',
+    'Reject',
+    "arrived-at-loading",
+    "staging-area",
+    "on-trip",
+    "completed",
+    "rejected",
+    "cancelled",
+    "stopped",
+    "offloading",
+    "weighing",
+    "delivered",
+  ]
+
+  // Calculate progress based on status
   const calculateProgress = () => {
-    if (trip?.status === 'completed') return 100
-    if (trip?.status === 'pending') return 0
-
-    // For in-progress, calculate based on waypoints or just return 50%
-    if (trip?.waypoints && trip?.waypoints.length > 0) {
-      const completedWaypoints = trip?.waypoints.filter(
-        (wp) => wp.departureTime
-      ).length
-      return Math.round((completedWaypoints / trip?.waypoints.length) * 100)
-    }
-
-    return 50
+    if (!trip?.status) return 0
+    const idx = TRIP_STATUSES.indexOf(trip.status)
+    if (idx === -1) return 0
+    return Math.round((idx / (TRIP_STATUSES.length - 1)) * 100)
   }
 
   // Calculate total expenses
@@ -380,23 +395,24 @@ export default function TripDetails({ id }) {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {/* <Progress value={calculateProgress()} className="h-2" /> */}
-
             <ProgressWithWaypoints
               value={calculateProgress()}
               waypoints={[
-                { position: 0, label: 'Start' },
-                { position: 20, label: '20%' },
-                { position: 40, label: '40%' },
-                { position: 60, label: '60%' },
-                { position: 80, label: '80%' },
-                { position: 100, label: 'Done' },
+                { position: 0, label: 'pending' },      // pending
+                { position: 7, label: 'Arrived at Loading' },      // accepted
+                { position: 14, label: 'Staging Area' },           // in-progress
+                { position: 28, label: 'Loading' },                // pickup
+                { position: 42, label: 'On Trip' },                // ontrip
+                { position: 57, label: 'Stopped' },                // stopped
+                { position: 71, label: 'Offloading' },             // arrived
+                { position: 85, label: 'Weighing In/Out' },        // weighing
+                { position: 100, label: 'Delivered' },             // delivered
               ]}
-              showLabels={false}
+              showLabels={true}
               className="w-full"
             />
 
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-between text-xs text-muted-foreground mt-5">
               <span>Origin: {trip?.origin}</span>
               <span>Destination: {trip?.destination}</span>
             </div>

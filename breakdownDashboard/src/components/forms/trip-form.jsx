@@ -665,7 +665,7 @@ const TripForm = ({ onClose, id }) => {
     e.preventDefault()
     setLoading(true)
     try {
-      // Remove id from tripData if it's undefined, empty, or not a number (let DB auto-assign)
+      // Prepare tripData with both camelCase and snake_case for all relevant fields
       const tripData = {
         ...formState,
         route: `${formState.origin} to ${formState.destination}`,
@@ -673,6 +673,33 @@ const TripForm = ({ onClose, id }) => {
         vehicle: formState.vehicles[0]?.name || 'Unassigned',
         vehicleAssignments: formState.vehicleAssignments,
         distance: 'Calculating...',
+
+        // Ensure both camelCase and snake_case for all JSON fields
+        pickupLocations: formState.pickupLocations,
+        pickup_locations: formState.pickupLocations,
+        dropoffLocations: formState.dropoffLocations,
+        dropoff_locations: formState.dropoffLocations,
+        clientDetails: formState.clientDetails,
+        client_details: formState.clientDetails,
+        statusNotes: formState.statusNotes,
+        status_notes: formState.statusNotes,
+        costCentre: formState.costCentre,
+        cost_centre: formState.costCentre,
+        cargoWeight: formState.cargoWeight,
+        cargo_weight: formState.cargoWeight,
+        endDate: formState.endDate,
+        end_date: formState.endDate,
+        selectedClient: formState.selectedClient,
+        selected_client: formState.selectedClient,
+        vehicleAssignments: formState.vehicleAssignments,
+        vehicle_assignments: formState.vehicleAssignments,
+        selectedStopPoints: formState.selectedStopPoints,
+        selected_stop_points: formState.selectedStopPoints,
+        stopPoints: formState.stopPoints,
+        stop_points: formState.stopPoints,
+        waypoints: formState.waypoints,
+        drivers: formState.drivers,
+        vehicles: formState.vehicles,
       }
       if (!tripData.id || isNaN(Number(tripData.id))) {
         delete tripData.id

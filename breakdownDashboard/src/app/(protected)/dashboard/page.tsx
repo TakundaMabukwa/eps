@@ -75,7 +75,7 @@ function getCookie(name: string) {
 }
 
 export default function Dashboard() {
-  const {onCreate} = useGlobalContext();
+  const { onCreate } = useGlobalContext();
   const [userRole, setUserRole] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
   const [stats, setStats] = useState<DashboardStats>({
@@ -472,96 +472,104 @@ export default function Dashboard() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {/* Active Drivers */}
           <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg transition-transform hover:scale-[1.02] hover:shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold">
-                Active Breakdowns
-              </CardTitle>
-              <div className="rounded-full bg-white/20 p-2">
-                <AlertTriangle className="h-5 w-5 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <SlidingNumber
-                from={0}
-                to={stats.activeBreakdowns}
-                duration={2}
-                className="text-3xl font-extrabold tracking-tight"
-                digitHeight={42}
-              />
-              <p className="mt-1 text-xs text-white/80">
-                Total Number of Breakdowns Reported
-              </p>
-            </CardContent>
+            <Link href="/jobs">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold">
+                  Active Breakdowns
+                </CardTitle>
+                <div className="rounded-full bg-white/20 p-2">
+                  <AlertTriangle className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <SlidingNumber
+                  from={0}
+                  to={stats.activeBreakdowns}
+                  duration={2}
+                  className="text-3xl font-extrabold tracking-tight"
+                  digitHeight={42}
+                />
+                <p className="mt-1 text-xs text-white/80">
+                  Total Number of Breakdowns Reported
+                </p>
+              </CardContent>
+            </Link>
           </Card>
 
-          {/* Technicians Available */}
+          {/* Drivers Available */}
           <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg transition-transform hover:scale-[1.02] hover:shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold">
-                Technicians Available
-              </CardTitle>
-              <div className="rounded-full bg-white/20 p-2">
-                <Users className="h-5 w-5 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <SlidingNumber
-                from={0}
-                to={stats.availableTechnicians}
-                duration={2}
-                className="text-3xl font-extrabold tracking-tight"
-                digitHeight={42}
-              />
-              <p className="mt-1 text-xs text-white/80">All technicians</p>
-            </CardContent>
+            <Link href="/drivers">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold">
+                  Drivers
+                </CardTitle>
+                <div className="rounded-full bg-white/20 p-2">
+                  <Users className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <SlidingNumber
+                  from={0}
+                  to={stats.drivers}
+                  duration={2}
+                  className="text-3xl font-extrabold tracking-tight"
+                  digitHeight={42}
+                />
+                <p className="mt-1 text-xs text-white/80">All Drivers</p>
+              </CardContent>
+            </Link>
           </Card>
 
           {/* Fleet Vehicles */}
           <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg transition-transform hover:scale-[1.02] hover:shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold">
-                Fleet Vehicles
-              </CardTitle>
-              <div className="rounded-full bg-white/20 p-2">
-                <Truck className="h-5 w-5 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <SlidingNumber
-                from={0}
-                to={stats.totalVehicles}
-                duration={2}
-                className="text-3xl font-extrabold tracking-tight"
-                digitHeight={42}
-              />
-              <p className="mt-1 text-xs text-white/80">
-                Vehicles for the company
-              </p>
-            </CardContent>
+            <Link href="/vehicles">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold">
+                  Fleet Vehicles
+                </CardTitle>
+                <div className="rounded-full bg-white/20 p-2">
+                  <Truck className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <SlidingNumber
+                  from={0}
+                  to={stats.totalVehicles}
+                  duration={2}
+                  className="text-3xl font-extrabold tracking-tight"
+                  digitHeight={42}
+                />
+                <p className="mt-1 text-xs text-white/80">
+                  Vehicles for the company
+                </p>
+              </CardContent>
+            </Link>
           </Card>
 
           {/* Total Vehicles */}
           <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-600 text-white shadow-lg transition-transform hover:scale-[1.02] hover:shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold">
-                Total Vehicles
-              </CardTitle>
-              <div className="rounded-full bg-white/20 p-2">
-                <TrendingUp className="h-5 w-5 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <SlidingNumber
-                from={0}
-                to={stats.totalVehicles}
-                duration={2}
-                className="text-3xl font-extrabold tracking-tight"
-                digitHeight={42}
-              />
-              <p className="mt-1 text-xs text-white/80">
-                Total Vehicles for the company
-              </p>
-            </CardContent>
+            <Link href="/vehicles">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold">
+                  Total Vehicles
+                </CardTitle>
+                <div className="rounded-full bg-white/20 p-2">
+                  <TrendingUp className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <SlidingNumber
+                  from={0}
+                  to={stats.totalVehicles}
+                  duration={2}
+                  className="text-3xl font-extrabold tracking-tight"
+                  digitHeight={42}
+                />
+                <p className="mt-1 text-xs text-white/80">
+                  Total Vehicles for the company
+                </p>
+              </CardContent>
+            </Link>
           </Card>
         </div>
 
@@ -724,12 +732,12 @@ export default function Dashboard() {
                   {normalizedRole === "fleetmanager" && (
                     <div className="flex items-center justify-between p-4 border rounded-xl bg-muted/20 hover:bg-muted/30 transition">
                       <div>
-                        <p className="font-medium">Awaiting Approval</p>
+                        <p className="font-medium">Awaiting Breakdowns</p>
                         <p className="text-sm text-gray-600">
-                          Total jobs: {stats.qoutes}
+                          Total jobs: {stats.activeBreakdowns}
                         </p>
                       </div>
-                      <Link href="/qoutation">
+                      <Link href="/jobs">
                         <Button size="sm">Review</Button>
                       </Link>
                     </div>
@@ -737,11 +745,9 @@ export default function Dashboard() {
                   {normalizedRole === "callcentre" && (
                     <div className="flex items-center justify-between p-4 border rounded-xl bg-muted/20 hover:bg-muted/30 transition">
                       <div>
-                        <p className="font-medium">
-                          Unassigned Reported Breakdowns
-                        </p>
+                        <p className="font-medium">Reported Breakdowns</p>
                         <p className="text-sm text-gray-600">
-                          Waiting for technician dispatch
+                          Waiting for completion
                         </p>
                       </div>
                       <Link
