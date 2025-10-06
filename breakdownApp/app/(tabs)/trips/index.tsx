@@ -10,6 +10,15 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 
+interface Driver {
+  id: string | number;
+  first_name?: string | null;
+  surname?: string | null;
+  email_address?: string | null;
+  user_id?: string | null;
+  name?: string | null;
+}
+
 interface Trip {
   id: number;
   trip_id: string;
@@ -20,7 +29,18 @@ interface Trip {
   cargo_weight: string;
   driver: string;
   vehicle: string;
-  vehicleAssignments?: string; // JSON string
+  vehicleAssignments?: string;
+  vehicle_assignments?: any;
+  origin?: string;
+  destination?: string;
+  cost_centre?: any;
+  client_details?: any;
+  pickup_locations?: any;
+  dropoff_locations?: any;
+  waypoints?: any;
+  notes?: string;
+  rate?: string;
+  order_number?: string;
 }
 
 const STATUS_OPTIONS = [
@@ -31,7 +51,6 @@ const STATUS_OPTIONS = [
   { label: "Loading", value: "loading" },
   { label: "On Trip", value: "on-trip" },
   { label: "Completed", value: "completed" },
-  { label: "Rejected", value: "rejected" },
   { label: "Cancelled", value: "cancelled" },
   { label: "Stopped", value: "stopped" },
   { label: "Offloading", value: "offloading" },
@@ -46,7 +65,44 @@ function TripCard({
   trip: Trip;
   onStatusChange?: (status: string) => void;
 }) {
+  const [userDriver, setUserDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchUserDriver = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setUserDriver(null);
+        return;
+      }
+      const { data: driversData, error: driversError } = await supabase
+        .from("drivers")
+        .select("*");
+
+      console.log("Fetched Drivers Data:", driversData);
+      console.log("Current User:", user);
+      if (driversError || !driversData) {
+        setUserDriver(null);
+        return;
+      }
+      const userDriver =
+        driversData.find(
+          (d: Driver) =>
+            String(d.user_id || d.id).toLowerCase() ===
+            String(user.id).toLowerCase()
+        ) ||
+        driversData.find(
+          (d: Driver) =>
+            String(d.user_id || d.id).toLowerCase() ===
+            String(user.id).toLowerCase()
+        );
+      setUserDriver(userDriver || null);
+      console.log("User Driver:", userDriver);
+    };
+    fetchUserDriver();
+  }, []);
 
   const handleStatusChange = async (newStatus: string) => {
     setLoading(true);
@@ -54,6 +110,7 @@ function TripCard({
       .from("trips")
       .update({ status: newStatus })
       .eq("trip_id", trip.trip_id);
+
     setLoading(false);
     if (error) {
       Alert.alert("Error", `Failed to update status: ${error.message}`);
@@ -63,12 +120,85 @@ function TripCard({
     }
   };
 
+  // Parse vehicle assignments
+  let assignments: any[] = [];
+  try {
+    if (trip.vehicleAssignments) {
+      assignments =
+        typeof trip.vehicleAssignments === "string"
+          ? JSON.parse(trip.vehicleAssignments)
+          : trip.vehicleAssignments;
+    } else if (trip.vehicle_assignments) {
+      assignments = Array.isArray(trip.vehicle_assignments)
+        ? trip.vehicle_assignments
+        : typeof trip.vehicle_assignments === "string"
+        ? JSON.parse(trip.vehicle_assignments)
+        : [];
+    }
+  } catch {
+    assignments = [];
+  }
+
+  const driverNames = assignments
+    .flatMap((va) => va.drivers?.map((d: any) => d.name).filter(Boolean) || [])
+    .join(", ");
+
+  const vehicleNames = assignments
+    .map((va) =>
+      va.vehicle && va.vehicle.name
+        ? va.vehicle.name
+        : va.vehicle && va.vehicle.model
+        ? `${va.vehicle.model} (${va.vehicle.regNumber || ""})`
+        : ""
+    )
+    .filter(Boolean)
+    .join(", ");
+
+  let costCentreName = "";
+  if (trip.cost_centre) {
+    try {
+      const cc =
+        typeof trip.cost_centre === "string"
+          ? JSON.parse(trip.cost_centre)
+          : trip.cost_centre;
+      costCentreName = cc?.name || "";
+    } catch {
+      costCentreName = "";
+    }
+  }
+
+  let clientName = "";
+  if (trip.client_details) {
+    try {
+      const cd =
+        typeof trip.client_details === "string"
+          ? JSON.parse(trip.client_details)
+          : trip.client_details;
+      clientName = cd?.name || "";
+    } catch {
+      clientName = "";
+    }
+  }
+
+  const displayLocations = (locs: any) => {
+    if (!locs) return "-";
+    let arr: any[] = [];
+    try {
+      arr = typeof locs === "string" ? JSON.parse(locs) : locs;
+    } catch {
+      arr = [];
+    }
+    if (!Array.isArray(arr) || arr.length === 0) return "-";
+    return arr.map((l) => l.address || l.location || l.name || "-").join(", ");
+  };
+
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Trip {trip.trip_id}</Text>
       <Text style={styles.label}>
         Status: <Text style={styles.status}>{trip.status}</Text>
       </Text>
+
       <Picker
         selectedValue={trip.status}
         onValueChange={handleStatusChange}
@@ -79,11 +209,32 @@ function TripCard({
           <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
         ))}
       </Picker>
-      <Text style={styles.label}>Driver: {trip.driver}</Text>
-      <Text style={styles.label}>Vehicle: {trip.vehicle}</Text>
+
+      <Text style={styles.label}>Client: {clientName || "-"}</Text>
+      <Text style={styles.label}>Cost Centre: {costCentreName || "-"}</Text>
+      <Text style={styles.label}>
+        Driver(s): {driverNames || trip.driver || "-"}
+      </Text>
+      <Text style={styles.label}>
+        Vehicle(s): {vehicleNames || trip.vehicle || "-"}
+      </Text>
       <Text style={styles.label}>
         Cargo: {trip.cargo} ({trip.cargo_weight} kg)
       </Text>
+      <Text style={styles.label}>Origin: {trip.origin || "-"}</Text>
+      <Text style={styles.label}>Destination: {trip.destination || "-"}</Text>
+      <Text style={styles.label}>
+        Pickup: {displayLocations(trip.pickup_locations)}
+      </Text>
+      <Text style={styles.label}>
+        Dropoff: {displayLocations(trip.dropoff_locations)}
+      </Text>
+      <Text style={styles.label}>
+        Waypoints: {displayLocations(trip.waypoints)}
+      </Text>
+      <Text style={styles.label}>Order #: {trip.order_number || "-"}</Text>
+      <Text style={styles.label}>Rate: {trip.rate || "-"}</Text>
+      <Text style={styles.label}>Notes: {trip.notes || "-"}</Text>
       <Text style={styles.label}>
         Dates: {trip.start_date} - {trip.end_date}
       </Text>
@@ -92,13 +243,14 @@ function TripCard({
   );
 }
 
+// ✅ Main Component
 export default function TripsScreen() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTrips = async () => {
     setLoading(true);
-    // Get current user
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -108,9 +260,45 @@ export default function TripsScreen() {
       setLoading(false);
       return;
     }
-    const userId = user.id;
 
-    // Fetch all trips
+    const { data: driversData, error: driversError } = await supabase
+      .from("drivers")
+      .select("*");
+
+    if (driversError || !driversData) {
+      Alert.alert("Error", "Could not fetch drivers.");
+      setTrips([]);
+      setLoading(false);
+      return;
+    }
+
+    const userDriver =
+      driversData.find(
+        (d: Driver) =>
+          String(d.user_id || d.id).toLowerCase() ===
+          String(user.id).toLowerCase()
+      ) ||
+      driversData.find(
+        (d: Driver) =>
+          d.email_address &&
+          d.email_address.toLowerCase() === user.email?.toLowerCase()
+      ) ||
+      driversData.find(
+        (d: Driver) =>
+          (d.first_name || d.name) &&
+          (d.first_name || d.name)?.toLowerCase() ===
+            (user.user_metadata?.name || "").toLowerCase()
+      );
+
+    if (!userDriver) {
+      Alert.alert("Error", "Could not find your driver profile.");
+      setTrips([]);
+      setLoading(false);
+      return;
+    }
+
+    const userDriverName = (userDriver.first_name || "").toLowerCase();
+
     const { data, error } = await supabase.from("trips").select("*");
     if (error) {
       Alert.alert("Error", "Could not fetch trips.");
@@ -119,22 +307,33 @@ export default function TripsScreen() {
       return;
     }
 
-    // Filter trips where current user is a driver
     const filteredTrips = (data as Trip[]).filter((trip) => {
       try {
-        const assignments = trip.vehicleAssignments
-          ? JSON.parse(trip.vehicleAssignments)
-          : [];
-        // assignments is an array of objects with a 'drivers' array
+        let assignments: any[] = [];
+        if (trip.vehicleAssignments) {
+          assignments =
+            typeof trip.vehicleAssignments === "string"
+              ? JSON.parse(trip.vehicleAssignments)
+              : trip.vehicleAssignments;
+        } else if (trip.vehicle_assignments) {
+          assignments = Array.isArray(trip.vehicle_assignments)
+            ? trip.vehicle_assignments
+            : typeof trip.vehicle_assignments === "string"
+            ? JSON.parse(trip.vehicle_assignments)
+            : [];
+        }
         return assignments.some((assignment: any) =>
-          assignment.drivers?.some((driver: any) => driver.id === userId)
+          assignment.drivers?.some(
+            (driver: any) =>
+              driver.name && driver.name.toLowerCase() === userDriverName
+          )
         );
       } catch {
         return false;
       }
     });
 
-    setTrips(data as Trip[]);
+    setTrips(filteredTrips);
     setLoading(false);
   };
 
@@ -150,7 +349,7 @@ export default function TripsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, { alignItems: "center" }]}>
         <ActivityIndicator size="large" color="#2980b9" />
       </View>
     );
