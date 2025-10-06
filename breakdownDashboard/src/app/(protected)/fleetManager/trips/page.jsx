@@ -19,18 +19,84 @@ export default function TripsPage() {
   const [trips, setTrips] = useState([]);
   const supabase = createClient();
 
+  // Helper to parse JSON fields safely
+  const parseJsonField = (field) => {
+    if (!field) return [];
+    if (Array.isArray(field)) return field;
+    try {
+      return JSON.parse(field);
+    } catch {
+      return [];
+    }
+  };
+
+  // Get vehicles from context for lookup
+  const vehiclesContext = useGlobalContext().vehicles?.data || [];
+
+  // Helper to get driver names from vehicle assignments
+  const getDriverNames = (trip) => {
+    const assignments =
+      parseJsonField(trip.vehicleAssignments) ||
+      parseJsonField(trip.vehicle_assignments) ||
+      [];
+    return assignments
+      .flatMap((va) => (va.drivers ? va.drivers.map((d) => d.name).filter(Boolean) : []))
+      .join(", ");
+  };
+
+  // Helper to get vehicle names (make + model) from vehicle assignments
+  const getVehicleNames = (trip) => {
+    const assignments =
+      parseJsonField(trip.vehicleAssignments) ||
+      parseJsonField(trip.vehicle_assignments) ||
+      [];
+    return assignments
+      .map((va) => {
+        if (va.vehicle && va.vehicle.id) {
+          const vehicleObj = vehiclesContext.find((v) => String(v.id) === String(va.vehicle.id));
+          if (vehicleObj) {
+            return `${vehicleObj.make || ""} ${vehicleObj.model || ""}`.trim();
+          }
+          return va.vehicle.name || "";
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join(", ");
+  };
+
+  // Helper to display cost centre as name if object or JSON string
+  const displayCostCentre = (val) => {
+    if (!val) return "N/A";
+    if (typeof val === "object" && val.name) return val.name;
+    try {
+      const parsed = typeof val === "string" ? JSON.parse(val) : val;
+      if (parsed && parsed.name) return parsed.name;
+    } catch {}
+    return String(val);
+  };
+
   const fetchTrips = async () => {
     try {
       const { data, error } = await supabase.from('trips').select('*');
       if (error) {
         console.error('Error fetching trips:', error);
       } else {
-        setTrips(data);
+        // Parse JSON fields for each trip
+        const parsedTrips = (data || []).map((trip) => ({
+          ...trip,
+          vehicleAssignments: parseJsonField(trip.vehicleAssignments) || parseJsonField(trip.vehicle_assignments) || [],
+          driversDisplay: getDriverNames(trip),
+          vehiclesDisplay: getVehicleNames(trip),
+          costCentreDisplay: displayCostCentre(trip.costCentre || trip.cost_centre),
+        }));
+        setTrips(parsedTrips);
       }
     } catch (error) {
       console.error('Unexpected error fetching trips:', error);
     }
-  }
+  };
+
   React.useEffect(() => {
     fetchTrips();
   }, []);
@@ -44,6 +110,45 @@ export default function TripsPage() {
   } = initialTripsState;
 
   const { columns } = initialTripsState;
+
+  // Find the index for "Vehicles", "Drivers", and "Cost Centre" columns in the original columns
+  const baseColumns = columns ? columns() : [];
+  const vehiclesIdx = baseColumns.findIndex(
+    (col) => col.accessorKey?.toLowerCase() === "vehicles"
+  );
+  const driversIdx = baseColumns.findIndex(
+    (col) => col.accessorKey?.toLowerCase() === "drivers"
+  );
+  const costCentreIdx = baseColumns.findIndex(
+    (col) => col.accessorKey?.toLowerCase() === "costcentre"
+  );
+
+  // Replace the Vehicles, Drivers, and Cost Centre columns with our computed ones
+  const tableColumns = [...baseColumns];
+  if (vehiclesIdx !== -1) {
+    tableColumns[vehiclesIdx] = {
+      ...tableColumns[vehiclesIdx],
+      accessorKey: "vehiclesDisplay",
+      header: "Vehicles",
+      cell: ({ row }) => getVehicleNames(row.original) || "-",
+    };
+  }
+  if (driversIdx !== -1) {
+    tableColumns[driversIdx] = {
+      ...tableColumns[driversIdx],
+      accessorKey: "driversDisplay",
+      header: "Drivers",
+      cell: ({ row }) => getDriverNames(row.original) || "-",
+    };
+  }
+  if (costCentreIdx !== -1) {
+    tableColumns[costCentreIdx] = {
+      ...tableColumns[costCentreIdx],
+      accessorKey: "costCentreDisplay",
+      header: "Cost Centre",
+      cell: ({ row }) => row.original.costCentreDisplay || "-",
+    };
+  }
 
   return (
     <div className="p-6 space-y-6 w-full">
@@ -97,8 +202,8 @@ export default function TripsPage() {
         <div className="p-4">
           {columns &&
             <DataTable
-              columns={columns()}
-              data={trips || []} // Use data from the context
+              columns={tableColumns}
+              data={trips || []}
               filterColumn={[]}
               csv_headers={[]}
               csv_rows={[]}

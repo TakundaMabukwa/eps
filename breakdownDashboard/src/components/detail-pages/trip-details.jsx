@@ -149,6 +149,66 @@ const StatusBadge = ({ status }) => {
   )
 }
 
+// Helper to parse JSON fields safely
+const parseJsonField = (field, fallback = undefined) => {
+  if (!field) return fallback
+  if (typeof field === 'string') {
+    try {
+      return JSON.parse(field)
+    } catch {
+      return fallback
+    }
+  }
+  return field
+}
+
+// Helper to display any value safely
+const displayValue = (val) => {
+  if (val === null || val === undefined) return 'N/A'
+  if (typeof val === 'object') {
+    // If it's an array of objects with name, join names
+    if (
+      Array.isArray(val) &&
+      val.length &&
+      typeof val[0] === 'object' &&
+      val[0].name
+    ) {
+      return val.map((v) => v.name).join(', ')
+    }
+    // If it's an object with name
+    if (val.name) return val.name
+    // Otherwise, show JSON
+    return JSON.stringify(val)
+  }
+  return String(val)
+}
+
+// Helper to display pickup/dropoff locations as addresses
+const displayLocationsAddresses = (locations) => {
+  if (!locations || !Array.isArray(locations) || locations.length === 0) return "N/A";
+  return (
+    <ul className="list-disc pl-4 space-y-1">
+      {locations.map((loc, idx) => (
+        <li key={idx} className="text-sm text-blue-900 font-medium">
+          {loc.address || loc.location || "Unknown Address"}
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+// Helper to display cost centre as name if object
+const displayCostCentre = (val) => {
+  if (!val) return "N/A";
+  if (typeof val === "object" && val.name) return val.name;
+  try {
+    // If it's a JSON string, parse and get name
+    const parsed = typeof val === "string" ? JSON.parse(val) : val;
+    if (parsed && parsed.name) return parsed.name;
+  } catch {}
+  return String(val);
+};
+
 export default function TripDetails({ id }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -309,26 +369,67 @@ export default function TripDetails({ id }) {
     return `R ${total.toLocaleString()}`
   }
 
+  // Parse all relevant fields for display
+  const parsedTrip = trip
+    ? {
+      ...trip,
+      vehicleAssignments:
+        parseJsonField(trip.vehicleAssignments) ||
+        parseJsonField(trip.vehicle_assignments) ||
+        [],
+      clientDetails:
+        parseJsonField(trip.clientDetails) ||
+        parseJsonField(trip.client_details) ||
+        {},
+      pickupLocations:
+        parseJsonField(trip.pickupLocations) ||
+        parseJsonField(trip.pickup_locations) ||
+        [],
+      dropoffLocations:
+        parseJsonField(trip.dropoffLocations) ||
+        parseJsonField(trip.dropoff_locations) ||
+        [],
+      waypoints: parseJsonField(trip.waypoints) || [],
+      selectedStopPoints:
+        parseJsonField(trip.selectedStopPoints) ||
+        parseJsonField(trip.selected_stop_points) ||
+        [],
+      stopPoints:
+        parseJsonField(trip.stopPoints) ||
+        parseJsonField(trip.stop_points) ||
+        [],
+      drivers: parseJsonField(trip.drivers) || [],
+      vehicles: parseJsonField(trip.vehicles) || [],
+      costCentre:
+        parseJsonField(trip.costCentre) ||
+        parseJsonField(trip.cost_centre) ||
+        trip.costCentre ||
+        trip.cost_centre,
+    }
+    : null
+
   const trip_information = [
-    { label: 'Start Date', value: formatDate(trip?.startDate) },
-    { label: 'End Date', value: formatDate(trip?.endDate) },
-    { label: 'Origin', value: trip?.origin || 'N/A' },
-    { label: 'Destination', value: trip?.destination || 'N/A' },
-    { label: 'Cost Centre', value: trip?.costCentre || 'N/A' },
-    { label: 'Cargo', value: trip?.cargo || 'N/A' },
-    { label: 'Cargo Weight', value: trip?.cargoWeight || 'N/A' },
+    { label: 'Start Date', value: formatDate(parsedTrip?.startDate) },
+    { label: 'End Date', value: formatDate(parsedTrip?.endDate) },
+    { label: 'Origin', value: parsedTrip?.origin || 'N/A' },
+    { label: 'Destination', value: parsedTrip?.destination || 'N/A' },
+    { label: 'Cost Centre', value: displayCostCentre(parsedTrip?.costCentre) },
+    { label: 'Cargo', value: parsedTrip?.cargo || 'N/A' },
+    { label: 'Cargo Weight', value: parsedTrip?.cargoWeight || parsedTrip?.cargo_weight || 'N/A' },
+    { label: 'Pickup Locations', value: displayLocationsAddresses(parsedTrip?.pickupLocations) },
+    { label: 'Dropoff Locations', value: displayLocationsAddresses(parsedTrip?.dropoffLocations) },
+    { label: 'Waypoints', value: displayValue(parsedTrip?.waypoints) },
+    { label: 'Notes', value: parsedTrip?.notes || 'N/A' },
   ]
   const client_information = [
-    { label: 'Client', value: trip?.clientDetails?.name || 'N/A' },
-    {
-      label: 'Contact Person',
-      value: trip?.clientDetails?.contactPerson || 'N/A',
-    },
-    { label: 'Email', value: trip?.clientDetails?.email || 'N/A' },
-    { label: 'Phone', value: trip?.clientDetails?.phone || 'N/A' },
+    { label: 'Client', value: parsedTrip?.clientDetails?.name || 'N/A' },
+    { label: 'Contact Person', value: parsedTrip?.clientDetails?.contactPerson || 'N/A' },
+    { label: 'Email', value: parsedTrip?.clientDetails?.email || 'N/A' },
+    { label: 'Phone', value: parsedTrip?.clientDetails?.phone || 'N/A' },
+    { label: 'Address', value: parsedTrip?.clientDetails?.address || 'N/A' },
   ]
   const financial_summary = [
-    { label: 'Fuel Used', value: trip?.fuelUsed || 'N/A' },
+    { label: 'Fuel Used', value: parsedTrip?.fuelUsed || 'N/A' },
     { label: 'Total Expenses', value: calculateTotalExpenses() },
   ]
 
@@ -379,7 +480,7 @@ export default function TripDetails({ id }) {
       {/* Header */}
       <DetailActionBar
         id={id}
-        title={trip?.clientDetails?.name}
+        title={parsedTrip?.clientDetails?.name}
         description={id}
       />
 
@@ -431,7 +532,12 @@ export default function TripDetails({ id }) {
                 <dt className="text-sm font-medium text-gray-500">
                   {info.label}
                 </dt>
-                <dd className="mt-1 text-sm text-gray-900">{info.value}</dd>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {/* Only render as React node for pickup/dropoff, else as string */}
+                  {(info.label === "Pickup Locations" || info.label === "Dropoff Locations")
+                    ? info.value
+                    : displayValue(info.value)}
+                </dd>
               </div>
             ))}
           </div>
@@ -475,7 +581,7 @@ export default function TripDetails({ id }) {
                 <dt className="text-sm font-medium text-gray-500">
                   {info.label}
                 </dt>
-                <dd className="mt-1 text-sm text-gray-900">{info.value}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{displayValue(info.value)}</dd>
               </div>
             ))}
           </div>
@@ -491,9 +597,9 @@ export default function TripDetails({ id }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {trip?.vehicleAssignments && trip?.vehicleAssignments.length > 0 ? (
+          {parsedTrip?.vehicleAssignments && parsedTrip?.vehicleAssignments.length > 0 ? (
             <div className="space-y-4">
-              {trip.vehicleAssignments.map((assignment, index) => (
+              {parsedTrip.vehicleAssignments.map((assignment, index) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -501,7 +607,7 @@ export default function TripDetails({ id }) {
                         Vehicle
                       </h4>
                       <p className="text-sm">
-                        {assignment.vehicle?.name || 'N/A'}
+                        {displayValue(assignment.vehicle)}
                       </p>
                     </div>
                     <div>
@@ -509,8 +615,7 @@ export default function TripDetails({ id }) {
                         Drivers
                       </h4>
                       <p className="text-sm">
-                        {assignment.drivers?.map((d) => d.name).join(', ') ||
-                          'N/A'}
+                        {displayValue(assignment.drivers)}
                       </p>
                     </div>
                     <div>
@@ -518,8 +623,7 @@ export default function TripDetails({ id }) {
                         Trailers
                       </h4>
                       <p className="text-sm">
-                        {assignment.trailers?.map((t) => t.name).join(', ') ||
-                          'None'}
+                        {displayValue(assignment.trailers) || 'None'}
                       </p>
                     </div>
                   </div>

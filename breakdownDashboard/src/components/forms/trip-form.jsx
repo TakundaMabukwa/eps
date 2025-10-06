@@ -665,41 +665,109 @@ const TripForm = ({ onClose, id }) => {
     e.preventDefault()
     setLoading(true)
     try {
-      // Prepare tripData with both camelCase and snake_case for all relevant fields
+      // Normalize and resolve references for drivers, vehicles, costCentre, etc.
+      // 1. Resolve drivers
+      const resolvedDrivers = (formState.drivers || []).map((drv) => {
+        if (typeof drv === "object" && drv.id && drv.name) return drv
+        const found = drivers.find((d) => String(d.id) === String(drv.id || drv))
+        return found
+          ? { id: String(found.id), name: found.first_name || found.name || "" }
+          : { id: String(drv.id || drv), name: "" }
+      })
+
+      // 2. Resolve vehicles
+      const resolvedVehicles = (formState.vehicles || []).map((veh) => {
+        if (typeof veh === "object" && veh.id && veh.name) return veh
+        const found = vehicles.find((v) => String(v.id) === String(veh.id || veh))
+        return found
+          ? { id: String(found.id), name: found.model ? `${found.model} (${found.regNumber})` : found.name || "" }
+          : { id: String(veh.id || veh), name: "" }
+      })
+
+      // 3. Resolve vehicleAssignments (drivers and vehicles inside)
+      const resolvedVehicleAssignments = (formState.vehicleAssignments || []).map((va) => ({
+        ...va,
+        vehicle: va.vehicle && va.vehicle.id
+          ? (() => {
+            const found = vehicles.find((v) => String(v.id) === String(va.vehicle.id))
+            return found
+              ? { id: String(found.id), name: found.model ? `${found.model} (${found.regNumber})` : found.name || "" }
+              : { id: String(va.vehicle.id), name: "" }
+          })()
+          : va.vehicle,
+        drivers: (va.drivers || []).map((drv) => {
+          const found = drivers.find((d) => String(d.id) === String(drv.id || drv))
+          return found
+            ? { id: String(found.id), name: found.first_name || found.name || "" }
+            : { id: String(drv.id || drv), name: "" }
+        }),
+        trailers: va.trailers || [],
+      }))
+
+      // 4. Resolve costCentre
+      let resolvedCostCentre = formState.costCentre
+      if (resolvedCostCentre && typeof resolvedCostCentre === "string") {
+        const found = costCentres.find((cc) => String(cc.id) === String(resolvedCostCentre) || cc.name === resolvedCostCentre)
+        resolvedCostCentre = found ? { id: String(found.id), name: found.name } : { id: String(resolvedCostCentre), name: "" }
+      }
+
+      // 5. Resolve clientDetails
+      let resolvedClientDetails = formState.clientDetails
+      if (formState.selectedClient && clients.length) {
+        const found = clients.find((c) => String(c.id) === String(formState.selectedClient))
+        if (found) {
+          resolvedClientDetails = {
+            name: found.name || "",
+            email: found.email || "",
+            phone: found.phone || "",
+            address: found.address || "",
+            contactPerson: found.contactPerson || "",
+          }
+        }
+      }
+
+      // 6. Ensure pickup/dropoff locations are arrays of objects
+      const resolvedPickupLocations = Array.isArray(formState.pickupLocations)
+        ? formState.pickupLocations.map((loc) => ({ ...loc }))
+        : []
+      const resolvedDropoffLocations = Array.isArray(formState.dropoffLocations)
+        ? formState.dropoffLocations.map((loc) => ({ ...loc }))
+        : []
+
+      // 7. Prepare tripData with both camelCase and snake_case for all relevant fields
       const tripData = {
         ...formState,
         route: `${formState.origin} to ${formState.destination}`,
-        driver: formState.drivers[0]?.name || 'Unassigned',
-        vehicle: formState.vehicles[0]?.name || 'Unassigned',
-        vehicleAssignments: formState.vehicleAssignments,
+        driver: resolvedDrivers[0]?.name || 'Unassigned',
+        vehicle: resolvedVehicles[0]?.name || 'Unassigned',
+        drivers: resolvedDrivers,
+        vehicles: resolvedVehicles,
+        vehicleAssignments: resolvedVehicleAssignments,
+        costCentre: resolvedCostCentre,
+        clientDetails: resolvedClientDetails,
+        pickupLocations: resolvedPickupLocations,
+        dropoffLocations: resolvedDropoffLocations,
+        // snake_case for DB compatibility
+        vehicle_assignments: resolvedVehicleAssignments,
+        cost_centre: resolvedCostCentre,
+        client_details: resolvedClientDetails,
+        pickup_locations: resolvedPickupLocations,
+        dropoff_locations: resolvedDropoffLocations,
+        // ...other fields as before...
         distance: 'Calculating...',
-
-        // Ensure both camelCase and snake_case for all JSON fields
-        pickupLocations: formState.pickupLocations,
-        pickup_locations: formState.pickupLocations,
-        dropoffLocations: formState.dropoffLocations,
-        dropoff_locations: formState.dropoffLocations,
-        clientDetails: formState.clientDetails,
-        client_details: formState.clientDetails,
         statusNotes: formState.statusNotes,
         status_notes: formState.statusNotes,
-        costCentre: formState.costCentre,
-        cost_centre: formState.costCentre,
         cargoWeight: formState.cargoWeight,
         cargo_weight: formState.cargoWeight,
         endDate: formState.endDate,
         end_date: formState.endDate,
         selectedClient: formState.selectedClient,
         selected_client: formState.selectedClient,
-        vehicleAssignments: formState.vehicleAssignments,
-        vehicle_assignments: formState.vehicleAssignments,
         selectedStopPoints: formState.selectedStopPoints,
         selected_stop_points: formState.selectedStopPoints,
         stopPoints: formState.stopPoints,
         stop_points: formState.stopPoints,
         waypoints: formState.waypoints,
-        drivers: formState.drivers,
-        vehicles: formState.vehicles,
       }
       if (!tripData.id || isNaN(Number(tripData.id))) {
         delete tripData.id
