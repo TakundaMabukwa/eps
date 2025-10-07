@@ -192,12 +192,32 @@ function TripCard({
     return arr.map((l) => l.address || l.location || l.name || "-").join(", ");
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "completed":
+        return "#27ae60";
+      case "in-progress":
+        return "#f39c12";
+      case "cancelled":
+        return "#c0392b";
+      default:
+        return "#2980b9";
+    }
+  };
+
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Trip {trip.trip_id}</Text>
-      <Text style={styles.label}>
-        Status: <Text style={styles.status}>{trip.status}</Text>
-      </Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Trip {trip.trip_id}</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: getStatusColor(trip.status) },
+          ]}
+        >
+          <Text style={styles.statusText}>{trip.status}</Text>
+        </View>
+      </View>
 
       <Picker
         selectedValue={trip.status}
@@ -210,35 +230,65 @@ function TripCard({
         ))}
       </Picker>
 
-      <Text style={styles.label}>Client: {clientName || "-"}</Text>
-      <Text style={styles.label}>Cost Centre: {costCentreName || "-"}</Text>
-      <Text style={styles.label}>
-        Driver(s): {driverNames || trip.driver || "-"}
-      </Text>
-      <Text style={styles.label}>
-        Vehicle(s): {vehicleNames || trip.vehicle || "-"}
-      </Text>
-      <Text style={styles.label}>
-        Cargo: {trip.cargo} ({trip.cargo_weight} kg)
-      </Text>
-      <Text style={styles.label}>Origin: {trip.origin || "-"}</Text>
-      <Text style={styles.label}>Destination: {trip.destination || "-"}</Text>
-      <Text style={styles.label}>
-        Pickup: {displayLocations(trip.pickup_locations)}
-      </Text>
-      <Text style={styles.label}>
-        Dropoff: {displayLocations(trip.dropoff_locations)}
-      </Text>
-      <Text style={styles.label}>
-        Waypoints: {displayLocations(trip.waypoints)}
-      </Text>
-      <Text style={styles.label}>Order #: {trip.order_number || "-"}</Text>
-      <Text style={styles.label}>Rate: {trip.rate || "-"}</Text>
-      <Text style={styles.label}>Notes: {trip.notes || "-"}</Text>
-      <Text style={styles.label}>
-        Dates: {trip.start_date} - {trip.end_date}
-      </Text>
-      {loading && <ActivityIndicator size="small" color="#2980b9" />}
+      <View style={styles.section}>
+        <Text style={styles.label}>Client:</Text>
+        <Text style={styles.value}>{clientName || "-"}</Text>
+{/* 
+        <Text style={styles.label}>Cost Centre:</Text>
+        <Text style={styles.value}>{costCentreName || "-"}</Text> */}
+
+        <Text style={styles.label}>Driver(s):</Text>
+        <Text style={styles.value}>{driverNames || trip.driver || "-"}</Text>
+
+        <Text style={styles.label}>Vehicle(s):</Text>
+        <Text style={styles.value}>{vehicleNames || trip.vehicle || "-"}</Text>
+
+        <Text style={styles.label}>Cargo:</Text>
+        <Text style={styles.value}>
+          {trip.cargo} ({trip.cargo_weight} tons)
+        </Text>
+
+        {/* <Text style={styles.label}>Origin:</Text>
+        <Text style={styles.value}>{trip.origin || "-"}</Text>
+
+        <Text style={styles.label}>Destination:</Text>
+        <Text style={styles.value}>{trip.destination || "-"}</Text> */}
+
+        <Text style={styles.label}>Pickup:</Text>
+        <Text style={styles.value}>
+          {displayLocations(trip.pickup_locations)}
+        </Text>
+
+        <Text style={styles.label}>Dropoff:</Text>
+        <Text style={styles.value}>
+          {displayLocations(trip.dropoff_locations)}
+        </Text>
+
+        {/* <Text style={styles.label}>Waypoints:</Text>
+        <Text style={styles.value}>{displayLocations(trip.waypoints)}</Text>
+
+        <Text style={styles.label}>Order #:</Text>
+        <Text style={styles.value}>{trip.order_number || "-"}</Text> */}
+
+        {/* <Text style={styles.label}>Rate:</Text>
+        <Text style={styles.value}>{trip.rate || "-"}</Text> */}
+
+        {/* <Text style={styles.label}>Notes:</Text>
+        <Text style={styles.value}>{trip.notes || "-"}</Text> */}
+
+        <Text style={styles.label}>Dates:</Text>
+        <Text style={styles.value}>
+          {trip.start_date} - {trip.end_date}
+        </Text>
+      </View>
+
+      {loading && (
+        <ActivityIndicator
+          size="small"
+          color="#2980b9"
+          style={{ marginTop: 10 }}
+        />
+      )}
     </View>
   );
 }
@@ -373,33 +423,58 @@ export default function TripsScreen() {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
+    borderRadius: 16,
+    padding: 18,
+    marginVertical: 10,
     marginHorizontal: 16,
     shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 3,
+    borderLeftWidth: 5,
+    borderLeftColor: "#2980b9",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
   },
   title: {
     fontSize: 20,
     fontWeight: "700",
-    marginBottom: 8,
     color: "#2c3e50",
   },
-  label: {
-    fontSize: 16,
-    marginVertical: 2,
-    color: "#34495e",
+  statusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
   },
-  status: {
+  statusText: {
+    fontSize: 14,
+    color: "#fff",
     fontWeight: "600",
-    color: "#2980b9",
+    textTransform: "capitalize",
   },
   picker: {
-    marginVertical: 8,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 8,
+    marginVertical: 10,
+    backgroundColor: "#f7f9fa",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  section: {
+    marginTop: 8,
+  },
+  label: {
+    fontSize: 14,
+    color: "#7f8c8d",
+    marginTop: 6,
+  },
+  value: {
+    fontSize: 15,
+    color: "#2c3e50",
+    fontWeight: "500",
   },
 });
