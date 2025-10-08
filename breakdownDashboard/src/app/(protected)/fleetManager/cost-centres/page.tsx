@@ -76,6 +76,7 @@ export default function CostCentresPage() {
             filterColumn={[]}
             csv_headers={[]}
             csv_rows={[]}
+            href={`/fleetManager/cost-centres/`}
           />
         </div>
       </div>

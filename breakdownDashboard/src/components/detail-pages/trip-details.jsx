@@ -46,26 +46,6 @@ import {
   RefreshCw,
   Edit,
 } from 'lucide-react'
-
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import DetailActionBar from '@/components/layout/detail-action-bar'
 import { ProgressWithWaypoints } from '@/components/ui/progress-with-waypoints'
@@ -205,7 +185,7 @@ const displayCostCentre = (val) => {
     // If it's a JSON string, parse and get name
     const parsed = typeof val === "string" ? JSON.parse(val) : val;
     if (parsed && parsed.name) return parsed.name;
-  } catch {}
+  } catch { }
   return String(val);
 };
 

@@ -1,25 +1,25 @@
-import ClientDetails from '@/components/detail-pages/client-details'
-import { auth } from '@/lib/server-db'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+"use server";
 
+// next
+import { redirect } from "next/navigation";
+
+// lib
+import { createClient } from "@/lib/supabase/server";
+// components
+import React from "react";
+import ClientDetails from "../../../../../components/detail-pages/client-details";
 const ClientDetailsPage = async ({ params }) => {
-  const { id } = await params
-  try {
-    const cookieStore = await cookies()
-    const token = cookieStore?.get('firebaseIdToken')?.value
+  const { id } = params;
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await (await supabase).auth.getUser();
 
-    if (!token) {
-      redirect('/')
-    }
-    const decodedToken = await auth.verifyIdToken(token)
-    if (!decodedToken) {
-      redirect('/')
-    }
-    return <ClientDetails id={id} />
-  } catch (err) {
-    redirect('/')
+  if (!user) {
+    redirect("/login");
   }
-}
 
-export default ClientDetailsPage
+  return <ClientDetails id={id} />;
+};
+
+export default ClientDetailsPage;

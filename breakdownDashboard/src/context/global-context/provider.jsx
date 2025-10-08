@@ -491,7 +491,7 @@ const GlobalProvider = ({ children }) => {
     >
       {children}
   {/* Dev inspector: shows raw context data from Supabase for quick debugging */}
-      <div style={{ position: 'fixed', right: 8, bottom: 8, zIndex: 9999 }}>
+      {/* <div style={{ position: 'fixed', right: 8, bottom: 8, zIndex: 9999 }}>
         <details style={{ maxWidth: 420, maxHeight: 360, overflow: 'auto', background: 'rgba(255,255,255,0.95)', padding: 8, borderRadius: 6, boxShadow: '0 6px 18px rgba(0,0,0,0.12)' }}>
           <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Dev: Context Inspector</summary>
           <div style={{ fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
@@ -525,7 +525,7 @@ const GlobalProvider = ({ children }) => {
             </div>
           </div>
         </details>
-      </div>
+      </div> */}
   {/* compact data viewer on the left for quick glance */}
   {/* <DataViewer /> */}
       <AlertScreen

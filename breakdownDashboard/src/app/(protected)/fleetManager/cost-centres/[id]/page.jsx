@@ -1,30 +1,27 @@
+"use server";
+
 // next
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
 // lib
-import { auth } from '@/lib/server-db'
-
+import { createClient } from "@/lib/supabase/server";
 // components
-import CostCentreDetails from '@/components/detail-pages/cost-centre-screen'
+import React from "react";
+import CostCentreDetails from "../../../../../components/detail-pages/cost-centre-screen";
 
+// const TripDetailsPage = async ({ params }: TripDetailsPageProps) => {
 const CostCentreDetailsPage = async ({ params }) => {
-  const { id } = await params
-  try {
-    const cookieStore = await cookies()
-    const token = cookieStore?.get('firebaseIdToken')?.value
+  const { id } = params;
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await (await supabase).auth.getUser();
 
-    if (!token) {
-      redirect('/')
-    }
-    const decodedToken = await auth.verifyIdToken(token)
-    if (!decodedToken) {
-      redirect('/')
-    }
-    return <CostCentreDetails id={id} />
-  } catch (err) {
-    redirect('/')
+  if (!user) {
+    redirect("/login");
   }
-}
 
-export default CostCentreDetailsPage
+  return <CostCentreDetails id={id} />;
+};
+
+export default CostCentreDetailsPage;
