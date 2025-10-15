@@ -96,36 +96,3 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'Something went wrong...' }, { status: 500 })
   }
 }
-      return NextResponse.json({ error: 'Missing company ID' }, { status: 401 })
-    }
-
-    // Delete the client from Supabase
-    const { error } = await supabase
-      .from('clients')
-      .delete()
-      .eq('id', id)
-      .eq('company_id', companyData.company_id)
-
-    if (error) throw error
-
-    // Log user activity
-    const ip = request.headers.get('x-forwarded-for') || 
-               request.headers.get('x-real-ip') || 
-               'unknown'
-
-    await supabase.from('user_activities').insert({
-      user_id: user.id,
-      activity: 'Deleted Client',
-      ip: ip === '::1' ? 'localhost' : ip,
-      timestamp: new Date().toISOString()
-    })
-
-    return NextResponse.json(id, { status: 200 })
-  } catch (error) {
-    console.error('Error deleting client:', error)
-    return NextResponse.json(
-      { error: 'Something went wrong...' },
-      { status: 500 }
-    )
-  }
-}
