@@ -99,7 +99,44 @@ const GlobalProvider = ({ children }) => {
     vehicleReducer,
     initialVehiclesState
   )
-  const [routes, setRoutes] = useState([])
+  const [routes, setRoutes] = useState([
+    {
+      label: 'Dashboard',
+      icon: 'ChartColumnBig',
+      href: '/',
+      color: 'text-sky-500',
+    },
+    {
+      label: 'Vehicles',
+      icon: 'Truck',
+      href: '/vehicles',
+      color: 'text-orange-500',
+    },
+    {
+      label: 'Drivers',
+      icon: 'UserCircle',
+      href: '/drivers',
+      color: 'text-green-700',
+    },
+    // {
+    //   label: 'Reports',
+    //   icon: 'ChartColumnBig',
+    //   href: '/reports',
+    //   color: 'text-blue-500',
+    // },
+    // {
+    //   label: 'Jobs',
+    //   icon: 'Wrench',
+    //   href: '/jobs',
+    //   color: 'text-yellow-500',
+    // },
+    // {
+    //   label: 'Call Center',
+    //   icon: 'Phone',
+    //   href: '/callcenter',
+    //   color: 'text-red-500',
+    // },
+  ])
   const [modalOpen, setModalOpen] = useState(false)
   const [alertOpen, setAlertOpen] = useState(false)
   const [id, setId] = useState(null)

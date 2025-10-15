@@ -1,329 +1,291 @@
-"use client"
+"use client";
 
-import type React from "react"
+import React, { useEffect, useState } from "react";
+import { Building2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/client";
 
-import { useState, useEffect } from "react"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import {
-  FileText,
-  Plus,
-  CheckCircle,
-  Clock,
-} from "lucide-react"
-import { toast } from "sonner"
-import { createClient } from "@/lib/supabase/client"
-import Link from "next/link"
-
-interface Driver {
-  first_name: string | null;
-  surname: string | null;
-  cell_number: string | null;
+interface CostCenter {
+  id: string;
+  cost_code: string;
+  company: string;
+  children?: Level3CostCenter[];
 }
 
-interface Vehicle {
-  registration_number: string | null;
-  make: string | null;
-  model: string | null;
-}
-
-interface Job {
+interface Level3CostCenter {
   id: number;
-  job_id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: "low" | "medium" | "high" | "emergency";
-  created_at: string;
-  updated_at: string;
-  drivers?: Driver;
-  vehiclesc?: Vehicle;
-  location: string;
-  coordinates: { lat: number; lng: number };
-  technician_id: number | null;
-  technicians?: Technician;
-  estimatedCost?: number;
-  actualCost?: number;
-  clientType: "internal" | "external";
-  clientName?: string;
-  approvalRequired: boolean;
-  approvedBy?: string;
-  approvedAt?: string;
-  notes: string;
-  attachments: string[];
-  completed_at: string;
-  eta: string;
+  cost_code: string;
+  company: string;
+  branch: string;
+  sub_branch: string;
+  parent_cost_code: string;
 }
 
-interface Technician {
-  id: number,
-  name: string;
-  surname: string;
-  phone: string;
-  location: string;
-  rating: string;
-  specialties: string[],
-}
+const LevelTreeDiagram = ({ costCenters }: { costCenters: CostCenter[] }) => {
+  // EPS root position
+  const epsPosition = { x: Math.max(costCenters.length * 300, 600) / 2, y: 20 };
+  
+  // Calculate positions for each parent
+  const parentPositions = costCenters.map((_, index) => ({
+    x: index * 300 + 150,
+    y: 120
+  }));
 
-interface Quotation {
-  id: string
-  breakdown_id?: string
-  cost_center_id?: string
-  estimate_amount?: number
-  status: "pending" | "approved" | "rejected" | "pending-approval" | "paid" | "invoiced"
-  reason?: string
-  created_at: string
-  job_type?: string
-  issue?: string
-  parts_needed?: string[]
-  estimated_cost?: number
-  priority?: string
-  estimated_time?: string
-  additional_notes?: string
-  job_id?: Job;
-  paid?: boolean
-  orderno?: string
-  drivername?: string
-  vehiclereg?: string
-  description?: string
-  laborcost?: number
-  partscost?: number
-  totalcost?: number
-  created_by?: string
-  jobcard_id?: number
-  type: string
-  markupPrice: number
-}
+  // Calculate positions for all children
+  const childrenData = costCenters.flatMap((parent, parentIndex) => {
+    if (!parent.children || parent.children.length === 0) return [];
+    
+    return parent.children.map((child, childIndex) => {
+      const position = {
+        x: childIndex * 200 + 100,
+        y: 270,
+        parentX: parentPositions[parentIndex].x,
+        parentY: parentPositions[parentIndex].y,
+        child
+      };
+      return position;
+    });
+  }).map((item, index) => ({ ...item, x: index * 200 + 100 }));
 
-export default function CostCenterPage() {
-  const [quotations, setQuotations] = useState<Quotation[]>([])
-  const [isCreateQuotationOpen, setIsCreateQuotationOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const supabase = createClient()
-
-  const fetchQuotations = async () => {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from("quotations")
-        .select(`
-        *,
-        job_id (
-          *,
-          drivers (
-            first_name,
-            surname,
-            cell_number
-          ),
-          vehiclesc (
-            registration_number,
-            make,
-            model
-          ),
-          technicians(*)
-        )
-      `)
-        .order("created_at", { ascending: false });
-
-      // .is("markupPrice", null);
-
-      if (error) {
-        console.error("Error fetching quotations:", error)
-        toast.error("Failed to fetch quotations")
-        return
-      }
-
-      setQuotations((data as []) as Quotation[])
-    } catch (error) {
-      console.error("Error:", error)
-      toast.error("Failed to fetch quotations")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchQuotations()
-  }, [])
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "approved":
-        return "bg-green-100 text-green-800"
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "internal":
-        return "bg-green-100"
-      case "external":
-        return "bg-blue-100"
-      default:
-        return "bg-white"
-    }
-  }
+  const totalWidth = Math.max(
+    costCenters.length * 300,
+    childrenData.length * 200,
+    600
+  );
 
   return (
-    <div className="flex-1 space-y-4 p-4 pt-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Quotation Management</h2>
-        <Dialog open={isCreateQuotationOpen} onOpenChange={setIsCreateQuotationOpen}>
-          <DialogTrigger asChild>
-            {/* <Button>
-              <Plus className="h-4 w-4 mr-2" /> Create Quotation
-            </Button> */}
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Quotation</DialogTitle>
-              <DialogDescription>Create a detailed quotation for repair work.</DialogDescription>
-            </DialogHeader>
-            {/* FORM UI COMES HERE — OMITTED FOR SPACE */}
-          </DialogContent>
-        </Dialog>
+    <div className="relative" style={{ width: totalWidth, height: 370 }}>
+      <svg 
+        className="absolute inset-0 pointer-events-none" 
+        width={totalWidth} 
+        height={370}
+      >
+        {/* EPS to Parents lines */}
+        {costCenters.map((_, index) => (
+          <g key={`eps-${index}`}>
+            <line
+              x1={epsPosition.x}
+              y1={60}
+              x2={epsPosition.x}
+              y2={90}
+              stroke="#9CA3AF"
+              strokeWidth="2"
+            />
+            <line
+              x1={Math.min(epsPosition.x, parentPositions[index].x)}
+              y1={90}
+              x2={Math.max(epsPosition.x, parentPositions[index].x)}
+              y2={90}
+              stroke="#9CA3AF"
+              strokeWidth="2"
+            />
+            <line
+              x1={parentPositions[index].x}
+              y1={90}
+              x2={parentPositions[index].x}
+              y2={120}
+              stroke="#9CA3AF"
+              strokeWidth="2"
+            />
+          </g>
+        ))}
+        
+        {/* Parents to Children lines */}
+        {childrenData.map((childData, index) => {
+          const parentIndex = costCenters.findIndex(p => 
+            p.children?.some(c => c.id === childData.child.id)
+          );
+          const parentX = parentPositions[parentIndex]?.x || 0;
+          
+          return (
+            <g key={index}>
+              <line
+                x1={parentX}
+                y1={160}
+                x2={parentX}
+                y2={200}
+                stroke="#9CA3AF"
+                strokeWidth="2"
+              />
+              <line
+                x1={Math.min(parentX, childData.x)}
+                y1={200}
+                x2={Math.max(parentX, childData.x)}
+                y2={200}
+                stroke="#9CA3AF"
+                strokeWidth="2"
+              />
+              <line
+                x1={childData.x}
+                y1={200}
+                x2={childData.x}
+                y2={240}
+                stroke="#9CA3AF"
+                strokeWidth="2"
+              />
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Level 0: EPS Root */}
+      <div
+        className="absolute bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg p-4 shadow-lg group"
+        style={{
+          left: epsPosition.x - 100,
+          top: epsPosition.y,
+          width: 200
+        }}
+      >
+        <div className="flex items-center justify-center">
+          <Building2 className="h-6 w-6 mr-2" />
+          <div className="font-bold text-lg">EPS</div>
+        </div>
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-center mt-1">
+          EPS Couriers
+        </div>
       </div>
 
-      <Tabs defaultValue="quotations" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="quotations">All Quotations</TabsTrigger>
-          <TabsTrigger value="pending">Pending Submission</TabsTrigger>
-          <TabsTrigger value="pending-approval">Pending Approval</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="invoiced">Invoiced</TabsTrigger>
-          <TabsTrigger value="paid">Paid</TabsTrigger>
-        </TabsList>
+      {/* Level 1: Parents */}
+      {costCenters.map((parent, index) => (
+        <div
+          key={parent.id}
+          className="absolute bg-blue-50 border-2 border-blue-200 rounded-lg p-3 shadow-md group hover:bg-blue-100 transition-colors"
+          style={{
+            left: parentPositions[index].x - 100,
+            top: parentPositions[index].y,
+            width: 200
+          }}
+        >
+          <div className="flex items-center justify-center">
+            <Building2 className="h-5 w-5 mr-2 text-blue-600" />
+            <div className="font-semibold text-blue-900">{parent.company}</div>
+          </div>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-blue-700 text-center mt-1">
+            {parent.cost_code}
+          </div>
+        </div>
+      ))}
 
-        {['quotations', 'pending', 'pending-approval', 'rejected', 'approved', 'invoiced', 'paid'].map((tab) => (
-          <TabsContent key={tab} value={tab} className="space-y-4">
-            <div className="grid gap-4">
-              {loading ? (
-                <div className="text-center py-8">Loading quotations...</div>
-              ) : quotations.filter(q => {
-                if (tab === 'quotations') return true; // All quotations tab shows all
-                if (tab === 'pending') {
-                  // For "pending" tab, show quotations with status "pending" AND markupPrice IS NULL
-                  return q.status === tab && (q.markupPrice === null || q.markupPrice === undefined);
-                }
-                // For other tabs, filter only by status
-                return q.status === tab;
-              }).length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No quotations found</div>
-              ) : (
-                quotations.filter(q => {
-                  if (tab === 'quotations') return true;
-                  if (tab === 'pending') {
-                    return q.status === tab && (q.markupPrice === null || q.markupPrice === undefined);
-                  }
-                  return q.status === tab;
-                }).map((quotation) => (
-                  <Card key={quotation.id} className={getTypeColor(quotation.type)}>
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-md">
-                            {quotation.orderno || `Quotation ${quotation.id.slice(0, 8)}`} : {quotation.job_id?.vehiclesc?.registration_number ?? 'N/A'}
-                          </CardTitle>
-                          <CardDescription>
-                            Created on {new Date(quotation.created_at).toLocaleString()}
-                          </CardDescription>
-                        </div>
-                        <div className="flex flex-row">
-                          <p className="text-sm">{quotation.type.toUpperCase()} QUOTE :</p>
-                          <Badge className={getStatusColor(quotation.status)}>
-                            {quotation.status.toUpperCase()}
-                          </Badge>
-                        </div>
-
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm font-medium">Driver: {quotation.job_id?.drivers ? `${quotation.job_id.drivers.first_name} ${quotation.job_id.drivers.surname ?? ''}` : 'N/A'}</p>
-                          <p className="text-sm font-medium">Technician: {quotation.job_id?.technicians?.name}</p>
-                          <p className="text-sm font-medium">Vehicle: {quotation.job_id?.vehiclesc?.registration_number ?? 'N/A'}</p>
-                          <p className="text-sm font-medium">Job Type: {quotation.job_type || 'N/A'}</p>
-                          <p className="text-sm font-medium">Priority: {quotation.priority || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Description:</p>
-                          <p className="text-sm text-gray-600">{quotation.issue || 'N/A'}</p>
-                          {quotation.issue && (
-                            <>
-                              <p className="text-sm font-medium mt-2">Notes:</p>
-                              <p className="text-sm text-gray-600">{quotation.additional_notes || 'N/A'}</p>
-                            </>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Labor: R {(quotation.laborcost || 0).toFixed(2)}</p>
-                          <p className="text-sm font-medium">Parts: R {(quotation.partscost || 0).toFixed(2)}</p>
-                          <p className="text-lg font-semibold text-green-600">Total: R {(quotation.totalcost || 0).toFixed(2)}</p>
-                        </div>
-                      </div>
-
-                      {quotation.parts_needed && quotation.parts_needed.length > 0 && (
-                        <div className="mb-4">
-                          <p className="text-sm font-semibold mb-2">Parts Needed:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {quotation.parts_needed.map((part, index) => {
-                              let partName = part;
-                              try {
-                                const parsed = JSON.parse(part);
-                                if (parsed && parsed.name) partName = parsed.name;
-                              } catch {
-                                { part }
-                              }
-                              return <Badge key={index} variant="outline">{partName}</Badge>;
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-
-                      <div className="flex gap-2">
-                        <Link href={`/ccenter/${quotation.id}`}>
-                          <Button variant="outline">View Details</Button>
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+      {/* Level 2: Children */}
+      {childrenData.map((childData, index) => (
+        <div
+          key={childData.child.id}
+          className="absolute bg-white border border-gray-300 rounded-lg p-3 shadow-sm group hover:bg-gray-50 transition-colors"
+          style={{
+            left: childData.x - 90,
+            top: childData.y,
+            width: 180
+          }}
+        >
+          <div className="flex items-center justify-center">
+            <Building2 className="h-4 w-4 mr-2 text-gray-600" />
+            <div className="font-medium text-gray-900 text-sm text-center">
+              {childData.child.company} - {childData.child.branch}
+              {childData.child.sub_branch && ` / ${childData.child.sub_branch}`}
             </div>
-          </TabsContent>
-        ))}
-      </Tabs>
-
+          </div>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-600 text-center mt-1">
+            {childData.child.cost_code}
+          </div>
+        </div>
+      ))}
     </div>
-  )
+  );
+};
+
+export default function CostCenterPage() {
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
+
+  const fetchCostCenters = async () => {
+    try {
+      const [
+        { data: parentCenters },
+        { data: level3Centers }
+      ] = await Promise.all([
+        supabase.from('cost_centers').select('*'),
+        supabase.from('level_3_cost_centers').select('*')
+      ]);
+
+      // Build tree structure
+      const tree = (parentCenters || []).map(parent => ({
+        ...parent,
+        children: (level3Centers || []).filter(child => 
+          child.parent_cost_code === parent.cost_code
+        )
+      }));
+
+      setCostCenters(tree);
+    } catch (error) {
+      console.error('Error fetching cost centers:', error);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchCostCenters();
+  }, []);
+
+  const totalParents = costCenters.length;
+  const totalChildren = costCenters.reduce((sum, parent) => sum + (parent.children?.length || 0), 0);
+
+  return (
+    <div className="p-6 space-y-6 w-full">
+      {/* Title Section */}
+      <div>
+        <h1 className="text-2xl font-bold">Cost Centers</h1>
+        <p className="text-gray-500">Hierarchical view of cost centers and their sub-centers</p>
+      </div>
+
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 flex items-center space-x-4">
+            <Building2 className="h-8 w-8 text-blue-500" />
+            <div>
+              <p className="text-sm text-gray-500">Parent Centers</p>
+              <p className="text-xl font-semibold">{totalParents}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center space-x-4">
+            <Building2 className="h-8 w-8 text-green-500" />
+            <div>
+              <p className="text-sm text-gray-500">Sub Centers</p>
+              <p className="text-xl font-semibold">{totalChildren}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center space-x-4">
+            <Building2 className="h-8 w-8 text-purple-500" />
+            <div>
+              <p className="text-sm text-gray-500">Total Centers</p>
+              <p className="text-xl font-semibold">{totalParents + totalChildren}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tree Diagram */}
+      <Card>
+        <CardHeader>
+          <CardTitle>EPS Cost Center Hierarchy</CardTitle>
+          <p className="text-sm text-gray-600">Hover over boxes to see cost codes</p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {loading ? (
+            <div className="text-center py-8">Loading cost centers...</div>
+          ) : costCenters.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">No cost centers found</div>
+          ) : (
+            <LevelTreeDiagram costCenters={costCenters} />
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

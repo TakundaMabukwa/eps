@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Users, Activity, BarChart3, Settings, Star, AlertTriangle, Edit, Trash } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import DriverDashboardClean from '@/components/driver-dashboard-clean'
+import { DashboardProvider } from '@/context/dashboard-context'
+import DriverPerformanceDashboard from '@/components/dashboard/DriverPerformanceDashboard'
+import ExecutiveDashboardEPS from '@/components/dashboard/ExecutiveDashboardEPS'
+import { MaterialCharts } from '@/components/material-charts'
+import { epsApi, BiWeeklyCategory, DailyStats } from '@/lib/eps-api'
 
 // NOTE: This file is self-contained for convenience. It uploads files to
 // the Supabase storage *bucket* named `files` and places them under:
@@ -28,8 +34,12 @@ type Driver = {
     surname: string
     id_or_passport_number: string
     id_or_passport_document?: string | null
+    passport_date?: string | null
+    passport_expiry?: string | null
+    passport_status?: string | null
     email_address?: string | null
     cell_number?: string | null
+    apointment_date?: string | null
     sa_issued?: boolean
     work_permit_upload?: string | null
     license_number?: string | null
@@ -41,6 +51,9 @@ type Driver = {
     rear_of_driver_pic?: string | null
     professional_driving_permit?: boolean
     pdp_expiry_date?: string | null
+    hazCamDate?: string | null
+    medic_exam_date?: string | null
+    pop?: string | null
     created_at?: string | null
     created_by?: string | null
     user_id?: string | null
@@ -48,8 +61,24 @@ type Driver = {
 
 export default function Drivers() {
     const supabase = createClient()
+    const [activeTab, setActiveTab] = useState<string>('drivers-management')
 
     const [drivers, setDrivers] = useState<Driver[]>([])
+    
+    type Equipment = {
+        id: number
+        plate: string
+        unitIpAddress: string
+        tankSize: number | string
+        costCentre: string
+    }
+    const [equipment, setEquipment] = useState<Equipment[]>([
+        { id: 1, plate: 'HW67VCGP M', unitIpAddress: '57.163.1.216', tankSize: 1100, costCentre: 'EPS => Fuel Probes - (COST CODE: 001)' },
+        { id: 2, plate: 'JR30TPGP', unitIpAddress: '57.163.1.253', tankSize: 840, costCentre: 'EPS => Fuel Probes - (COST CODE: 001)' },
+        { id: 3, plate: 'HY87GKGP', unitIpAddress: '59.98.1.136', tankSize: 1100, costCentre: 'EPS => Fuel Probes - (COST CODE: 001)' },
+        { id: 4, plate: 'HW67VGG P M', unitIpAddress: '57.164.1.188', tankSize: 1100, costCentre: 'EPS => Open network - (COST CODE: 001)' },
+        { id: 5, plate: 'HS30XYGP', unitIpAddress: '58.207.1.148', tankSize: 840, costCentre: 'EPS => Fuel Probes - (COST CODE: 001)' },
+    ])
     const [isSheetOpen, setIsSheetOpen] = useState(false)
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -61,6 +90,10 @@ export default function Drivers() {
     const [licenseFilter, setLicenseFilter] = useState<'all' | 'sa' | 'foreign'>('all')
     const [isEditing, setIsEditing] = useState(false)
     const [editingDriverId, setEditingDriverId] = useState<number | null>(null)
+
+    // Chart data for Executive Dashboard
+    const [biWeeklyData, setBiWeeklyData] = useState<BiWeeklyCategory[]>([])
+    const [dailyStats, setDailyStats] = useState<DailyStats[]>([])
 
     const emptyForm: Driver = {
         first_name: '',
@@ -87,6 +120,25 @@ export default function Drivers() {
 
     useEffect(() => {
         fetchDrivers()
+    }, [])
+
+    useEffect(() => {
+        // Fetch EPS charts data for executive dashboard
+        let mounted = true
+        const fetchCharts = async () => {
+            try {
+                const b = await epsApi.getBiWeeklyCategories()
+                const d = await epsApi.getDailyStats()
+                if (!mounted) return
+                setBiWeeklyData(Array.isArray(b) ? b as BiWeeklyCategory[] : [])
+                setDailyStats(Array.isArray(d) ? d as DailyStats[] : [])
+            } catch (err) {
+                console.error('Failed to fetch executive dashboard charts data', err)
+            }
+        }
+
+        fetchCharts()
+        return () => { mounted = false }
     }, [])
 
     const fetchDrivers = async () => {
@@ -180,6 +232,12 @@ export default function Drivers() {
         }
     }
 
+    const handleDeleteEquipment = (id: number) => {
+        if (!confirm('Delete equipment?')) return
+        setEquipment(prev => prev.filter(e => e.id !== id))
+        toast.success('Equipment deleted')
+    }
+
     const startEditDriver = (driver: Driver) => {
         setIsEditing(true)
         setEditingDriverId(driver.id ?? null)
@@ -251,7 +309,7 @@ export default function Drivers() {
     }
 
     const formatDate = (dateString?: string | null) => {
-        if (!dateString) return 'Not set'
+        if (!dateString) return '-'
         try {
             return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         } catch (err) {
@@ -288,16 +346,85 @@ export default function Drivers() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Drivers</h1>
-                    <p className="text-gray-600 mt-1">Manage your driver database and licenses</p>
+                    <p className="text-gray-600 mt-1">Manage your driver database and performance</p>
+                </div>
+            </div>
+
+            {/* Tab Navigation - full width container */}
+            <div className="w-full bg-white">
+                <div className="border-b border-gray-200">
+                    <div className="flex space-x-1 p-1">
+                        <button
+                            onClick={() => setActiveTab('drivers-management')}
+                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                activeTab === 'drivers-management'
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : "text-gray-600 hover:text-blue-700 hover:bg-blue-50"
+                            }`}
+                        >
+                            <Users className="w-4 h-4" />
+                            <span>Driver Management</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('equipment')}
+                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                activeTab === 'equipment'
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : "text-gray-600 hover:text-blue-700 hover:bg-blue-50"
+                            }`}
+                        >
+                            <Star className="w-4 h-4" />
+                            <span>Equipment</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('executive-dashboard')}
+                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                activeTab === 'executive-dashboard'
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : "text-gray-600 hover:text-blue-700 hover:bg-blue-50"
+                            }`}
+                        >
+                            <BarChart3 className="w-4 h-4" />
+                            <span>Executive Dashboard</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('drivers-performance')}
+                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                activeTab === 'drivers-performance'
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : "text-gray-600 hover:text-blue-700 hover:bg-blue-50"
+                            }`}
+                        >
+                            <Activity className="w-4 h-4" />
+                            <span>Driver Performance</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('driver-monitoring-config')}
+                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                activeTab === 'driver-monitoring-config'
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : "text-gray-600 hover:text-blue-700 hover:bg-blue-50"
+                            }`}
+                        >
+                            <Settings className="w-4 h-4" />
+                            <span>Driver Monitoring Config</span>
+                        </button>
+                    </div>
                 </div>
 
-                <Dialog open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) resetForm() }}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-blue-600 hover:bg-blue-700">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Driver
-                        </Button>
-                    </DialogTrigger>
+                <div className="p-6">
+                    {activeTab === 'drivers-management' && (
+                        <div className="space-y-6">
+                            {/* Add Driver Button */}
+                            <div className="flex justify-end">
+
+                                <Dialog open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) resetForm() }}>
+                                    <DialogTrigger asChild>
+                                        <Button className="bg-blue-600 hover:bg-blue-700">
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            Add Driver
+                                        </Button>
+                                    </DialogTrigger>
 
                     <DialogContent className="w-11/12 md:w-2/4 max-h-[90vh] overflow-y-auto p-6">
                         <DialogHeader>
@@ -509,6 +636,55 @@ export default function Drivers() {
                 </CardContent>
             </Card>
 
+                    {(activeTab as string) === 'equipment' && (
+                        <div className="space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Equipment</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="bg-gray-50">
+                                                    <TableHead className="font-semibold">Plate</TableHead>
+                                                    <TableHead className="font-semibold">Unit Ip Address</TableHead>
+                                                    <TableHead className="font-semibold">Tank Size</TableHead>
+                                                    <TableHead className="font-semibold">Cost Centre</TableHead>
+                                                    <TableHead className="font-semibold">Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {equipment.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">No equipment found</TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    equipment.map((eq) => (
+                                                        <TableRow key={eq.id} className="hover:bg-gray-50 transition-colors">
+                                                            <TableCell className="text-sm font-medium">{eq.plate}</TableCell>
+                                                            <TableCell className="text-sm">{eq.unitIpAddress}</TableCell>
+                                                            <TableCell className="text-sm">{eq.tankSize}</TableCell>
+                                                            <TableCell className="text-sm">{eq.costCentre}</TableCell>
+                                                            <TableCell>
+                                                                <div className="flex gap-2 items-center">
+                                                                    <Button size="sm" variant="outline" onClick={() => alert('Edit equipment not implemented yet')}>Edit</Button>
+                                                                    <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white" onClick={() => handleDeleteEquipment(eq.id)}>
+                                                                        <Trash className="w-4 h-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
             {/* Drivers Table */}
             <Card>
                 <CardHeader>
@@ -519,18 +695,23 @@ export default function Drivers() {
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-gray-50">
-                                    <TableHead className="font-semibold">Driver Name</TableHead>
-                                    <TableHead className="font-semibold">Contact</TableHead>
-                                    <TableHead className="font-semibold">License Status</TableHead>
-                                    <TableHead className="font-semibold">License Details</TableHead>
-                                    <TableHead className="font-semibold">PDP Status</TableHead>
+                                    <TableHead className="font-semibold">Driver Code</TableHead>
+                                    <TableHead className="font-semibold">Name</TableHead>
+                                    <TableHead className="font-semibold">ID/Passport Document</TableHead>
+                                    <TableHead className="font-semibold">Passport Status</TableHead>
+                                    <TableHead className="font-semibold">Passport Expiry</TableHead>
+                                    <TableHead className="font-semibold">Cell Number</TableHead>
+                                    <TableHead className="font-semibold">PDP Expiry Date</TableHead>
+                                    <TableHead className="font-semibold">License Expiry Date</TableHead>
+                                    <TableHead className="font-semibold">HazCam Date</TableHead>
+                                    <TableHead className="font-semibold">Medic Exam Date</TableHead>
                                     <TableHead className="font-semibold">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8">
+                                        <TableCell colSpan={11} className="text-center py-8">
                                             <div className="flex items-center justify-center">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                                                 <span className="ml-2">Loading drivers...</span>
@@ -539,51 +720,25 @@ export default function Drivers() {
                                     </TableRow>
                                 ) : drivers.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">No drivers found</TableCell>
+                                        <TableCell colSpan={11} className="text-center py-8 text-gray-500">No drivers found</TableCell>
                                     </TableRow>
                                 ) : (
                                     filteredDrivers.map((driver) => (
                                         <TableRow key={driver.id} className="hover:bg-gray-50 transition-colors">
+                                            <TableCell className="text-sm">{driver.driver_restriction_code || '-'}</TableCell>
+                                            <TableCell className="text-sm font-medium">{driver.surname}</TableCell>
+                                            <TableCell className="text-sm">{driver.id_or_passport_document || '-'}</TableCell>
+                                            <TableCell className="text-sm">{driver.passport_status || '-'}</TableCell>
+                                            <TableCell className="text-sm">{formatDate(driver.passport_expiry)}</TableCell>
+                                            <TableCell className="text-sm">{driver.cell_number || '-'}</TableCell>
+                                            <TableCell className="text-sm">{formatDate(driver.pdp_expiry_date)}</TableCell>
+                                            <TableCell className="text-sm">{formatDate(driver.license_expiry_date)}</TableCell>
+                                            <TableCell className="text-sm">{formatDate(driver.hazCamDate)}</TableCell>
+                                            <TableCell className="text-sm">{formatDate(driver.medic_exam_date)}</TableCell>
                                             <TableCell>
-                                                <div>
-                                                    <p className="font-medium text-gray-900">{driver.first_name} {driver.surname}</p>
-                                                    <p className="text-sm text-gray-500">ID: {driver.id_or_passport_number}</p>
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div>
-                                                    <p className="text-gray-900">{driver.email_address || 'No email'}</p>
-                                                    <p className="text-sm text-gray-500">{driver.cell_number || 'No phone'}</p>
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="space-y-1">
-                                                    {getStatusBadge(driver.sa_issued)}
-                                                    <p className="text-sm text-gray-600">{driver.license_number || 'No license'}</p>
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="space-y-1">
-                                                    <p className="text-sm text-gray-900">Code: {driver.license_code || 'Not set'}</p>
-                                                    <p className="text-sm text-gray-600">Expires: {formatDate(driver.license_expiry_date)}</p>
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="space-y-1">
-                                                    {getPDPStatusBadge(driver.professional_driving_permit)}
-                                                    <p className="text-sm text-gray-600">Expires: {formatDate(driver.pdp_expiry_date)}</p>
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-1">
                                                     <Button size="sm" variant="outline" onClick={() => handleViewDriver(driver)}>View</Button>
                                                     <Button size="sm" variant="outline" onClick={() => startEditDriver(driver)}>Edit</Button>
-                                                    <Button size="sm" variant="ghost" onClick={() => driver.id && handleDeleteDriver(driver.id)}>Delete</Button>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -693,27 +848,43 @@ export default function Drivers() {
                                 </div>
                             </div>
 
-                            {/* Restriction Codes */}
+                            {/* Additional Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">
-                                    Restriction Codes
+                                    Additional Information
                                 </h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">
-                                            Driver Restriction
-                                        </p>
-                                        <p className="text-gray-900">
-                                            {selectedDriver.driver_restriction_code || "Not set"}
-                                        </p>
+                                        <p className="text-sm font-medium text-gray-600">Driver Restriction Code</p>
+                                        <p className="text-gray-900">{selectedDriver.driver_restriction_code || "Not set"}</p>
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">
-                                            Vehicle Restriction
-                                        </p>
-                                        <p className="text-gray-900">
-                                            {selectedDriver.vehicle_restriction_code || "Not set"}
-                                        </p>
+                                        <p className="text-sm font-medium text-gray-600">Passport Status</p>
+                                        <p className="text-gray-900">{selectedDriver.passport_status || "Not set"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Passport Date</p>
+                                        <p className="text-gray-900">{formatDate(selectedDriver.passport_date)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Passport Expiry</p>
+                                        <p className="text-gray-900">{formatDate(selectedDriver.passport_expiry)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Appointment Date</p>
+                                        <p className="text-gray-900">{formatDate(selectedDriver.apointment_date)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">HazCam Date</p>
+                                        <p className="text-gray-900">{formatDate(selectedDriver.hazCamDate)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Medical Exam Date</p>
+                                        <p className="text-gray-900">{formatDate(selectedDriver.medic_exam_date)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">POP</p>
+                                        <p className="text-gray-900">{selectedDriver.pop || "Not set"}</p>
                                     </div>
                                 </div>
                             </div>
@@ -791,7 +962,518 @@ export default function Drivers() {
                     )}
                 </SheetContent>
             </Sheet>
+                        </div>
+                    )}
 
+                    {activeTab === 'executive-dashboard' && (
+                        <ExecutiveDashboardEPS />
+                    )}
+
+                    {activeTab === 'executive-dashboard-old' && (
+                        <div className="space-y-6">
+                            <div className="bg-gradient-to-r from-sky-100 via-blue-50 to-cyan-50 shadow-lg p-6 border border-blue-200 rounded-lg text-slate-800">
+                                <h1 className="font-bold text-2xl text-center">EPS Courier Services - Executive Dashboard</h1>
+                            </div>
+
+                            {/* Executive Charts */}
+                            <div>
+                                <MaterialCharts biWeeklyData={biWeeklyData} dailyStats={dailyStats} />
+                            </div>
+
+                            {/* Monthly Event Count (Executive) */}
+                            <Card className="p-4">
+                                <h3 className="mb-2 font-semibold text-sm text-center">Monthly Event Count</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full table-fixed border-collapse text-xs">
+                                        <thead>
+                                            <tr className="bg-slate-50">
+                                                <th className="px-2 py-1 border text-left">Event</th>
+                                                <th className="px-2 py-1 border text-center">July</th>
+                                                <th className="px-2 py-1 border text-center">August</th>
+                                                <th className="px-2 py-1 border text-center">September</th>
+                                                <th className="px-2 py-1 border text-center">October</th>
+                                                <th className="px-2 py-1 border text-center">November</th>
+                                                <th className="px-2 py-1 border text-center">December</th>
+                                                <th className="px-2 py-1 border text-center">January</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y">
+                                            <tr>
+                                                <td className="px-2 py-1 border">Speeding &gt; 85 km/h</td>
+                                                <td className="px-2 py-1 border text-center">1651</td>
+                                                <td className="px-2 py-1 border text-center">1778</td>
+                                                <td className="px-2 py-1 border text-center">1838</td>
+                                                <td className="px-2 py-1 border text-center">1528</td>
+                                                <td className="px-2 py-1 border text-center">1536</td>
+                                                <td className="px-2 py-1 border text-center">1327</td>
+                                                <td className="px-2 py-1 border text-center">1209</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Harsh Braking</td>
+                                                <td className="px-2 py-1 border text-center">2981</td>
+                                                <td className="px-2 py-1 border text-center">2626</td>
+                                                <td className="px-2 py-1 border text-center">5633</td>
+                                                <td className="px-2 py-1 border text-center">6672</td>
+                                                <td className="px-2 py-1 border text-center">2980</td>
+                                                <td className="px-2 py-1 border text-center">2501</td>
+                                                <td className="px-2 py-1 border text-center">2525</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Total Harsh Accel. Count</td>
+                                                <td className="px-2 py-1 border text-center">8488</td>
+                                                <td className="px-2 py-1 border text-center">8650</td>
+                                                <td className="px-2 py-1 border text-center">8783</td>
+                                                <td className="px-2 py-1 border text-center">9171</td>
+                                                <td className="px-2 py-1 border text-center">12004</td>
+                                                <td className="px-2 py-1 border text-center">9987</td>
+                                                <td className="px-2 py-1 border text-center">9587</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Excessive Day</td>
+                                                <td className="px-2 py-1 border text-center">474</td>
+                                                <td className="px-2 py-1 border text-center">485</td>
+                                                <td className="px-2 py-1 border text-center">409</td>
+                                                <td className="px-2 py-1 border text-center">396</td>
+                                                <td className="px-2 py-1 border text-center">376</td>
+                                                <td className="px-2 py-1 border text-center">341</td>
+                                                <td className="px-2 py-1 border text-center">290</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Excessive Night</td>
+                                                <td className="px-2 py-1 border text-center">624</td>
+                                                <td className="px-2 py-1 border text-center">670</td>
+                                                <td className="px-2 py-1 border text-center">606</td>
+                                                <td className="px-2 py-1 border text-center">640</td>
+                                                <td className="px-2 py-1 border text-center">642</td>
+                                                <td className="px-2 py-1 border text-center">524</td>
+                                                <td className="px-2 py-1 border text-center">504</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Night Time Driving (hrs)</td>
+                                                <td className="px-2 py-1 border text-center">462</td>
+                                                <td className="px-2 py-1 border text-center">552</td>
+                                                <td className="px-2 py-1 border text-center">487</td>
+                                                <td className="px-2 py-1 border text-center">537</td>
+                                                <td className="px-2 py-1 border text-center">503</td>
+                                                <td className="px-2 py-1 border text-center">426</td>
+                                                <td className="px-2 py-1 border text-center">413</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Total over RPM Count</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Total Idle &gt; 10 min Count</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Kilometres</td>
+                                                <td className="px-2 py-1 border text-center">690,019</td>
+                                                <td className="px-2 py-1 border text-center">728,783</td>
+                                                <td className="px-2 py-1 border text-center">710,921</td>
+                                                <td className="px-2 py-1 border text-center">745,486</td>
+                                                <td className="px-2 py-1 border text-center">733,432</td>
+                                                <td className="px-2 py-1 border text-center">619,449</td>
+                                                <td className="px-2 py-1 border text-center">569,940</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Fleet Size</td>
+                                                <td className="px-2 py-1 border text-center">82</td>
+                                                <td className="px-2 py-1 border text-center">85</td>
+                                                <td className="px-2 py-1 border text-center">83</td>
+                                                <td className="px-2 py-1 border text-center">82</td>
+                                                <td className="px-2 py-1 border text-center">84</td>
+                                                <td className="px-2 py-1 border text-center">77</td>
+                                                <td className="px-2 py-1 border text-center">97</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Vehicles Reporting</td>
+                                                <td className="px-2 py-1 border text-center">82</td>
+                                                <td className="px-2 py-1 border text-center">85</td>
+                                                <td className="px-2 py-1 border text-center">83</td>
+                                                <td className="px-2 py-1 border text-center">82</td>
+                                                <td className="px-2 py-1 border text-center">84</td>
+                                                <td className="px-2 py-1 border text-center">77</td>
+                                                <td className="px-2 py-1 border text-center">96</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-2 py-1 border">Vehicles Not Reporting</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">0</td>
+                                                <td className="px-2 py-1 border text-center">1</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
+
+                            {/* Monthly Statistics Table */}
+                            <Card className="p-6">
+                                <h3 className="mb-4 font-semibold text-lg text-center">Monthly Fleet Statistics</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-gradient-to-r from-cyan-50 to-blue-50">
+                                            <tr>
+                                                <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-left uppercase tracking-wider">Month</th>
+                                                <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-center uppercase tracking-wider">Kilometres</th>
+                                                <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-center uppercase tracking-wider">Trips</th>
+                                                <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-center uppercase tracking-wider">Risk Events</th>
+                                                <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-center uppercase tracking-wider">Performance</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            <tr className="hover:bg-cyan-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">August</td>
+                                                <td className="px-6 py-4 text-center text-sm">729,751</td>
+                                                <td className="px-6 py-4 text-center text-sm">28,671</td>
+                                                <td className="px-6 py-4 text-center text-sm">12</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-green-100 px-2.5 py-0.5 rounded-full font-medium text-green-800 text-xs">Good</span>
+                                                </td>
+                                            </tr>
+                                            <tr className="hover:bg-cyan-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">September</td>
+                                                <td className="px-6 py-4 text-center text-sm">745,448</td>
+                                                <td className="px-6 py-4 text-center text-sm">30,876</td>
+                                                <td className="px-6 py-4 text-center text-sm">8</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-green-100 px-2.5 py-0.5 rounded-full font-medium text-green-800 text-xs">Excellent</span>
+                                                </td>
+                                            </tr>
+                                            <tr className="hover:bg-cyan-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">October</td>
+                                                <td className="px-6 py-4 text-center text-sm">733,432</td>
+                                                <td className="px-6 py-4 text-center text-sm">33,858</td>
+                                                <td className="px-6 py-4 text-center text-sm">15</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-yellow-100 px-2.5 py-0.5 rounded-full font-medium text-yellow-800 text-xs">Average</span>
+                                                </td>
+                                            </tr>
+                                            <tr className="hover:bg-cyan-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">November</td>
+                                                <td className="px-6 py-4 text-center text-sm">649,340</td>
+                                                <td className="px-6 py-4 text-center text-sm">33,008</td>
+                                                <td className="px-6 py-4 text-center text-sm">18</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-yellow-100 px-2.5 py-0.5 rounded-full font-medium text-yellow-800 text-xs">Average</span>
+                                                </td>
+                                            </tr>
+                                            <tr className="hover:bg-cyan-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">December</td>
+                                                <td className="px-6 py-4 text-center text-sm">549,840</td>
+                                                <td className="px-6 py-4 text-center text-sm">26,785</td>
+                                                <td className="px-6 py-4 text-center text-sm">22</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-red-100 px-2.5 py-0.5 rounded-full font-medium text-red-800 text-xs">Poor</span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
+
+                            {/* Top Speeding Offenders */}
+                            <Card className="p-6">
+                                <h3 className="mb-4 font-semibold text-lg text-center">Top Speeding Offenders</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-gradient-to-r from-red-50 to-orange-50">
+                                            <tr>
+                                                <th className="px-6 py-4 font-semibold text-red-700 text-xs text-left uppercase tracking-wider">Driver Name</th>
+                                                <th className="px-6 py-4 font-semibold text-red-700 text-xs text-center uppercase tracking-wider">Violations</th>
+                                                <th className="px-6 py-4 font-semibold text-red-700 text-xs text-center uppercase tracking-wider">Risk Level</th>
+                                                <th className="px-6 py-4 font-semibold text-red-700 text-xs text-center uppercase tracking-wider">Action Required</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            <tr className="hover:bg-red-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">ZARAFENDHOSA SWAMUTHI</td>
+                                                <td className="px-6 py-4 text-center text-sm">
+                                                    <span className="inline-flex items-center bg-red-100 px-2.5 py-0.5 rounded-full font-medium text-red-800 text-xs">15</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-red-100 px-2.5 py-0.5 rounded-full font-medium text-red-800 text-xs">High</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white">
+                                                        Training Required
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                            <tr className="hover:bg-red-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">NQOBANE</td>
+                                                <td className="px-6 py-4 text-center text-sm">
+                                                    <span className="inline-flex items-center bg-orange-100 px-2.5 py-0.5 rounded-full font-medium text-orange-800 text-xs">12</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-orange-100 px-2.5 py-0.5 rounded-full font-medium text-orange-800 text-xs">Medium</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
+                                                        Warning Issued
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                            <tr className="hover:bg-red-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">NQOBILE MONDO</td>
+                                                <td className="px-6 py-4 text-center text-sm">
+                                                    <span className="inline-flex items-center bg-yellow-100 px-2.5 py-0.5 rounded-full font-medium text-yellow-800 text-xs">10</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-yellow-100 px-2.5 py-0.5 rounded-full font-medium text-yellow-800 text-xs">Medium</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                                                        Monitor
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                            <tr className="hover:bg-red-50">
+                                                <td className="px-6 py-4 font-medium text-gray-900 text-sm">SIFISO</td>
+                                                <td className="px-6 py-4 text-center text-sm">
+                                                    <span className="inline-flex items-center bg-yellow-100 px-2.5 py-0.5 rounded-full font-medium text-yellow-800 text-xs">8</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center bg-green-100 px-2.5 py-0.5 rounded-full font-medium text-green-800 text-xs">Low</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white">
+                                                        Good Standing
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
+
+                            {/* Overall Risk Score Bar Chart */}
+                            <Card className="p-6">
+                                <h3 className="mb-4 font-semibold text-purple-800 text-lg text-center">Overall Risk Score by Month</h3>
+                                <div className="h-80">
+                                    <div className="grid grid-cols-6 gap-4 h-full items-end">
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-teal-500 w-12 rounded-t" style={{height: '29%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600">July</span>
+                                            <span className="text-xs text-gray-500">29</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-teal-500 w-12 rounded-t" style={{height: '26%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600">Aug</span>
+                                            <span className="text-xs text-gray-500">26</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-teal-500 w-12 rounded-t" style={{height: '26%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600">Sep</span>
+                                            <span className="text-xs text-gray-500">26</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-teal-500 w-12 rounded-t" style={{height: '26%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600">Oct</span>
+                                            <span className="text-xs text-gray-500">26</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-teal-500 w-12 rounded-t" style={{height: '26%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600">Nov</span>
+                                            <span className="text-xs text-gray-500">26</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-teal-500 w-12 rounded-t" style={{height: '20%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600">Dec</span>
+                                            <span className="text-xs text-gray-500">20</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            {/* Driver Performance Bar Chart */}
+                            <Card className="p-6">
+                                <h3 className="mb-4 font-semibold text-lg text-center">Driver Performance Scores</h3>
+                                <div className="h-64">
+                                    <div className="grid grid-cols-5 gap-4 h-full items-end">
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-blue-500 w-16 rounded-t" style={{height: '85%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600 text-center">AMOS NTSAKO</span>
+                                            <span className="text-xs text-gray-500">85%</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-green-500 w-16 rounded-t" style={{height: '78%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600 text-center">ANDRIES HABOFANOE</span>
+                                            <span className="text-xs text-gray-500">78%</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-yellow-500 w-16 rounded-t" style={{height: '72%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600 text-center">AVHATAKALI</span>
+                                            <span className="text-xs text-gray-500">72%</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-red-500 w-16 rounded-t" style={{height: '68%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600 text-center">BANDILE LOREN</span>
+                                            <span className="text-xs text-gray-500">68%</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="bg-purple-500 w-16 rounded-t" style={{height: '82%'}}></div>
+                                            <span className="text-xs mt-2 text-gray-600 text-center">BANNANA</span>
+                                            <span className="text-xs text-gray-500">82%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+
+                    {activeTab === 'drivers-performance' && (
+                        <div className="space-y-6">
+                            <DriverPerformanceDashboard />
+                        </div>
+                    )}
+
+                    {activeTab === 'driver-monitoring-config' && (
+                        <div className="bg-white shadow-sm border border-gray-200 rounded-lg">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gradient-to-r from-cyan-50 to-blue-50">
+                                        <tr>
+                                            <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-left uppercase tracking-wider">Criterion</th>
+                                            <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-left uppercase tracking-wider">Selected Weighting</th>
+                                            <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-left uppercase tracking-wider">Actual Weighting</th>
+                                            <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-left uppercase tracking-wider">Risk Tiers</th>
+                                            <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-left uppercase tracking-wider">No. Incidents</th>
+                                            <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-left uppercase tracking-wider">Statuses</th>
+                                            <th className="px-6 py-4 font-semibold text-cyan-700 text-xs text-left uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        <tr className="bg-white hover:bg-cyan-50 transition-colors duration-150">
+                                            <td className="px-6 py-4 font-medium text-gray-900 text-sm whitespace-nowrap">Speeding</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">50.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">50.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">4</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">
+                                                <span className="inline-flex items-center bg-red-100 px-2.5 py-0.5 rounded-full font-medium text-red-800 text-xs">4</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm">
+                                                <div className="space-y-1">
+                                                    <div className="bg-blue-100 px-2 py-1 rounded-md text-blue-800 text-xs">Speed Exception 1</div>
+                                                    <div className="bg-blue-100 px-2 py-1 rounded-md text-blue-800 text-xs">Speed Exception 2</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-sm whitespace-nowrap">
+                                                <div className="flex items-center space-x-2">
+                                                    <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 shadow-md hover:shadow-lg p-0 rounded-full w-8 h-8 text-white transition-all duration-200">
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr className="bg-slate-50 hover:bg-cyan-50 transition-colors duration-150">
+                                            <td className="px-6 py-4 font-medium text-gray-900 text-sm whitespace-nowrap">Harsh Accelerating</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">10.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">10.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">4</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">
+                                                <span className="inline-flex items-center bg-red-100 px-2.5 py-0.5 rounded-full font-medium text-red-800 text-xs">8</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm">
+                                                <div className="space-y-1">
+                                                    <div className="bg-blue-100 px-2 py-1 rounded-md text-blue-800 text-xs">Safety - Acceleration - Aggressive</div>
+                                                    <div className="bg-blue-100 px-2 py-1 rounded-md text-blue-800 text-xs">Safety - Acceleration - Dangerous</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-sm whitespace-nowrap">
+                                                <div className="flex items-center space-x-2">
+                                                    <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 shadow-md hover:shadow-lg p-0 rounded-full w-8 h-8 text-white transition-all duration-200">
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr className="bg-white hover:bg-cyan-50 transition-colors duration-150">
+                                            <td className="px-6 py-4 font-medium text-gray-900 text-sm whitespace-nowrap">Night Time Driving</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">10.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">10.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">4</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">
+                                                <span className="inline-flex items-center bg-red-100 px-2.5 py-0.5 rounded-full font-medium text-red-800 text-xs">4</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm">
+                                                <span className="text-gray-400">-</span>
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-sm whitespace-nowrap">
+                                                <div className="flex items-center space-x-2">
+                                                    <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 shadow-md hover:shadow-lg p-0 rounded-full w-8 h-8 text-white transition-all duration-200">
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr className="bg-slate-50 hover:bg-cyan-50 transition-colors duration-150">
+                                            <td className="px-6 py-4 font-medium text-gray-900 text-sm whitespace-nowrap">Excessive day</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">10.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">10.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">4</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">
+                                                <span className="inline-flex items-center bg-red-100 px-2.5 py-0.5 rounded-full font-medium text-red-800 text-xs">15</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm">
+                                                <span className="text-gray-400">-</span>
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-sm whitespace-nowrap">
+                                                <div className="flex items-center space-x-2">
+                                                    <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 shadow-md hover:shadow-lg p-0 rounded-full w-8 h-8 text-white transition-all duration-200">
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr className="bg-white hover:bg-cyan-50 transition-colors duration-150">
+                                            <td className="px-6 py-4 font-medium text-gray-900 text-sm whitespace-nowrap">Harsh Braking</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">10.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">10.0</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">4</td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm whitespace-nowrap">
+                                                <span className="inline-flex items-center bg-red-100 px-2.5 py-0.5 rounded-full font-medium text-red-800 text-xs">20</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-900 text-sm">
+                                                <div className="space-y-1">
+                                                    <div className="bg-blue-100 px-2 py-1 rounded-md text-blue-800 text-xs">Safety - Braking - Dangerous</div>
+                                                    <div className="bg-blue-100 px-2 py-1 rounded-md text-blue-800 text-xs">Safety - Braking - Aggressive</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-sm whitespace-nowrap">
+                                                <div className="flex items-center space-x-2">
+                                                    <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 shadow-md hover:shadow-lg p-0 rounded-full w-8 h-8 text-white transition-all duration-200">
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button size="sm" className="bg-cyan-500 hover:bg-cyan-600 shadow-md hover:shadow-lg p-0 rounded-full w-8 h-8 text-white transition-all duration-200">
+                                                        <Plus className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     )
 }

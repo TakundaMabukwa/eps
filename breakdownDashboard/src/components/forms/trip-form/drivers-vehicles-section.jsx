@@ -40,12 +40,18 @@ export function DriversVehiclesSection({
     cost_centres?.data.find((c) => c.id === formData.costCentre)?.name ||
     current_user?.currentUser?.costCentre
 
-  // Show all vehicles and drivers from props (no filtering)
+  // Show all vehicles and only available drivers
   const horses = vehicles || []
   const trailers = vehicles ? vehicles.filter((v) => v.type === 'trailer') : []
-  const available_drivers = drivers || []
+  const available_drivers = drivers ? drivers.filter(d => d.available === true) : []
   const available_vehicles = horses
   const available_trailers = trailers
+
+  // Function to get vehicles assigned to a specific driver
+  const getDriverVehicles = (driverId) => {
+    if (!driverId) return []
+    return vehicles.filter(v => v.driver_id === driverId)
+  }
 
   return (
     <div className="space-y-6">
@@ -80,35 +86,7 @@ export function DriversVehiclesSection({
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Vehicle Selection */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor={`vehicle-${vehicleIndex}`}>
-                    Select Vehicle
-                  </Label>
-                  <Select
-                    value={vehicleAssignment.vehicle.id}
-                    onValueChange={(value) =>
-                      handleVehicleChange(vehicleIndex, value)
-                    }
-                  >
-                    <SelectTrigger
-                      id={`vehicle-${vehicleIndex}`}
-                      className="w-full border-[#d3d3d3]"
-                    >
-                      <SelectValue placeholder="Select vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {available_vehicles.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.model} ({v.regNumber})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Separator />
+
 
               {/* Drivers Section */}
               <div className="space-y-4">
@@ -178,6 +156,58 @@ export function DriversVehiclesSection({
                 >
                   <Plus className="h-4 w-4 mr-2" /> Add Driver to this Vehicle
                 </Button>
+              </div>
+
+              <Separator />
+
+              {/* Vehicle Selection - Shows only vehicles assigned to selected drivers */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  <Label className="text-base font-medium">
+                    Available Vehicles
+                  </Label>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`vehicle-${vehicleIndex}`}>
+                    Select Vehicle
+                  </Label>
+                  <Select
+                    value={vehicleAssignment.vehicle.id}
+                    onValueChange={(value) =>
+                      handleVehicleChange(vehicleIndex, value)
+                    }
+                  >
+                    <SelectTrigger
+                      id={`vehicle-${vehicleIndex}`}
+                      className="w-full border-[#d3d3d3]"
+                    >
+                      <SelectValue placeholder="Select vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        const assignedDriverIds = vehicleAssignment.drivers
+                          .map(d => d.id)
+                          .filter(id => id)
+                        const availableVehicles = assignedDriverIds.length > 0
+                          ? vehicles.filter(v => assignedDriverIds.includes(v.driver_id))
+                          : []
+                        return availableVehicles.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.model} ({v.regNumber})
+                          </SelectItem>
+                        ))
+                      })()
+                      }
+                    </SelectContent>
+                  </Select>
+                  {vehicleAssignment.drivers.some(d => d.id) && 
+                   !vehicles.some(v => vehicleAssignment.drivers.map(d => d.id).includes(v.driver_id)) && (
+                    <p className="text-sm text-muted-foreground">
+                      No vehicles assigned to selected drivers
+                    </p>
+                  )}
+                </div>
               </div>
 
               <Separator />

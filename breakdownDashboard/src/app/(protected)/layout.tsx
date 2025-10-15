@@ -20,6 +20,7 @@ import {
   Users,
   Wrench,
   Route,
+  Construction,
 } from "lucide-react";
 import GlobalProvider from "@/context/global-context/provider";
 
@@ -29,6 +30,29 @@ interface ProtectedLayoutProps {
 
 // Role-based navigation configuration
 const roleNavigation = {
+  "admin": [
+    { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
+    // { name: "Jobs", href: "/jobs", Icon: <Briefcase /> },
+    // { name: "Fleet Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
+    // { name: "Call Center", href: "/callcenter", Icon: <Phone /> },
+    { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
+    { name: "Equipment", href: "/equipment", Icon: <Settings /> },
+    { name: "Fleet Manager", href: "/fleetManager", Icon: <Truck /> },
+    { name: "Drivers", href: "/drivers", Icon: <Users /> },
+    { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
+    // { name: "Customers", href: "/customer", Icon: <Building2 /> },
+    { name: "Cost Centers", href: "/ccenter", Icon: <Construction /> },
+    // { name: "Reports", href: "/reports", Icon: <ChartBar /> },
+    // { name: "User Management", href: "/userManagement", Icon: <PlusSquare /> },
+    // { name: "System Settings", href: "/settings", Icon: <Settings /> },
+    {
+      name: "Inspections",
+      href: "/fleetManager/inspections",
+      Icon: <QrCode />,
+    },
+
+
+  ],
   "fleet manager": [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
     { name: "Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
@@ -38,6 +62,7 @@ const roleNavigation = {
       Icon: <QrCode />,
     },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
+    { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
     {
       name: "Cost Centres",
@@ -47,7 +72,7 @@ const roleNavigation = {
     { name: "Clients", href: "/fleetManager/clients", Icon: <Building2 /> },
     // { name: "Stop Points", href: "/fleetManager/stop-points", Icon: <Route /> },
     { name: "Trips", href: "/fleetManager/trips", Icon: <Route /> },
-    // { name: "Routes", href: "/fleetManager/routes", Icon: <Truck /> },
+    { name: "Routes", href: "/fleetManager/routes", Icon: <Truck /> },
 
     // { name: 'Qoute Management', href: '/qoutation', Icon: <Building2 /> },
     // { name: 'Profile', href: '/profile', Icon: <Settings2Icon /> },
@@ -178,8 +203,9 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
             <h1 className="text-xl font-bold text-gray-900">
-              Breakdown Logistics
+              EPS Couriers
             </h1>
+            {/* <img src="/logo.png" alt="EPS Couriers Logo" className="h-8" style={{ backgroundImage: `url('https://www.google.com/url?sa=i&url=https%3A%2F%2Fza.linkedin.com%2Fcompany%2Feps-courier-services&psig=AOvVaw2aviQqiN_mPND55EdCSh9P&ust=1760559434203000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCMDwl4_BpJADFQAAAAAdAAAAABAE')` }} /> */}
             <Button
               variant="ghost"
               size="sm"
@@ -202,10 +228,9 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
                   href={item.href}
                   className={`
                     flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
-                    ${
-                      isActive
-                        ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
-                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    ${isActive
+                      ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                     }
                   `}
                   onClick={() => setSidebarOpen(false)}
@@ -254,11 +279,11 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
           </div>
         </div>
 
-        {/* Page content */}
-        <main className="p-6 w-full">
-          <Card className="p-6">
+        {/* Page content - full width */}
+        <main className="p-4 w-full">
+          <div className="w-full">
             <GlobalProvider>{children}</GlobalProvider>
-          </Card>
+          </div>
         </main>
       </div>
     </div>

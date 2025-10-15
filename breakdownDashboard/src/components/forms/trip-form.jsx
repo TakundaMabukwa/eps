@@ -775,6 +775,37 @@ const TripForm = ({ onClose, id }) => {
       // Insert or update trip
       const { error } = await supabase.from('trips').upsert([tripData])
       if (error) throw error
+
+      // Mark assigned drivers as unavailable
+      const assignedDriverIds = []
+      
+      // Collect driver IDs from direct drivers array
+      resolvedDrivers.forEach(driver => {
+        if (driver.id) assignedDriverIds.push(driver.id)
+      })
+      
+      // Collect driver IDs from vehicle assignments
+      resolvedVehicleAssignments.forEach(assignment => {
+        assignment.drivers.forEach(driver => {
+          if (driver.id) assignedDriverIds.push(driver.id)
+        })
+      })
+      
+      // Remove duplicates
+      const uniqueDriverIds = [...new Set(assignedDriverIds)]
+      
+      // Update driver availability to false
+      if (uniqueDriverIds.length > 0) {
+        const { error: driverError } = await supabase
+          .from('drivers')
+          .update({ available: false })
+          .in('id', uniqueDriverIds)
+        
+        if (driverError) {
+          console.error('Error updating driver availability:', driverError)
+        }
+      }
+      
       onClose()
     } catch (err) {
       console.error('Error saving trip:', err)

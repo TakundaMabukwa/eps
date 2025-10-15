@@ -112,15 +112,21 @@ export default function VehicleDetailsPage() {
   // Updating the vehicle details
   const handleUpdate = async () => {
     if (!editData) return;
+    
+    // Remove id from update data to avoid conflicts
+    const { id, created_at, updated_at, ...updateData } = editData;
+    
     const { error } = await supabase
       .from("vehiclesc")
-      .update(editData)
-      .eq("id", editData.id);
+      .update(updateData)
+      .eq("id", id);
+    
     if (error) {
       console.error("Error updating vehicle:", error);
       toast.error("Failed to update vehicle details");
       return;
     }
+    
     setVehicle(editData);
     toast.success("Vehicle details updated");
     setEditing(false);

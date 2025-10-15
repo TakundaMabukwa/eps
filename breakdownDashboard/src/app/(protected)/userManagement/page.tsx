@@ -306,7 +306,7 @@ export default function SettingsPage() {
                                                     <SelectValue placeholder="Select a role" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {/* <SelectItem value="admin">Administrator</SelectItem> */}
+                                                    <SelectItem value="admin">Administrator</SelectItem>
                                                     <SelectItem value="fleet manager">Fleet Manager</SelectItem>
                                                     <SelectItem value="call centre">Call Center</SelectItem>
                                                     <SelectItem value="cost centre">Cost Center</SelectItem>

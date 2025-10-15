@@ -14,7 +14,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@/components/ui/sidebar-provider'
+} from '@/components/ui/sidebar'
 import { useAuth } from '@/context/auth-context/context'
 import { useGlobalContext } from '@/context/global-context/context'
 

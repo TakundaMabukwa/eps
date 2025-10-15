@@ -35,15 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogHeader,
-  DialogContent,
-  DialogTrigger,
-  DialogTitle,
-  DialogClose,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Link from "next/link";
 import { DataTable } from "@/components/ui/data-table";
 import { initialVehiclesState } from "@/context/vehicles-context/context";
@@ -170,7 +162,10 @@ export default function Vehicles() {
   const workshopId = useWorkshopId();
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [filteredTechs, setFilteredTechs] = useState<Technician[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<VehicleFormValues | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
   
   
 
@@ -217,10 +212,10 @@ export default function Vehicles() {
   const filteredVehicles = vehicles.filter((vehicle) => {
     const searchLower = search.toLowerCase();
     return (
-      vehicle.make.toLowerCase().includes(searchLower) ||
-      vehicle.model.toLowerCase().includes(searchLower) ||
-      vehicle.registration_number.toLowerCase().includes(searchLower) ||
-      vehicle.vehicle_type.toLowerCase().includes(searchLower)
+      (vehicle.make || '').toLowerCase().includes(searchLower) ||
+      (vehicle.model || '').toLowerCase().includes(searchLower) ||
+      (vehicle.registration_number || '').toLowerCase().includes(searchLower) ||
+      (vehicle.vehicle_type || '').toLowerCase().includes(searchLower)
     );
   });
 
@@ -307,7 +302,11 @@ export default function Vehicles() {
   });
 
   const onSubmit = async (data: VehicleFormValues) => {
-    await handleAddVehicle(data);
+    if (isEditing && editingVehicleId) {
+      await handleUpdateVehicle(data);
+    } else {
+      await handleAddVehicle(data);
+    }
     fetchVehicles();
   };
 
@@ -318,13 +317,37 @@ export default function Vehicles() {
       .insert(data);
     if (error) {
       console.error(error.message);
+      toast.error("Failed to add vehicle");
     } else {
       console.log(vehicle);
       toast.success("Vehicle added successfully");
-      alert("Vehicle added successfully");
       fetchVehicles();
       form.reset();
       setIsAddingVehicle(false);
+      setIsEditing(false);
+      setEditingVehicleId(null);
+      router.refresh();
+    }
+  };
+
+  const handleUpdateVehicle = async (data: VehicleFormValues) => {
+    if (!editingVehicleId) return;
+    
+    const { error } = await supabase
+      .from("vehiclesc")
+      .update(data)
+      .eq("id", editingVehicleId);
+    
+    if (error) {
+      console.error(error.message);
+      toast.error("Failed to update vehicle");
+    } else {
+      toast.success("Vehicle updated successfully");
+      fetchVehicles();
+      form.reset();
+      setIsAddingVehicle(false);
+      setIsEditing(false);
+      setEditingVehicleId(null);
       router.refresh();
     }
   };
@@ -473,7 +496,7 @@ export default function Vehicles() {
       {isAddingVehicle && (
         <Card>
           <CardHeader>
-            <CardTitle>Add New Vehicle</CardTitle>
+            <CardTitle>{isEditing ? 'Edit Vehicle' : 'Add New Vehicle'}</CardTitle>
           </CardHeader>
           {/* <CardContent>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-6 flex flex-col items-center bg-gray-50">
@@ -862,12 +885,17 @@ export default function Vehicles() {
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     <FileText className="w-4 h-4 mr-2" />
-                    Save Vehicle
+                    {isEditing ? 'Update Vehicle' : 'Save Vehicle'}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setIsAddingVehicle(false)}
+                    onClick={() => {
+                      setIsAddingVehicle(false);
+                      setIsEditing(false);
+                      setEditingVehicleId(null);
+                      form.reset();
+                    }}
                   >
                     Cancel
                   </Button>
@@ -896,14 +924,12 @@ export default function Vehicles() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Make & Model</TableHead>
                   <TableHead>Registration</TableHead>
-                  <TableHead>Year</TableHead>
-                  <TableHead>Fuel</TableHead>
-                  <TableHead>Color</TableHead>
+                  <TableHead>Engine Number</TableHead>
+                  <TableHead>VIN Number</TableHead>
+                  <TableHead>Make</TableHead>
+                  <TableHead>Model</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Driver</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -913,21 +939,14 @@ export default function Vehicles() {
                     key={vehicle.id}
                     className={getRowBg(vehicle?.vehicle_type)}
                   >
+                    <TableCell className="font-medium">{vehicle.registration_number || '-'}</TableCell>
+                    <TableCell>{vehicle.engine_number || '-'}</TableCell>
+                    <TableCell>{vehicle.vin_number || '-'}</TableCell>
+                    <TableCell>{vehicle.make || '-'}</TableCell>
+                    <TableCell>{vehicle.model || '-'}</TableCell>
                     <TableCell className="flex items-center gap-2">
                       {getVehicleTypeIcon(vehicle.vehicle_type)}
-                      <span>
-                        {vehicle.make} {vehicle.model}
-                      </span>
-                    </TableCell>
-                    <TableCell>{vehicle.registration_number}</TableCell>
-                    <TableCell>{vehicle.manufactured_year}</TableCell>
-                    <TableCell>{vehicle.fuel_type}</TableCell>
-                    <TableCell>{vehicle.colour}</TableCell>
-                    <TableCell className="capitalize">
-                      {vehicle.vehicle_type}
-                    </TableCell>
-                    <TableCell>
-                      {getPriorityBadge(vehicle.vehicle_priority)}
+                      <span className="capitalize">{vehicle.vehicle_type || '-'}</span>
                     </TableCell>
                     {/* <TableCell>
                       {technicians.find(tech => tech.id === vehicle.tech_id)?.name || " "}
@@ -982,82 +1001,19 @@ export default function Vehicles() {
                     </TableCell>
 
                     <TableCell>
-                      <div className="flex flex-row gap-3">
-                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                          <DialogTrigger asChild>
-                            {/* <Button
-                              variant="outline"
-                              className="px-4 py-2"
-                              onClick={() => {
-                                setSelectedVehicleReg(vehicle.registration_number);
-                                setSelectedVehicleId(vehicle.id); // NEW: store actual ID
-                                setDialogOpen(true);
-                              }}
-                            >
-                              Assign
-                            </Button> */}
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-md w-full">
-                            <DialogTitle>Assign Driver</DialogTitle>
-                            <DialogDescription>
-                              Assign driver for vehicle with registration:{" "}
-                              <strong>{selectedVehicleReg}</strong>
-                            </DialogDescription>
-                            {/* technician search & list */}
-                            <Input
-                              placeholder="Search driver by name"
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              className="mb-4"
-                            />
-                            <div className="max-h-60 overflow-auto space-y-2">
-                              {/* {filteredTechs.length > 0 ? (
-                                filteredTechs.map((tech, index) => (
-                                  <button
-                                    key={tech.id}
-                                    onClick={() => {
-                                      if (selectedVehicleId) {
-                                        handleAssign(selectedVehicleId, tech.id);
-                                        setDialogOpen(false);
-                                      }
-                                    }}
-                                    className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                                  >
-                                    {tech.name}
-                                  </button>
-                                ))
-                              ) : (
-                                <p className="text-center text-sm text-gray-500 py-4">No technicians found</p>
-                              )} */}
-                              {filteredDrivers.length > 0 ? (
-                                filteredDrivers.map((driver) => (
-                                  <button
-                                    key={driver.id}
-                                    onClick={() => {
-                                      if (selectedVehicleId) {
-                                        handleAssignDriver(
-                                          selectedVehicleId,
-                                          driver.id
-                                        );
-                                        setDialogOpen(false);
-                                      }
-                                    }}
-                                    className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                                  >
-                                    {driver.first_name} {driver.surname}
-                                  </button>
-                                ))
-                              ) : (
-                                <p className="text-center text-sm text-gray-500 py-4">
-                                  No drivers found
-                                </p>
-                              )}
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedVehicle(vehicle);
+                            setIsSheetOpen(true);
+                          }}
+                        >
+                          View
+                        </Button>
                         <Link href={`/vehicles/${vehicle.id}`}>
-                          <Button variant="default">View</Button>
+                          <Button variant="default" size="sm">Details</Button>
                         </Link>
                       </div>
                     </TableCell>
@@ -1068,6 +1024,173 @@ export default function Vehicles() {
           </CardContent>
         </Card>
       )}
+
+      {/* Vehicle Details Sheet */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="p-4 w-11/12 md:w-2/4 h-screen overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Vehicle Details</SheetTitle>
+          </SheetHeader>
+
+          {selectedVehicle && (
+            <div className="space-y-4 mt-6 pb-20">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Registration Number</p>
+                    <p className="text-gray-900">{selectedVehicle.registration_number || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Engine Number</p>
+                    <p className="text-gray-900">{selectedVehicle.engine_number || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">VIN Number</p>
+                    <p className="text-gray-900">{selectedVehicle.vin_number || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Make</p>
+                    <p className="text-gray-900">{selectedVehicle.make || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Model</p>
+                    <p className="text-gray-900">{selectedVehicle.model || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Sub Model</p>
+                    <p className="text-gray-900">{selectedVehicle.sub_model || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Year</p>
+                    <p className="text-gray-900">{selectedVehicle.manufactured_year || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Type</p>
+                    <p className="text-gray-900">{selectedVehicle.vehicle_type || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Color</p>
+                    <p className="text-gray-900">{selectedVehicle.colour || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Technical Details */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Technical Details</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Fuel Type</p>
+                    <p className="text-gray-900">{selectedVehicle.fuel_type || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Transmission</p>
+                    <p className="text-gray-900">{selectedVehicle.transmission_type || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Tank Capacity</p>
+                    <p className="text-gray-900">{selectedVehicle.tank_capacity || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Priority</p>
+                    <p className="text-gray-900">{selectedVehicle.vehicle_priority || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Take On KM</p>
+                    <p className="text-gray-900">{selectedVehicle.take_on_kilometers || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Service Intervals</p>
+                    <p className="text-gray-900">{selectedVehicle.service_intervals || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Financial Information</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Purchase Price</p>
+                    <p className="text-gray-900">{selectedVehicle.purchase_price || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Retail Price</p>
+                    <p className="text-gray-900">{selectedVehicle.retail_price || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Cost Centres</p>
+                    <p className="text-gray-900">{selectedVehicle.cost_centres || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Important Dates */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Important Dates</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Registration Date</p>
+                    <p className="text-gray-900">{selectedVehicle.registration_date || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">License Expiry</p>
+                    <p className="text-gray-900">{selectedVehicle.license_expiry_date || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Expected Boarding</p>
+                    <p className="text-gray-900">{selectedVehicle.expected_boarding_date || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Assignment Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Assignment Information</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Assigned Driver</p>
+                    <p className="text-gray-900">{
+                      drivers.find(d => d.id === selectedVehicle.driver_id) 
+                        ? `${drivers.find(d => d.id === selectedVehicle.driver_id)?.first_name} ${drivers.find(d => d.id === selectedVehicle.driver_id)?.surname}`
+                        : 'Not Assigned'
+                    }</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Assigned Technician</p>
+                    <p className="text-gray-900">{
+                      technicians.find(t => t.id === selectedVehicle.tech_id)?.name || 'Not Assigned'
+                    }</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Populate form with selected vehicle data for editing
+                      setIsEditing(true);
+                      setEditingVehicleId(selectedVehicle.id || null);
+                      form.reset({
+                        ...selectedVehicle,
+                        registration_date: selectedVehicle.registration_date?.split('T')[0] || '',
+                        license_expiry_date: selectedVehicle.license_expiry_date?.split('T')[0] || '',
+                        expected_boarding_date: selectedVehicle.expected_boarding_date?.split('T')[0] || ''
+                      });
+                      setIsSheetOpen(false);
+                      setIsAddingVehicle(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {columns && vehicles && vehicles.length > 0 && (
         <DataTable

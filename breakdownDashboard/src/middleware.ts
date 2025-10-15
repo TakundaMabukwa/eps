@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 
 const roles = [
   {
+    name: 'admin',
+    path: ['*'], // Admin has access to all routes
+  },
+  {
     name: 'call centre',
     path: ['/dashboard', '/profile', '/login', '/signup', '/', '/ccenter', '/logout', 'jobs'],
   },
@@ -33,7 +37,11 @@ const publicRoutes = ['/login', '/signup', '/', '/logout', '/register',
   '/register/workshop/fileUpload']
 
 function getAllowedPaths(role: string): string[] {
-  return roles.find(r => r.name === role)?.path || []
+  const roleConfig = roles.find(r => r.name === role)
+  if (roleConfig?.path.includes('*')) {
+    return ['*'] // Admin has access to all paths
+  }
+  return roleConfig?.path || []
 }
 
 export async function middleware(req: NextRequest) {
@@ -86,7 +94,7 @@ export async function middleware(req: NextRequest) {
         const role = decodeURIComponent(userRecord?.role || '')
         if (role) {
           const allowedPaths = getAllowedPaths(role)
-          const isAllowed = allowedPaths.some(p => path.startsWith(p))
+          const isAllowed = allowedPaths.includes('*') || allowedPaths.some(p => path.startsWith(p))
           if (!isAllowed) {
             console.log(`Role "${role}" is not allowed to access "${path}" — redirecting to /dashboard`)
             return NextResponse.redirect(new URL('/login', req.url))

@@ -56,6 +56,27 @@ const routes = [
     color: 'text-emerald-500',
     permission: 'manage_trips',
   },
+  // {
+  //   label: 'Reports',
+  //   icon: 'ChartColumnBig',
+  //   href: '/reports',
+  //   color: 'text-blue-500',
+  //   permission: 'view_reports',
+  // },
+  // {
+  //   label: 'Jobs',
+  //   icon: 'Wrench',
+  //   href: '/jobs',
+  //   color: 'text-yellow-500',
+  //   permission: 'manage_jobs',
+  // },
+  // {
+  //   label: 'Call Center',
+  //   icon: 'Phone',
+  //   href: '/callcenter',
+  //   color: 'text-red-500',
+  //   permission: 'manage_callcenter',
+  // },
 ]
 
 export const getAccessibleRoutes = (permissions) => {
