@@ -1,3 +1,3 @@
-export default function verifyAuth() {
-  return Promise.resolve(true)
+export async function verifyAuth(auth, db, request, method) {
+  return null;
 }

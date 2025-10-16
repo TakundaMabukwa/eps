@@ -1,2 +1,2 @@
-// Placeholder file to resolve import errors
-export default {}
+export const auth = null;
+export const db = null;
