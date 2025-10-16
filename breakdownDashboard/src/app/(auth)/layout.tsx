@@ -28,7 +28,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           {/* Logo/Brand */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4 shadow-lg">
-              <img src="https://epscourierservices.com/wp-content/uploads/2023/05/EPS-LOGO-1.png" alt="EPS Courier Services" className="w-16 h-16 object-contain" />
+              <img src="https://datatim.co.za/wp-content/uploads/2017/05/eps-logo.jpg" alt="EPS Courier Services" className="w-16 h-16 object-contain" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">EPS Courier Services</h1>
             <p className="text-gray-600">Welcome back to EPS Courier Services</p>
