@@ -85,6 +85,7 @@ export default function LoadPlanPage() {
       console.log('Supabase errors:', { loadsError, clientsError, vehiclesError, driversError })
       
       const trackingData = await trackingResponse.json()
+      const vehicleData = trackingData?.result?.data || trackingData?.data || trackingData || []
       
       // Format drivers from drivers table
       const formattedDrivers = (driversData || []).map(driver => ({
@@ -136,7 +137,7 @@ export default function LoadPlanPage() {
       setVehicles(vehiclesData || [])
       setDrivers(formattedDrivers)
       setAvailableDrivers(availableDriversList)
-      setVehicleTrackingData(trackingData || [])
+      setVehicleTrackingData(vehicleData)
     } catch (err) {
       console.error('Error fetching data:', err)
     }
@@ -198,10 +199,11 @@ export default function LoadPlanPage() {
     // Use stored vehicle tracking data
     const driversWithDistance = drivers.map(driver => {
       // Find matching vehicle by driver name
-      const matchingVehicle = vehicleTrackingData.find(vehicle => 
+      const trackingData = Array.isArray(vehicleTrackingData) ? vehicleTrackingData : []
+      const driverFullName = `${driver.first_name} ${driver.surname}`.trim().toLowerCase()
+      const matchingVehicle = trackingData.find(vehicle => 
         vehicle.driver_name && 
-        (vehicle.driver_name.toLowerCase().includes(driver.name.toLowerCase()) ||
-         driver.name.toLowerCase().includes(vehicle.driver_name.toLowerCase()))
+        vehicle.driver_name.toLowerCase() === driverFullName
       )
       
       if (matchingVehicle?.latitude && matchingVehicle?.longitude) {

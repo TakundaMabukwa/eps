@@ -150,6 +150,15 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
         ];
         setNavigation(fleetManagerNav);
         console.log("Layout - Fleet Manager restricted to 2 items:", fleetManagerNav.length);
+      } else if (role === "customer") {
+        const customerNav = [
+          { name: "Drivers", href: "/drivers", Icon: <Users /> },
+          { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
+          { name: "Inspections", href: "/fleetManager/inspections", Icon: <QrCode /> },
+          { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
+        ];
+        setNavigation(customerNav);
+        console.log("Layout - Customer restricted to 4 items:", customerNav.length);
       } else {
         setNavigation(roleNav);
       }

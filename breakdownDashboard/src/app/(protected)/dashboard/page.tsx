@@ -146,18 +146,33 @@ export default function Dashboard() {
   const [noteText, setNoteText] = useState('');
   const [routeViewOpen, setRouteViewOpen] = useState(false);
   const [selectedRouteTrip, setSelectedRouteTrip] = useState<any>(null);
+  const [allVehicles, setAllVehicles] = useState<any[]>([]);
+
+  // Fetch all vehicles once on component mount
+  useEffect(() => {
+    const fetchAllVehicles = async () => {
+      try {
+        const response = await fetch('http://64.227.138.235:3000/api/eps-vehicles')
+        const result = await response.json()
+        const vehicles = result.data || []
+        setAllVehicles(vehicles)
+        console.log('Fetched all vehicles:', vehicles.length, 'items')
+      } catch (err) {
+        console.error('Error fetching all vehicles:', err)
+        setAllVehicles([])
+      }
+    }
+    fetchAllVehicles()
+  }, [])
 
   // Optimized real-time off-course monitoring
   useEffect(() => {
     let mounted = true
     const checkAllOffCourse = async () => {
-      if (!mounted) return
+      if (!mounted || allVehicles.length === 0) return
       try {
-        const [vehiclesRes, supabase] = await Promise.all([
-          fetch('http://64.227.138.235:3000/api/eps-vehicles'),
-          createClient()
-        ])
-        const vehicles = await vehiclesRes.json()
+        const supabase = createClient()
+        const vehicles = allVehicles
         const { data: trips } = await supabase.from('trips').select('*').eq('status', 'On Trip')
         const { data: routes } = await supabase.from('routes').select('*')
         
@@ -212,27 +227,66 @@ export default function Dashboard() {
       mounted = false
       clearInterval(interval)
     }
-  }, [])
+  }, [allVehicles])
 
   const handleViewMap = async (driverName: string, trip?: any) => {
-    try {
-      const response = await fetch('http://64.227.138.235:3000/api/eps-vehicles')
-      const vehicles = await response.json()
+    console.log('Searching for driver:', driverName, 'in', allVehicles.length, 'vehicles')
+    
+    // First try to find in cached vehicles
+    let vehicle = allVehicles.find((v: any) => {
+      const vehicleDriverName = v.driver_name?.toLowerCase() || ''
+      const searchName = driverName.toLowerCase()
       
-      const vehicle = vehicles.find((v: any) => 
-        v.driver_name?.toLowerCase().includes(driverName.toLowerCase()) ||
-        driverName.toLowerCase().includes(v.driver_name?.toLowerCase())
-      )
-      
-      if (vehicle) {
-        setMapData({ ...vehicle, trip })
-        setMapOpen(true)
-      } else {
-        alert(`Vehicle location not found for driver: ${driverName}`)
+      return vehicleDriverName.includes(searchName) || searchName.includes(vehicleDriverName)
+    })
+    
+    // If not found in cache, fetch fresh data from API
+    if (!vehicle) {
+      try {
+        console.log('Driver not found in cache, fetching fresh data from API...')
+        const response = await fetch('http://64.227.138.235:3000/api/eps-vehicles')
+        const result = await response.json()
+        const freshVehicles = result.data || []
+        
+        vehicle = freshVehicles.find((v: any) => {
+          const vehicleDriverName = v.driver_name?.toLowerCase() || ''
+          const searchName = driverName.toLowerCase()
+          
+          return vehicleDriverName.includes(searchName) || searchName.includes(vehicleDriverName)
+        })
+        
+        // Update cache with fresh data
+        setAllVehicles(freshVehicles)
+        console.log('Updated vehicle cache with', freshVehicles.length, 'vehicles')
+      } catch (error) {
+        console.error('Error fetching fresh vehicle data:', error)
       }
-    } catch (err) {
-      console.error('Error fetching vehicle data:', err)
-      alert('Failed to fetch vehicle location')
+    }
+    
+    console.log('Found vehicle:', vehicle ? 'Yes' : 'No', vehicle)
+    
+    if (vehicle) {
+      // Enhanced vehicle data with driver details from API
+      const enhancedVehicleData = {
+        ...vehicle,
+        trip,
+        // Driver details from EPS API
+        driverDetails: {
+          fullName: vehicle.driver_name,
+          plate: vehicle.plate,
+          speed: vehicle.speed,
+          mileage: vehicle.mileage,
+          address: vehicle.address,
+          geozone: vehicle.geozone,
+          company: vehicle.company,
+          lastUpdate: vehicle.loc_time
+        }
+      }
+      setMapData(enhancedVehicleData)
+      setMapOpen(true)
+    } else {
+      console.log('Available drivers:', allVehicles.map(v => v.driver_name))
+      alert(`Vehicle location not found for driver: ${driverName}`)
     }
   }
 
@@ -434,7 +488,9 @@ export default function Dashboard() {
         <div className="mt-3 flex flex-wrap gap-1">
           <Button size="sm" variant="outline" onClick={async () => {
             const routeData = await loadRouteData()
-            handleViewMap(`${driverInfo?.first_name} ${driverInfo?.surname}`.trim(), { ...trip, routeData, vehicleLocation })
+            // Use driver_name from EPS API or fallback to constructed name
+            const driverName = driverInfo?.driver_name || `${driverInfo?.first_name} ${driverInfo?.surname}`.trim()
+            handleViewMap(driverName, { ...trip, routeData, vehicleLocation })
           }}>
             <MapPin className="w-3 h-3 mr-1" />Map
           </Button>
@@ -1438,24 +1494,53 @@ export default function Dashboard() {
                       <p className="text-gray-600 font-medium">Loading route...</p>
                     </div>
                   </div>
-                  <div className="bg-white p-4 rounded-lg shadow-sm" style={{width: '200px'}}>
-                    <h3 className="font-semibold mb-3 text-gray-800">Map Legend</h3>
-                    <div className="space-y-3 text-sm">
+                  <div className="bg-white p-4 rounded-lg shadow-sm" style={{width: '280px'}}>
+                    <h3 className="font-semibold mb-3 text-gray-800">Driver Information</h3>
+                    {mapData.driverDetails && (
+                      <div className="space-y-3 text-sm mb-4">
+                        <div className="bg-blue-50 p-3 rounded-lg">
+                          <div className="font-medium text-blue-900">{mapData.driverDetails.fullName}</div>
+                          <div className="text-blue-700 text-xs">Vehicle: {mapData.driverDetails.plate}</div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Speed:</span>
+                            <span className="font-medium">{mapData.driverDetails.speed} km/h</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Mileage:</span>
+                            <span className="font-medium">{parseFloat(mapData.driverDetails.mileage).toLocaleString()} km</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            <div className="font-medium mb-1">Current Location:</div>
+                            <div>{mapData.driverDetails.address}</div>
+                          </div>
+                          {mapData.driverDetails.geozone && (
+                            <div className="text-xs text-gray-500">
+                              <div className="font-medium mb-1">Geozone:</div>
+                              <div>{mapData.driverDetails.geozone}</div>
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-500">
+                            <div className="font-medium mb-1">Last Update:</div>
+                            <div>{new Date(mapData.driverDetails.lastUpdate).toLocaleString()}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <h4 className="font-semibold mb-2 text-gray-800">Map Legend</h4>
+                    <div className="space-y-2 text-sm">
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 bg-green-500 rounded-full"></div>
                         <span>Start Point</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                        <span>Drop Off Point</span>
+                        <span>End Point</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
-                        <span>Driver Location</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-1 bg-blue-500"></div>
-                        <span>Route to Destination</span>
+                        <span>Current Location</span>
                       </div>
                     </div>
                   </div>
@@ -1505,9 +1590,28 @@ export default function Dashboard() {
                             document.head.appendChild(style)
                             
                             // @ts-ignore
-                            new window.mapboxgl.Marker(vehicleEl)
+                            const vehicleMarker = new window.mapboxgl.Marker(vehicleEl)
                               .setLngLat([parseFloat(mapData.longitude), parseFloat(mapData.latitude)])
                               .addTo(map)
+                            
+                            // Add popup with driver details
+                            if (mapData.driverDetails) {
+                              const popup = new window.mapboxgl.Popup({ offset: 25 })
+                                .setHTML(`
+                                  <div class="p-3">
+                                    <div class="font-bold text-blue-900 mb-2">${mapData.driverDetails.fullName}</div>
+                                    <div class="text-sm space-y-1">
+                                      <div><strong>Vehicle:</strong> ${mapData.driverDetails.plate}</div>
+                                      <div><strong>Speed:</strong> ${mapData.driverDetails.speed} km/h</div>
+                                      <div><strong>Company:</strong> ${mapData.driverDetails.company}</div>
+                                      <div class="text-xs text-gray-600 mt-2">
+                                        Last updated: ${new Date(mapData.driverDetails.lastUpdate).toLocaleTimeString()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                `)
+                              vehicleMarker.setPopup(popup)
+                            }
                             
                             // Single route: Driver location to destination
                             if (mapData.trip?.destination) {
