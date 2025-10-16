@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY // Use service role for server-side
-const supabase = createClient(supabaseUrl, supabaseKey)
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  
+  if (!supabaseUrl || !supabaseKey) {
+    return null
+  }
+  
+  return createClient(supabaseUrl, supabaseKey)
+}
 
 async function getUserFromRequest(request) {
+  const supabase = getSupabaseClient()
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return { user: null, error: 'Missing token' }
+  if (!token || !supabase) return { user: null, error: 'Missing token or supabase client' }
   const { data, error } = await supabase.auth.getUser(token)
   return { user: data?.user, error }
 }
@@ -15,6 +23,9 @@ async function getUserFromRequest(request) {
 async function getCompanyId(user) {
   if (user?.user_metadata?.company_id) return user.user_metadata.company_id
   if (user?.user_metadata?.clientId) return user.user_metadata.clientId
+
+  const supabase = getSupabaseClient()
+  if (!supabase) return null
 
   const { data, error } = await supabase
     .from('profiles')
@@ -30,6 +41,11 @@ async function getCompanyId(user) {
 // get cost centres
 // *****************************
 export async function GET(request) {
+  const supabase = getSupabaseClient()
+  if (!supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
+  }
+
   const { user, error: authError } = await getUserFromRequest(request)
 
   if (authError || !user) {
@@ -56,6 +72,11 @@ export async function GET(request) {
 // add cost centres
 // *****************************
 export async function POST(request) {
+  const supabase = getSupabaseClient()
+  if (!supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
+  }
+
   const { user, error: authError } = await getUserFromRequest(request)
 
   if (authError || !user) {
