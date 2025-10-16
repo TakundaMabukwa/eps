@@ -27,11 +27,11 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         <div className="w-full max-w-md">
           {/* Logo/Brand */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
-              <Image src="/icon.png" alt="Eagle Eye" width={150} height={150} className="object-contain rounded-full" />
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4 shadow-lg">
+              <img src="https://epscourierservices.com/wp-content/uploads/2023/05/EPS-LOGO-1.png" alt="EPS Courier Services" className="w-16 h-16 object-contain" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Breakdown Logistics</h1>
-            <p className="text-gray-600">Welcome back to your Breakdown Logistics</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">EPS Courier Services</h1>
+            <p className="text-gray-600">Welcome back to EPS Courier Services</p>
           </div>
 
           {/* Auth form container */}
@@ -67,7 +67,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-500">
-              © 2025 Breakdown Logistics. All rights reserved.
+              © 2025 EPS Courier Services. All rights reserved.
             </p>
           </div>
         </div>

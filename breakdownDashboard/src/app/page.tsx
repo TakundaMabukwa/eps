@@ -10,5 +10,9 @@ export default async function Home() {
     redirect('/login')
   }
 
+  if (role === 'customer') {
+    redirect('/drivers')
+  }
+
   redirect('/dashboard')
 }
