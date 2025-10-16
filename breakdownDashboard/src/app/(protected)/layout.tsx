@@ -55,31 +55,8 @@ const roleNavigation = {
 
   ],
   "fleet manager": [
-    { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> }, // Read-only access
-    { name: "Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
-    {
-      name: "Inspections",
-      href: "/fleetManager/inspections",
-      Icon: <QrCode />,
-    },
-    { name: "Drivers", href: "/drivers", Icon: <Users /> },
+    { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
     { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
-    { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
-    { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
-    {
-      name: "Cost Centres",
-      href: "/fleetManager/cost-centres",
-      Icon: <Wrench />,
-    },
-    { name: "Clients", href: "/fleetManager/clients", Icon: <Building2 /> },
-    // { name: "Stop Points", href: "/fleetManager/stop-points", Icon: <Route /> },
-    { name: "Trips", href: "/fleetManager/trips", Icon: <Route /> },
-    { name: "Routes", href: "/fleetManager/routes", Icon: <Truck /> },
-
-    // { name: 'Qoute Management', href: '/qoutation', Icon: <Building2 /> },
-    // { name: 'Profile', href: '/profile', Icon: <Settings2Icon /> },
-    { name: "System Settings", href: "/settings", Icon: <Settings /> },
-    // { name: 'User Management', href: '/userManagement', Icon: <PlusSquare /> },
   ],
   fc: [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
@@ -124,7 +101,7 @@ const roleNavigation = {
     { name: "Technicians Assignment", href: "/extechnicians", Icon: <Users /> },
     { name: "Workshop Vehicles", href: "/exvehicles", Icon: <Car /> },
     { name: "Qoute Management", href: "/workshopQoute", Icon: <Building2 /> },
-    { name: "System Settings", href: "/settings", Icon: <Settings /> },
+    // { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
   "cost centre": [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
@@ -164,12 +141,24 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
       setUserRole(role);
       // Set navigation based on role
       const roleNav = roleNavigation[role as keyof typeof roleNavigation] || [];
-      setNavigation(roleNav);
+      
+      // Force fleet manager to only have 2 items
+      if (role === "fleet manager") {
+        const fleetManagerNav = [
+          { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
+          { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
+        ];
+        setNavigation(fleetManagerNav);
+        console.log("Layout - Fleet Manager restricted to 2 items:", fleetManagerNav.length);
+      } else {
+        setNavigation(roleNav);
+      }
+      
       console.log(
         "Layout - Navigation set for role:",
         role,
         "Items:",
-        roleNav.length
+        navigation.length || roleNav.length
       );
     } else {
       console.log("Layout - No role found, redirecting to login");

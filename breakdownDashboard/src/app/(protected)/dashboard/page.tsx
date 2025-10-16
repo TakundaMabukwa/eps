@@ -61,7 +61,7 @@ import { cn } from "@/lib/utils";
 import { FuelGaugesView } from "@/components/fuelGauge/FuelGaugesView";
 import FuelCanBusDisplay from "@/components/FuelCanBusDisplay";
 import DriverPerformanceDashboard from "@/components/dashboard/DriverPerformanceDashboard";
-import ExecutiveDashboard from "@/components/dashboard/ExecutiveDashboard";
+
 
 interface DashboardStats {
   activeBreakdowns: number;
@@ -99,6 +99,18 @@ export default function Dashboard() {
   const globalContext = useGlobalContext() as any;
   const onCreate = globalContext?.onCreate ?? (() => {});
   const [userRole, setUserRole] = useState<string>("");
+  
+  // Get user role from cookies
+  useEffect(() => {
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(";").shift();
+      return null;
+    };
+    const role = decodeURIComponent(getCookie("role") || "");
+    setUserRole(role);
+  }, []);
   const [userEmail, setUserEmail] = useState<string>("");
   const [stats, setStats] = useState<DashboardStats>({
     activeBreakdowns: 0,
@@ -135,9 +147,11 @@ export default function Dashboard() {
   const [routeViewOpen, setRouteViewOpen] = useState(false);
   const [selectedRouteTrip, setSelectedRouteTrip] = useState<any>(null);
 
-  // Real-time off-course monitoring
+  // Optimized real-time off-course monitoring
   useEffect(() => {
+    let mounted = true
     const checkAllOffCourse = async () => {
+      if (!mounted) return
       try {
         const [vehiclesRes, supabase] = await Promise.all([
           fetch('http://64.227.138.235:3000/api/eps-vehicles'),
@@ -146,6 +160,8 @@ export default function Dashboard() {
         const vehicles = await vehiclesRes.json()
         const { data: trips } = await supabase.from('trips').select('*').eq('status', 'On Trip')
         const { data: routes } = await supabase.from('routes').select('*')
+        
+        if (!mounted) return
         
         const newOffCourseTrips = new Set<string>()
         
@@ -178,17 +194,24 @@ export default function Dashboard() {
           }
         }
         
-        setOffCourseTrips(newOffCourseTrips)
+        // Only update if there's a change
+        setOffCourseTrips(prev => {
+          const hasChanged = prev.size !== newOffCourseTrips.size || 
+            [...prev].some(id => !newOffCourseTrips.has(id))
+          return hasChanged ? newOffCourseTrips : prev
+        })
       } catch (err) {
         console.error('Error checking off-course status:', err)
       }
     }
     
-    // Check immediately and then every 30 seconds
     checkAllOffCourse()
-    const interval = setInterval(checkAllOffCourse, 30000)
+    const interval = setInterval(checkAllOffCourse, 60000) // Reduced to 1 minute
     
-    return () => clearInterval(interval)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
   }, [])
 
   const handleViewMap = async (driverName: string, trip?: any) => {
@@ -415,23 +438,46 @@ export default function Dashboard() {
           }}>
             <MapPin className="w-3 h-3 mr-1" />Map
           </Button>
-          <Button size="sm" variant="outline" onClick={() => {
-            setCurrentTripForNote(trip)
-            setNoteText(trip.status_notes || trip.statusnotes || '')
-            setNoteOpen(true)
-          }}>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            disabled={userRole === "fleet manager"}
+            className={userRole === "fleet manager" ? "opacity-50 cursor-not-allowed" : ""}
+            onClick={() => {
+              if (userRole === "fleet manager") return;
+              setCurrentTripForNote(trip)
+              setNoteText(trip.status_notes || trip.statusnotes || '')
+              setNoteOpen(true)
+            }}
+          >
             <FileText className="w-3 h-3 mr-1" />Note
           </Button>
-          <Button size="sm" variant="outline" onClick={async () => {
-            const supabase = createClient()
-            const { data: drivers } = await supabase.from('drivers').select('*')
-            setAvailableDrivers(drivers || [])
-            setCurrentTripForChange(trip)
-            setChangeDriverOpen(true)
-          }}>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            disabled={userRole === "fleet manager"}
+            className={userRole === "fleet manager" ? "opacity-50 cursor-not-allowed" : ""}
+            onClick={async () => {
+              if (userRole === "fleet manager") return;
+              const supabase = createClient()
+              const { data: drivers } = await supabase.from('drivers').select('*')
+              setAvailableDrivers(drivers || [])
+              setCurrentTripForChange(trip)
+              setChangeDriverOpen(true)
+            }}
+          >
             <User className="w-3 h-3 mr-1" />Change
           </Button>
-          <Button size="sm" variant="destructive" onClick={() => alert('Cancel Load')}>
+          <Button 
+            size="sm" 
+            variant="destructive" 
+            disabled={userRole === "fleet manager"}
+            className={userRole === "fleet manager" ? "opacity-50 cursor-not-allowed" : ""}
+            onClick={() => {
+              if (userRole === "fleet manager") return;
+              alert('Cancel Load')
+            }}
+          >
             <X className="w-3 h-3 mr-1" />Cancel
           </Button>
         </div>
@@ -461,16 +507,23 @@ export default function Dashboard() {
       
       fetchTrips()
       
-      // Set up real-time subscription for seamless updates
+      // Optimized real-time subscription with selective updates
       const supabase = createClient()
       const channel = supabase
         .channel('trips-changes')
         .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'trips' },
           (payload) => {
-            console.log('Trip change detected:', payload)
-            // Seamless background update without page refresh
-            fetchTrips()
+            // Only update specific trip instead of refetching all
+            if (payload.eventType === 'UPDATE' && payload.new) {
+              setTrips(prev => prev.map(trip => 
+                trip.id === payload.new.id ? { ...trip, ...payload.new } : trip
+              ))
+            } else if (payload.eventType === 'INSERT' && payload.new) {
+              setTrips(prev => [...prev, payload.new])
+            } else if (payload.eventType === 'DELETE' && payload.old) {
+              setTrips(prev => prev.filter(trip => trip.id !== payload.old.id))
+            }
           }
         )
         .subscribe()
@@ -1149,12 +1202,7 @@ export default function Dashboard() {
               >
                 Routing
               </TabsTrigger>
-              <TabsTrigger
-                value="executive"
-                className="px-4 py-2 text-sm font-medium rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white"
-              >
-                Executive
-              </TabsTrigger>
+
               <TabsTrigger
                 value="financials"
                 className="px-4 py-2 text-sm font-medium rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white"
@@ -1208,10 +1256,7 @@ export default function Dashboard() {
             </div>
             <RoutingSection />
           </div>
-        ) : activeTab === "executive" ? (
-          <div className="space-y-4">
-            <ExecutiveDashboard />
-          </div>
+
         ) : activeTab === "financials" ? (
           <div className="space-y-4">
             <FinancialsPanel />
