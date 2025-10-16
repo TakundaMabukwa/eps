@@ -6,9 +6,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ['mapbox-gl'],
-  },
+  serverExternalPackages: ['mapbox-gl'],
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
