@@ -77,7 +77,7 @@ export async function POST(request) {
     // Create Firebase Auth user
     const userRecord = await auth.createUser({
       email: body.email,
-      password: 'password', // Use a secure password in production
+      password: process.env.DEFAULT_USER_PASSWORD || 'TempPass123!',
       displayName: body.name,
       disabled: false,
     })

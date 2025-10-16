@@ -125,9 +125,71 @@ export default function Dashboard() {
   const [mapData, setMapData] = useState<any>(null);
   const [loadOpen, setLoadOpen] = useState(false);
   const [loadData, setLoadData] = useState<any>(null);
-  const [changeVehicleOpen, setChangeVehicleOpen] = useState(false);
+  const [changeDriverOpen, setChangeDriverOpen] = useState(false);
   const [currentTripForChange, setCurrentTripForChange] = useState<any>(null);
-  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
+  const [offCourseTrips, setOffCourseTrips] = useState<Set<string>>(new Set());
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [currentTripForNote, setCurrentTripForNote] = useState<any>(null);
+  const [noteText, setNoteText] = useState('');
+  const [routeViewOpen, setRouteViewOpen] = useState(false);
+  const [selectedRouteTrip, setSelectedRouteTrip] = useState<any>(null);
+
+  // Real-time off-course monitoring
+  useEffect(() => {
+    const checkAllOffCourse = async () => {
+      try {
+        const [vehiclesRes, supabase] = await Promise.all([
+          fetch('http://64.227.138.235:3000/api/eps-vehicles'),
+          createClient()
+        ])
+        const vehicles = await vehiclesRes.json()
+        const { data: trips } = await supabase.from('trips').select('*').eq('status', 'On Trip')
+        const { data: routes } = await supabase.from('routes').select('*')
+        
+        const newOffCourseTrips = new Set<string>()
+        
+        for (const trip of trips || []) {
+          const assignments = trip.vehicleassignments || []
+          if (!assignments.length) continue
+          
+          const driverName = assignments[0]?.drivers?.[0]?.name || ''
+          const vehicle = vehicles.find((v: any) => 
+            v.driver_name?.toLowerCase().includes(driverName.toLowerCase())
+          )
+          
+          if (vehicle) {
+            const route = routes?.find(r => r.order_number === trip.ordernumber)
+            if (route?.route_data?.geometry?.coordinates) {
+              const coords = route.route_data.geometry.coordinates
+              const vehiclePos = [parseFloat(vehicle.longitude), parseFloat(vehicle.latitude)]
+              
+              const isNearRoute = coords.some((coord: number[]) => {
+                const distance = Math.sqrt(
+                  Math.pow(coord[0] - vehiclePos[0], 2) + Math.pow(coord[1] - vehiclePos[1], 2)
+                ) * 111000
+                return distance < 1000
+              })
+              
+              if (!isNearRoute) {
+                newOffCourseTrips.add(trip.id)
+              }
+            }
+          }
+        }
+        
+        setOffCourseTrips(newOffCourseTrips)
+      } catch (err) {
+        console.error('Error checking off-course status:', err)
+      }
+    }
+    
+    // Check immediately and then every 30 seconds
+    checkAllOffCourse()
+    const interval = setInterval(checkAllOffCourse, 30000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
   const handleViewMap = async (driverName: string, trip?: any) => {
     try {
@@ -166,8 +228,12 @@ export default function Dashboard() {
       console.log('Update successful:', data)
       setDateTimeOpen(false)
       setSelectedDateTime('')
-      // Refresh the trips list
-      window.location.reload()
+      // Trigger seamless refresh of trips data
+      const supabaseRefresh = createClient()
+      const { data: updatedTrips } = await supabase.from('trips').select('*')
+      if (updatedTrips) {
+        // This will be handled by the real-time subscription
+      }
     } catch (err) {
       console.error(`Failed to update ${dateTimeType} time`, err)
       const message = (err as any).message || String(err)
@@ -180,6 +246,15 @@ export default function Dashboard() {
     const [driverInfo, setDriverInfo] = useState<any>(null)
     const [vehicleInfo, setVehicleInfo] = useState<any>(null)
     const [loading, setLoading] = useState(false)
+    const [vehicleLocation, setVehicleLocation] = useState<any>(null)
+    const [isOffCourse, setIsOffCourse] = useState(false)
+    const [actualETA, setActualETA] = useState<string>('')
+    const [routeLoading, setRouteLoading] = useState(true)
+
+    // Use global off-course status
+    useEffect(() => {
+      setIsOffCourse(offCourseTrips.has(trip.id))
+    }, [offCourseTrips, trip.id])
 
     useEffect(() => {
       async function fetchAssignmentInfo() {
@@ -210,23 +285,70 @@ export default function Dashboard() {
               .single()
             setVehicleInfo(vehicle)
           }
+          
+
+          
+
         } catch (err) {
           console.error('Error fetching assignment info:', err)
-        } finally {
-          setLoading(false)
         }
+        setLoading(false)
+        setRouteLoading(false)
       }
 
       fetchAssignmentInfo()
     }, [trip.vehicleassignments, trip.vehicle_assignments])
 
+    const loadRouteData = async () => {
+      try {
+        const supabase = createClient()
+        const { data: route } = await supabase
+          .from('routes')
+          .select('route_data')
+          .eq('order_number', trip.ordernumber)
+          .single()
+        return route
+      } catch (error) {
+        console.error('Error loading route data:', error)
+        return null
+      }
+    }
+
     const driverName = driverInfo ? `${driverInfo.first_name} ${driverInfo.surname}`.trim() : 'Unassigned'
     const initials = driverName !== 'Unassigned' ? driverName.split(' ').map((s: string) => s[0]).slice(0,2).join('') : 'DR'
 
+    if (routeLoading) {
+      return (
+        <div className="bg-white border border-gray-100 rounded-md p-4 shadow-sm animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-gray-200"></div>
+            <div className="flex-1">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+          <div className="mt-3 space-y-2">
+            <div className="h-3 bg-gray-200 rounded w-full"></div>
+            <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </div>
+      )
+    }
+
     return (
-      <div className="bg-white border border-gray-100 rounded-md p-4 shadow-sm">
+      <div className={`bg-white border rounded-md p-4 shadow-sm ${
+        isOffCourse ? 'border-red-500 border-2 animate-pulse bg-red-50' : 'border-gray-100'
+      }`}>
+        {isOffCourse && (
+          <div className="flex items-center gap-2 mb-3 p-2 bg-red-100 rounded border border-red-300">
+            <AlertTriangle className="w-4 h-4 text-red-600 animate-pulse" />
+            <span className="text-red-700 text-sm font-medium">Driver Off-Course</span>
+          </div>
+        )}
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-sm font-medium text-gray-700">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium ${
+            isOffCourse ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-gray-100 text-gray-700'
+          }`}>
             {initials}
           </div>
           <div className="min-w-0 flex-1">
@@ -256,12 +378,28 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+        {(trip.status_notes || trip.statusnotes) && (
+          <div className="mt-3 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-400 rounded-r-md">
+            <div className="flex items-start gap-2">
+              <FileText className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-xs font-semibold text-amber-800 mb-1">Status Note</div>
+                <div className="text-sm text-amber-900 leading-relaxed">{trip.status_notes || trip.statusnotes}</div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-2 truncate">
             <Car className="w-4 h-4 text-muted-foreground" />
             <span className="truncate">{vehicleInfo?.registration_number || vehicleInfo?.regNumber || '-'}</span>
           </div>
-          <div>
+          <div className="flex gap-2">
+            {isOffCourse && (
+              <span className="px-2 py-0.5 rounded text-xs bg-red-100 text-red-800 animate-pulse">
+                Off Course
+              </span>
+            )}
             <span className={`px-2 py-0.5 rounded text-xs ${
               driverInfo?.available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
             }`}>
@@ -269,27 +407,29 @@ export default function Dashboard() {
             </span>
           </div>
         </div>
+
         <div className="mt-3 flex flex-wrap gap-1">
-          <Button size="sm" variant="outline" onClick={() => handleViewMap(`${driverInfo?.first_name} ${driverInfo?.surname}`.trim(), trip)}>
+          <Button size="sm" variant="outline" onClick={async () => {
+            const routeData = await loadRouteData()
+            handleViewMap(`${driverInfo?.first_name} ${driverInfo?.surname}`.trim(), { ...trip, routeData, vehicleLocation })
+          }}>
             <MapPin className="w-3 h-3 mr-1" />Map
           </Button>
-          <Button size="sm" variant="outline" onClick={() => { setLoadData(trip); setLoadOpen(true); }}>
-            <FileText className="w-3 h-3 mr-1" />Load
+          <Button size="sm" variant="outline" onClick={() => {
+            setCurrentTripForNote(trip)
+            setNoteText(trip.status_notes || trip.statusnotes || '')
+            setNoteOpen(true)
+          }}>
+            <FileText className="w-3 h-3 mr-1" />Note
           </Button>
           <Button size="sm" variant="outline" onClick={async () => {
             const supabase = createClient()
-            const { data: vehicles } = await supabase.from('vehiclesc').select('*')
-            setAvailableVehicles(vehicles || [])
+            const { data: drivers } = await supabase.from('drivers').select('*')
+            setAvailableDrivers(drivers || [])
             setCurrentTripForChange(trip)
-            setChangeVehicleOpen(true)
+            setChangeDriverOpen(true)
           }}>
-            <Truck className="w-3 h-3 mr-1" />Change
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => alert('Change Trailer')}>
-            <Truck className="w-3 h-3 mr-1" />Trailer
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => alert('Add Note')}>
-            <FileText className="w-3 h-3 mr-1" />Note
+            <User className="w-3 h-3 mr-1" />Change
           </Button>
           <Button size="sm" variant="destructive" onClick={() => alert('Cancel Load')}>
             <X className="w-3 h-3 mr-1" />Cancel
@@ -318,10 +458,29 @@ export default function Dashboard() {
           setLoading(false)
         }
       }
+      
       fetchTrips()
+      
+      // Set up real-time subscription for seamless updates
+      const supabase = createClient()
+      const channel = supabase
+        .channel('trips-changes')
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'trips' },
+          (payload) => {
+            console.log('Trip change detected:', payload)
+            // Seamless background update without page refresh
+            fetchTrips()
+          }
+        )
+        .subscribe()
+      
+      return () => {
+        supabase.removeChannel(channel)
+      }
     }, [])
 
-    const tripsList = trips
+    const tripsList = trips.filter(trip => trip.status?.toLowerCase() !== 'delivered')
 
     const TRIP_STATUSES = [
       'Pending',
@@ -374,8 +533,9 @@ export default function Dashboard() {
       try {
         const { error } = await supabase.from('trips').update({ status: 'Delivered' }).eq('id', trip.id)
         if (error) throw error
+        // Update local state immediately for seamless UX
         setTrips(prev => prev.map(t => t.id === trip.id ? { ...t, status: 'Delivered' } : t))
-        window.alert('Trip marked as completed')
+        alert('Trip marked as completed')
       } catch (err) {
         console.error('Failed to complete trip', err)
         const message = (err as any).message || String(err)
@@ -428,19 +588,37 @@ export default function Dashboard() {
       )
     }
 
+    // Sort trips to put off-course ones first
+    const sortedTrips = [...tripsList].sort((a, b) => {
+      const aOffCourse = offCourseTrips.has(a.id)
+      const bOffCourse = offCourseTrips.has(b.id)
+      if (aOffCourse && !bOffCourse) return -1
+      if (!aOffCourse && bOffCourse) return 1
+      return 0
+    })
+
     return (
       <div className="space-y-4">
-        {tripsList.map((trip: any) => {
+        {sortedTrips.map((trip: any) => {
           const waypoints = getWaypoints(trip)
           const progress = getTripProgress(trip.status)
 
           const clientDetails = typeof trip.clientdetails === 'string' ? JSON.parse(trip.clientdetails) : trip.clientdetails
           const title = clientDetails?.name || trip.selectedClient || trip.clientDetails?.name || `Trip ${trip.trip_id || trip.id}`
           const route = `${trip.origin || 'Start'} → ${trip.destination || 'End'}`
+          const isOffCourse = offCourseTrips.has(trip.id)
 
           return (
             <div key={trip.id || trip.trip_id} className="space-y-3">
-              <Card className="p-4 rounded-lg shadow-sm">
+              <Card className={`p-4 rounded-lg shadow-sm ${
+                isOffCourse ? 'border-red-500 border-2 bg-red-50' : ''
+              }`}>
+                {isOffCourse && (
+                  <div className="flex items-center gap-2 mb-3 p-2 bg-red-100 rounded border border-red-300">
+                    <AlertTriangle className="w-4 h-4 text-red-600 animate-pulse" />
+                    <span className="text-red-700 text-sm font-medium">Trip Off-Course - Immediate Attention Required</span>
+                  </div>
+                )}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-base truncate">{title}</h3>
@@ -923,10 +1101,13 @@ export default function Dashboard() {
     async function fetchAuditData() {
       try {
         const supabase = createClient()
-        const { data: trips, error } = await supabase.from('trips').select('*')
+        const { data: auditTrips, error } = await supabase
+          .from('audit')
+          .select('*')
+          .ilike('status', 'delivered')
         if (error) throw error
         
-        const formattedData = (trips || []).map(trip => {
+        const formattedData = (auditTrips || []).map(trip => {
           const clientDetails = typeof trip.clientdetails === 'string' ? JSON.parse(trip.clientdetails) : trip.clientdetails
           return {
             id: trip.id,
@@ -973,13 +1154,6 @@ export default function Dashboard() {
                 className="px-4 py-2 text-sm font-medium rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white"
               >
                 Executive
-              </TabsTrigger>
-
-              <TabsTrigger
-                value="fuel"
-                className="px-4 py-2 text-sm font-medium rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white"
-              >
-                Fuel Can Bus
               </TabsTrigger>
               <TabsTrigger
                 value="financials"
@@ -1037,10 +1211,6 @@ export default function Dashboard() {
         ) : activeTab === "executive" ? (
           <div className="space-y-4">
             <ExecutiveDashboard />
-          </div>
-        ) : activeTab === "fuel" ? (
-          <div className="space-y-4">
-            <FuelCanBusDisplay />
           </div>
         ) : activeTab === "financials" ? (
           <div className="space-y-4">
@@ -1101,6 +1271,9 @@ export default function Dashboard() {
                               <Button variant="ghost" size="sm" onClick={() => { setSelectedTrip(row); setSummaryOpen(true); }}>
                                 <FileText className="h-4 w-4" />
                               </Button>
+                              <Button variant="ghost" size="sm" onClick={() => { setSelectedRouteTrip(row); setRouteViewOpen(true); }}>
+                                <MapPin className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1113,15 +1286,15 @@ export default function Dashboard() {
           </div>
         ) : null }
 
-        {/* Change Vehicle Modal */}
-        <Dialog.Root open={changeVehicleOpen} onOpenChange={setChangeVehicleOpen}>
+        {/* Change Driver Modal */}
+        <Dialog.Root open={changeDriverOpen} onOpenChange={setChangeDriverOpen}>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
             <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl z-50 p-8 w-[80vw] max-w-4xl max-h-[85vh] overflow-y-auto">
               <Dialog.Title className="text-xl font-semibold mb-6 flex items-center justify-between border-b pb-4">
                 <div className="flex items-center gap-2">
-                  <Truck className="h-5 w-5 text-gray-600" />
-                  Change Vehicle Assignment
+                  <User className="h-5 w-5 text-gray-600" />
+                  Change Driver Assignment
                 </div>
                 <Dialog.Close asChild>
                   <Button variant="ghost" size="sm">
@@ -1130,28 +1303,26 @@ export default function Dashboard() {
                 </Dialog.Close>
               </Dialog.Title>
               <div className="space-y-2">
-                {availableVehicles.map((vehicle) => (
-                  <div key={vehicle.id} className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors" onClick={async () => {
+                {availableDrivers.map((driver) => (
+                  <div key={driver.id} className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors" onClick={async () => {
                     const supabase = createClient()
                     const assignments = currentTripForChange.vehicleassignments || []
                     if (assignments.length > 0) {
-                      assignments[0].vehicle = { id: vehicle.id, name: `${vehicle.make} ${vehicle.model} (${vehicle.registration_number})` }
+                      assignments[0].drivers = [{ id: driver.id, name: `${driver.first_name} ${driver.surname}` }]
                       const { error } = await supabase.from('trips').update({ vehicleassignments: assignments }).eq('id', currentTripForChange.id)
                       if (!error) {
-                        setChangeVehicleOpen(false)
-                        window.location.reload()
+                        setChangeDriverOpen(false)
                       }
                     }
                   }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Truck className="h-5 w-5 text-gray-400" />
+                        <User className="h-5 w-5 text-gray-400" />
                         <div>
-                          <p className="font-medium text-gray-900">{vehicle.make} {vehicle.model}</p>
+                          <p className="font-medium text-gray-900">{driver.first_name} {driver.surname}</p>
                           <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <span>{vehicle.registration_number}</span>
-                            {vehicle.year && <span>Year: {vehicle.year}</span>}
-                            {vehicle.type && <span>{vehicle.type}</span>}
+                            {driver.license_number && <span>License: {driver.license_number}</span>}
+                            {driver.phone_number && <span>Phone: {driver.phone_number}</span>}
                           </div>
                         </div>
                       </div>
@@ -1205,7 +1376,7 @@ export default function Dashboard() {
         <Dialog.Root open={mapOpen} onOpenChange={setMapOpen}>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg z-50 p-6 w-[90vw] max-w-4xl h-[80vh] overflow-y-auto">
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg z-50 p-6 w-[95vw] max-w-7xl h-[90vh] overflow-y-auto">
               <Dialog.Title className="text-lg font-semibold mb-4 flex items-center justify-between">
                 Vehicle Location
                 <Dialog.Close asChild>
@@ -1215,50 +1386,42 @@ export default function Dashboard() {
                 </Dialog.Close>
               </Dialog.Title>
               {mapData && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <p className="text-xs text-blue-600 font-medium">DRIVER</p>
-                      <p className="text-sm font-semibold text-blue-900">{mapData.driver_name}</p>
+                <div className="flex gap-4 h-full relative">
+                  <div id="map-loading" className="absolute inset-0 bg-white/90 z-50 flex items-center justify-center rounded-lg">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600 font-medium">Loading route...</p>
                     </div>
-                    <div className="bg-green-50 p-3 rounded-lg">
-                      <p className="text-xs text-green-600 font-medium">PLATE</p>
-                      <p className="text-sm font-semibold text-green-900">{mapData.plate}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm" style={{width: '200px'}}>
+                    <h3 className="font-semibold mb-3 text-gray-800">Map Legend</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                        <span>Start Point</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                        <span>Drop Off Point</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
+                        <span>Driver Location</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-1 bg-blue-500"></div>
+                        <span>Route to Destination</span>
+                      </div>
                     </div>
-                    <div className="bg-purple-50 p-3 rounded-lg">
-                      <p className="text-xs text-purple-600 font-medium">SPEED</p>
-                      <p className="text-sm font-semibold text-purple-900">{mapData.speed} km/h</p>
-                    </div>
-                    <div className="bg-orange-50 p-3 rounded-lg">
-                      <p className="text-xs text-orange-600 font-medium">ENGINE</p>
-                      <p className="text-sm font-semibold text-orange-900">{mapData.engine_status}</p>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded-lg col-span-2">
-                      <p className="text-xs text-gray-600 font-medium">ADDRESS</p>
-                      <p className="text-sm font-semibold text-gray-900">{mapData.address}</p>
-                    </div>
-                    <div className="bg-indigo-50 p-3 rounded-lg col-span-2">
-                      <p className="text-xs text-indigo-600 font-medium">LAST UPDATE</p>
-                      <p className="text-sm font-semibold text-indigo-900">{new Date(mapData.loc_time).toLocaleString()}</p>
-                    </div>
-                    {mapData.trip && (
-                      <>
-                        <div className="bg-emerald-50 p-3 rounded-lg">
-                          <p className="text-xs text-emerald-600 font-medium">ORIGIN</p>
-                          <p className="text-sm font-semibold text-emerald-900">{mapData.trip.origin}</p>
-                        </div>
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <p className="text-xs text-blue-600 font-medium">DESTINATION</p>
-                          <p className="text-sm font-semibold text-blue-900">{mapData.trip.destination}</p>
-                        </div>
-                      </>
-                    )}
                   </div>
                   <div 
                     id="map" 
-                    className="w-full h-96 rounded border"
+                    className="flex-1 h-[500px] rounded border"
                     ref={(el) => {
-                      if (el && mapData && !el.hasChildNodes()) {
+                      if (el && mapData) {
+                        // Clear container first
+                        el.innerHTML = ''
+                        
                         const script = document.createElement('script')
                         script.src = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'
                         script.onload = () => {
@@ -1268,34 +1431,144 @@ export default function Dashboard() {
                           document.head.appendChild(link)
                           
                           // @ts-ignore
-                          window.mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-                          // @ts-ignore
-                          const map = new window.mapboxgl.Map({
+                          if (window.mapboxgl) {
+                            window.mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+                            // @ts-ignore
+                            const map = new window.mapboxgl.Map({
                             container: el,
-                            style: 'mapbox://styles/mapbox/satellite-streets-v12',
+                            style: 'mapbox://styles/mapbox/streets-v12',
                             center: [parseFloat(mapData.longitude), parseFloat(mapData.latitude)],
                             zoom: 10
                           })
                           
                           map.on('load', async () => {
-                            // Animated vehicle marker
+                            // Hide loading overlay once map starts loading routes
+                            const loadingEl = document.getElementById('map-loading')
+                            if (loadingEl) loadingEl.style.display = 'none'
+                            // Driver location marker
                             const vehicleEl = document.createElement('div')
+                            vehicleEl.innerHTML = '🚛'
                             vehicleEl.style.cssText = `
-                              width: 20px; height: 20px; background: #ef4444;
-                              border: 3px solid #fff; border-radius: 50%;
-                              box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3);
-                              animation: pulse 2s infinite;
+                              font-size: 20px; width: 30px; height: 30px;
+                              display: flex; align-items: center; justify-content: center;
+                              background: #3b82f6; border: 2px solid #fff;
+                              border-radius: 50%; animation: pulse 2s infinite;
                             `
                             
                             const style = document.createElement('style')
-                            style.textContent = `@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }`
+                            style.textContent = `@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }`
                             document.head.appendChild(style)
                             
                             // @ts-ignore
                             new window.mapboxgl.Marker(vehicleEl)
                               .setLngLat([parseFloat(mapData.longitude), parseFloat(mapData.latitude)])
-                              .setPopup(new window.mapboxgl.Popup().setHTML(`<div><strong>${mapData.driver_name}</strong><br/>${mapData.plate}<br/>${mapData.speed} km/h</div>`))
                               .addTo(map)
+                            
+                            // Single route: Driver location to destination
+                            if (mapData.trip?.destination) {
+                              const destRes = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(mapData.trip.destination)}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+                              const destData = await destRes.json()
+                              
+                              if (destData.features?.[0]) {
+                                const destination = destData.features[0].center
+                                const driverPos = [parseFloat(mapData.longitude), parseFloat(mapData.latitude)]
+                                
+                                // Try truck routing first, fallback to regular routing
+                                let routeRes = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${driverPos[0]},${driverPos[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&exclude=ferry&weight=40000&height=4.2&width=2.5&length=18.75&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+                                let routeData = await routeRes.json()
+                                
+                                // Fallback to regular driving if truck routing fails
+                                if (!routeData.routes?.[0]) {
+                                  routeRes = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${driverPos[0]},${driverPos[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+                                  routeData = await routeRes.json()
+                                }
+                                
+                                if (routeData.routes?.[0]) {
+                                  // Remove any existing route layers first
+                                  if (map.getLayer('route-line')) map.removeLayer('route-line')
+                                  if (map.getLayer('route-shadow')) map.removeLayer('route-shadow')
+                                  if (map.getLayer('route-dash')) map.removeLayer('route-dash')
+                                  if (map.getSource('route')) map.removeSource('route')
+                                  
+                                  map.addSource('driver-route', {
+                                    type: 'geojson',
+                                    data: {
+                                      type: 'Feature',
+                                      properties: {},
+                                      geometry: routeData.routes[0].geometry
+                                    }
+                                  })
+                                  
+                                  map.addLayer({
+                                    id: 'driver-route-line',
+                                    type: 'line',
+                                    source: 'driver-route',
+                                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                    paint: { 'line-color': '#3b82f6', 'line-width': 8, 'line-opacity': 1.0 }
+                                  })
+                                  
+                                  // Add destination marker
+                                  const destEl = document.createElement('div')
+                                  destEl.innerHTML = '📍'
+                                  destEl.style.cssText = `
+                                    font-size: 16px; width: 24px; height: 24px;
+                                    display: flex; align-items: center; justify-content: center;
+                                    background: #ef4444; border: 2px solid #fff;
+                                    border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                  `
+                                  
+                                  new window.mapboxgl.Marker(destEl)
+                                    .setLngLat(destination)
+                                    .addTo(map)
+                                  
+                                  // ETA display
+                                  const etaBox = document.createElement('div')
+                                  etaBox.style.cssText = `
+                                    position: absolute; top: 10px; right: 10px; z-index: 1000;
+                                    background: rgba(0,0,0,0.85); color: white; padding: 12px;
+                                    border-radius: 8px; font-size: 14px; font-weight: 500;
+                                    box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-width: 200px;
+                                  `
+                                  const duration = routeData.routes[0].duration
+                                  const distance = routeData.routes[0].distance
+                                  const eta = new Date(Date.now() + duration * 1000).toLocaleTimeString()
+                                  
+                                  etaBox.innerHTML = `
+                                    <div style="margin-bottom: 4px; font-weight: bold; color: #3b82f6;">🕒 ETA: ${eta}</div>
+                                    <div style="margin-bottom: 4px;">📍 ${(distance/1000).toFixed(1)} km</div>
+                                    <div>⏱️ ${Math.round(duration/60)} min</div>
+                                  `
+                                  el.appendChild(etaBox)
+                                }
+                              }
+                            }
+                            
+                            // Hide loading overlay after all routes are processed
+                            const loadingOverlay = document.getElementById('map-loading')
+                            if (loadingOverlay) loadingOverlay.style.display = 'none'
+                            
+                            // Display stored route if available
+                            const routeData = mapData.trip?.routeData?.route_data
+                            if (routeData?.geometry?.coordinates) {
+                              map.addSource('stored-route', {
+                                type: 'geojson',
+                                data: {
+                                  type: 'Feature',
+                                  properties: {},
+                                  geometry: routeData.geometry
+                                }
+                              })
+                              
+                              map.addLayer({
+                                id: 'stored-route-line',
+                                type: 'line',
+                                source: 'stored-route',
+                                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                paint: { 'line-color': '#ef4444', 'line-width': 6, 'line-opacity': 0.8 }
+                              })
+                              
+
+                            }
                             
                             if (mapData.trip?.origin && mapData.trip?.destination) {
                               try {
@@ -1309,40 +1582,71 @@ export default function Dashboard() {
                                 if (originData.features?.[0] && destData.features?.[0]) {
                                   const origin = originData.features[0].center
                                   const destination = destData.features[0].center
+                                  const vehiclePos = [parseFloat(mapData.longitude), parseFloat(mapData.latitude)]
                                   
                                   const originEl = document.createElement('div')
-                                  originEl.style.cssText = `width: 16px; height: 16px; background: #22c55e; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);`
+                                  originEl.innerHTML = '🏁'
+                                  originEl.style.cssText = `
+                                    font-size: 16px; width: 24px; height: 24px;
+                                    display: flex; align-items: center; justify-content: center;
+                                    background: #22c55e; border: 2px solid #fff;
+                                    border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                  `
                                   
                                   // @ts-ignore
                                   new window.mapboxgl.Marker(originEl)
                                     .setLngLat(origin)
-                                    .setPopup(new window.mapboxgl.Popup().setHTML(`<div><strong>Origin</strong><br/>${mapData.trip.origin}</div>`))
                                     .addTo(map)
                                   
                                   const destEl = document.createElement('div')
-                                  destEl.style.cssText = `width: 16px; height: 16px; background: #3b82f6; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);`
+                                  destEl.innerHTML = '📍'
+                                  destEl.style.cssText = `
+                                    font-size: 16px; width: 24px; height: 24px;
+                                    display: flex; align-items: center; justify-content: center;
+                                    background: #ef4444; border: 2px solid #fff;
+                                    border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                  `
                                   
                                   // @ts-ignore
                                   new window.mapboxgl.Marker(destEl)
                                     .setLngLat(destination)
-                                    .setPopup(new window.mapboxgl.Popup().setHTML(`<div><strong>Destination</strong><br/>${mapData.trip.destination}</div>`))
                                     .addTo(map)
                                   
-                                  const [routeRes, vehicleRouteRes] = await Promise.all([
-                                    fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`),
-                                    fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${parseFloat(mapData.longitude)},${parseFloat(mapData.latitude)};${destination[0]},${destination[1]}?geometries=geojson&steps=true&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+                                  // Try truck routing first, fallback to regular routing
+                                  let [routeRes, vehicleToStartRes, vehicleToDestRes, truckRouteRes] = await Promise.all([
+                                    fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&exclude=ferry&weight=40000&height=4.2&width=2.5&length=18.75&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`),
+                                    fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${vehiclePos[0]},${vehiclePos[1]};${origin[0]},${origin[1]}?geometries=geojson&steps=true&exclude=ferry&weight=40000&height=4.2&width=2.5&length=18.75&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`),
+                                    fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${vehiclePos[0]},${vehiclePos[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&exclude=ferry&weight=40000&height=4.2&width=2.5&length=18.75&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`),
+                                    fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&exclude=ferry&weight=40000&height=4.2&width=2.5&length=18.75&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
                                   ])
                                   
-                                  const [routeData, vehicleRouteData] = await Promise.all([routeRes.json(), vehicleRouteRes.json()])
+                                  let [routeData, vehicleToStartData, vehicleToDestData, truckRouteData] = await Promise.all([routeRes.json(), vehicleToStartRes.json(), vehicleToDestRes.json(), truckRouteRes.json()])
+                                  
+                                  // Fallback to regular driving if any truck routing fails
+                                  if (!routeData.routes?.[0] || !vehicleToStartData.routes?.[0] || !vehicleToDestData.routes?.[0] || !truckRouteData.routes?.[0]) {
+                                    [routeRes, vehicleToStartRes, vehicleToDestRes, truckRouteRes] = await Promise.all([
+                                      fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`),
+                                      fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${vehiclePos[0]},${vehiclePos[1]};${origin[0]},${origin[1]}?geometries=geojson&steps=true&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`),
+                                      fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${vehiclePos[0]},${vehiclePos[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`),
+                                      fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+                                    ])
+                                    ;[routeData, vehicleToStartData, vehicleToDestData, truckRouteData] = await Promise.all([routeRes.json(), vehicleToStartRes.json(), vehicleToDestRes.json(), truckRouteRes.json()])
+                                  }
+                                  
+
                                   
                                   if (routeData.routes?.[0]) {
-                                    const duration = routeData.routes[0].duration
-                                    const distance = routeData.routes[0].distance
-                                    const eta = new Date(Date.now() + duration * 1000).toLocaleTimeString()
+                                    const toStartDuration = vehicleToStartData.routes?.[0]?.duration || 0
+                                    const toStartDistance = vehicleToStartData.routes?.[0]?.distance || 0
+                                    const toStartEta = new Date(Date.now() + toStartDuration * 1000).toLocaleTimeString()
                                     
-                                    const vehicleDuration = vehicleRouteData.routes?.[0]?.duration || 0
-                                    const vehicleDistance = vehicleRouteData.routes?.[0]?.distance || 0
-                                    const vehicleEta = new Date(Date.now() + vehicleDuration * 1000).toLocaleTimeString()
+                                    const toDestDuration = vehicleToDestData.routes?.[0]?.duration || 0
+                                    const toDestDistance = vehicleToDestData.routes?.[0]?.distance || 0
+                                    const toDestEta = new Date(Date.now() + toDestDuration * 1000).toLocaleTimeString()
+                                    
+                                    const truckDuration = truckRouteData.routes?.[0]?.duration || 0
+                                    const truckDistance = truckRouteData.routes?.[0]?.distance || 0
+                                    const truckEta = new Date(Date.now() + toStartDuration + truckDuration * 1000).toLocaleTimeString()
                                     map.addSource('route', {
                                       type: 'geojson',
                                       data: {
@@ -1377,11 +1681,31 @@ export default function Dashboard() {
                                         'line-cap': 'round'
                                       },
                                       paint: {
-                                        'line-color': '#2563eb',
-                                        'line-width': 8,
-                                        'line-opacity': 0.9
+                                        'line-color': '#6b7280',
+                                        'line-width': 6,
+                                        'line-opacity': 0.6
                                       }
                                     })
+                                    
+                                    // Truck-optimized route
+                                    if (truckRouteData.routes?.[0]) {
+                                      map.addSource('truck-route', {
+                                        type: 'geojson',
+                                        data: {
+                                          type: 'Feature',
+                                          properties: {},
+                                          geometry: truckRouteData.routes[0].geometry
+                                        }
+                                      })
+                                      
+                                      map.addLayer({
+                                        id: 'truck-route-line',
+                                        type: 'line',
+                                        source: 'truck-route',
+                                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                        paint: { 'line-color': '#22c55e', 'line-width': 8, 'line-opacity': 0.9 }
+                                      })
+                                    }
                                     
                                     map.addLayer({
                                       id: 'route-dash',
@@ -1399,65 +1723,62 @@ export default function Dashboard() {
                                       }
                                     })
                                     
-                                    if (vehicleRouteData.routes?.[0]) {
-                                      map.addSource('vehicle-route', {
+                                    // Vehicle to start point route
+                                    if (vehicleToStartData.routes?.[0]) {
+                                      map.addSource('vehicle-to-start', {
                                         type: 'geojson',
                                         data: {
                                           type: 'Feature',
                                           properties: {},
-                                          geometry: vehicleRouteData.routes[0].geometry
+                                          geometry: vehicleToStartData.routes[0].geometry
                                         }
                                       })
                                       
                                       map.addLayer({
-                                        id: 'vehicle-route-line',
+                                        id: 'vehicle-to-start-line',
                                         type: 'line',
-                                        source: 'vehicle-route',
-                                        layout: {
-                                          'line-join': 'round',
-                                          'line-cap': 'round'
-                                        },
-                                        paint: {
-                                          'line-color': '#ef4444',
-                                          'line-width': 6,
-                                          'line-opacity': 0.8
-                                        }
-                                      })
-                                      
-                                      map.addLayer({
-                                        id: 'vehicle-route-dash',
-                                        type: 'line',
-                                        source: 'vehicle-route',
-                                        layout: {
-                                          'line-join': 'round',
-                                          'line-cap': 'round'
-                                        },
-                                        paint: {
-                                          'line-color': '#ffffff',
-                                          'line-width': 4,
-                                          'line-dasharray': [2, 2],
-                                          'line-opacity': 0.9
-                                        }
+                                        source: 'vehicle-to-start',
+                                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                        paint: { 'line-color': '#f59e0b', 'line-width': 5, 'line-opacity': 0.8 }
                                       })
                                     }
                                     
+                                    // Vehicle to destination route
+                                    if (vehicleToDestData.routes?.[0]) {
+                                      map.addSource('vehicle-to-dest', {
+                                        type: 'geojson',
+                                        data: {
+                                          type: 'Feature',
+                                          properties: {},
+                                          geometry: vehicleToDestData.routes[0].geometry
+                                        }
+                                      })
+                                      
+                                      map.addLayer({
+                                        id: 'vehicle-to-dest-line',
+                                        type: 'line',
+                                        source: 'vehicle-to-dest',
+                                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                        paint: { 'line-color': '#ef4444', 'line-width': 4, 'line-opacity': 0.7, 'line-dasharray': [3, 3] }
+                                      })
+                                    }
+                                    
+                                    // ETA display
                                     const etaBox = document.createElement('div')
                                     etaBox.style.cssText = `
                                       position: absolute; top: 10px; right: 10px; z-index: 1000;
-                                      background: rgba(0,0,0,0.8); color: white; padding: 12px;
-                                      border-radius: 8px; font-size: 14px; font-weight: 500;
-                                      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                                      background: rgba(0,0,0,0.85); color: white; padding: 12px;
+                                      border-radius: 8px; font-size: 13px; font-weight: 500;
+                                      box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-width: 200px;
                                     `
                                     etaBox.innerHTML = `
-                                      <div style="margin-bottom: 8px; font-weight: bold; color: #60a5fa;">Vehicle to Destination</div>
-                                      <div style="margin-bottom: 4px;">🕒 ETA: ${vehicleEta}</div>
-                                      <div style="margin-bottom: 4px;">📍 ${(vehicleDistance/1000).toFixed(1)} km</div>
-                                      <div style="margin-bottom: 8px;">⏱️ ${Math.round(vehicleDuration/60)} min</div>
-                                      <div style="margin-bottom: 4px; font-weight: bold; color: #22c55e;">Full Route</div>
-                                      <div style="margin-bottom: 4px;">📍 ${(distance/1000).toFixed(1)} km</div>
-                                      <div>⏱️ ${Math.round(duration/60)} min</div>
+                                      <div style="margin-bottom: 4px; font-weight: bold; color: #3b82f6;">🕒 ETA: ${toDestEta}</div>
+                                      <div style="margin-bottom: 4px;">📍 ${(toDestDistance/1000).toFixed(1)} km</div>
+                                      <div>⏱️ ${Math.round(toDestDuration/60)} min</div>
                                     `
                                     el.appendChild(etaBox)
+                                    
+
                                     
                                     let dashArraySequence = [[0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]]
                                     let step = 0
@@ -1473,10 +1794,20 @@ export default function Dashboard() {
                                     
                                     // @ts-ignore
                                     const bounds = new window.mapboxgl.LngLatBounds()
-                                    bounds.extend([parseFloat(mapData.longitude), parseFloat(mapData.latitude)])
-                                    bounds.extend(origin)
-                                    bounds.extend(destination)
-                                    map.fitBounds(bounds, { padding: 50 })
+                                    const vehicleLng = parseFloat(mapData.longitude)
+                                    const vehicleLat = parseFloat(mapData.latitude)
+                                    
+                                    if (!isNaN(vehicleLng) && !isNaN(vehicleLat)) {
+                                      bounds.extend([vehicleLng, vehicleLat])
+                                    }
+                                    if (origin && origin.length === 2) {
+                                      bounds.extend(origin)
+                                    }
+                                    if (destination && destination.length === 2) {
+                                      bounds.extend(destination)
+                                    }
+                                    
+
                                   }
                                 }
                               } catch (err) {
@@ -1484,8 +1815,13 @@ export default function Dashboard() {
                               }
                             }
                           })
+                          }
                         }
-                        document.head.appendChild(script)
+                        if (!document.querySelector('script[src*="mapbox-gl.js"]')) {
+                          document.head.appendChild(script)
+                        } else if (window.mapboxgl) {
+                          script.onload()
+                        }
                       }
                     }}
                   />
@@ -1612,6 +1948,48 @@ export default function Dashboard() {
           </Dialog.Portal>
         </Dialog.Root>
 
+        {/* Note Modal */}
+        <Dialog.Root open={noteOpen} onOpenChange={setNoteOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg z-50 p-6 w-96">
+              <Dialog.Title className="text-lg font-semibold mb-4 flex items-center justify-between">
+                Add Trip Note
+                <Dialog.Close asChild>
+                  <Button variant="ghost" size="sm">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </Dialog.Close>
+              </Dialog.Title>
+              <div className="space-y-4">
+                <textarea
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Enter note for this trip..."
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={4}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setNoteOpen(false)}>Cancel</Button>
+                  <Button onClick={async () => {
+                    if (!currentTripForNote) return
+                    try {
+                      const supabase = createClient()
+                      const { error } = await supabase.from('trips').update({ status_notes: noteText }).eq('id', currentTripForNote.id)
+                      if (error) throw error
+                      setNoteOpen(false)
+                      setNoteText('')
+                    } catch (err) {
+                      console.error('Failed to save note:', err)
+                      alert('Failed to save note')
+                    }
+                  }}>Save Note</Button>
+                </div>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+
         {/* DateTime Picker Modal */}
         <Dialog.Root open={dateTimeOpen} onOpenChange={setDateTimeOpen}>
           <Dialog.Portal>
@@ -1632,6 +2010,233 @@ export default function Dashboard() {
                   <Button onClick={handleDateTimeSubmit} disabled={!selectedDateTime}>Submit</Button>
                 </div>
               </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+
+        {/* Route View Modal */}
+        <Dialog.Root open={routeViewOpen} onOpenChange={setRouteViewOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg z-50 p-6 w-[95vw] max-w-7xl h-[90vh] overflow-y-auto">
+              <Dialog.Title className="text-lg font-semibold mb-4 flex items-center justify-between">
+                Route View - {selectedRouteTrip?.client}
+                <Dialog.Close asChild>
+                  <Button variant="ghost" size="sm">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </Dialog.Close>
+              </Dialog.Title>
+              {selectedRouteTrip && (
+                <div className="h-full relative">
+                  <div id="route-map-loading" className="absolute inset-0 bg-white/90 z-50 flex items-center justify-center rounded-lg">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600 font-medium">Loading route map...</p>
+                    </div>
+                  </div>
+                  <div 
+                    id="route-map" 
+                    className="w-full h-[500px] rounded border"
+                    ref={(el) => {
+                      if (el && selectedRouteTrip) {
+                        el.innerHTML = ''
+                        
+                        const script = document.createElement('script')
+                        script.src = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'
+                        script.onload = async () => {
+                          const link = document.createElement('link')
+                          link.href = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css'
+                          link.rel = 'stylesheet'
+                          document.head.appendChild(link)
+                          
+                          // @ts-ignore
+                          if (window.mapboxgl) {
+                            window.mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+                            
+                            try {
+                              const [originRes, destRes] = await Promise.all([
+                                fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(selectedRouteTrip.pickup)}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`),
+                                fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(selectedRouteTrip.dropOff)}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+                              ])
+                              
+                              const [originData, destData] = await Promise.all([originRes.json(), destRes.json()])
+                              
+                              if (originData.features?.[0] && destData.features?.[0]) {
+                                const origin = originData.features[0].center
+                                const destination = destData.features[0].center
+                                
+                                // @ts-ignore
+                                const map = new window.mapboxgl.Map({
+                                  container: el,
+                                  style: 'mapbox://styles/mapbox/streets-v12',
+                                  center: [(origin[0] + destination[0]) / 2, (origin[1] + destination[1]) / 2],
+                                  zoom: 8
+                                })
+                                
+                                map.on('load', async () => {
+                                  // Single fetch - no re-rendering
+                                  try {
+                                    // Try truck-optimized route first
+                                    let routeRes = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&exclude=ferry&weight=40000&height=4.2&width=2.5&length=18.75&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+                                    let routeData = await routeRes.json()
+                                    
+                                    // Fallback to regular driving if truck routing fails
+                                    if (!routeData.routes?.[0]) {
+                                      routeRes = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?geometries=geojson&steps=true&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+                                      routeData = await routeRes.json()
+                                    }
+                                    
+                                    // Hide loading overlay
+                                    const loadingEl = document.getElementById('route-map-loading')
+                                    if (loadingEl) loadingEl.style.display = 'none'
+                                    
+                                    if (routeData.routes?.[0]) {
+                                      // Add route line first
+                                      map.addSource('route', {
+                                        type: 'geojson',
+                                        data: {
+                                          type: 'Feature',
+                                          properties: {},
+                                          geometry: routeData.routes[0].geometry
+                                        }
+                                      })
+                                      
+                                      // Route shadow for depth
+                                      map.addLayer({
+                                        id: 'route-shadow',
+                                        type: 'line',
+                                        source: 'route',
+                                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                        paint: { 'line-color': '#000000', 'line-width': 8, 'line-opacity': 0.2, 'line-blur': 2 }
+                                      })
+                                      
+                                      // Main route line
+                                      map.addLayer({
+                                        id: 'route-line',
+                                        type: 'line',
+                                        source: 'route',
+                                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                        paint: { 'line-color': '#3b82f6', 'line-width': 6, 'line-opacity': 0.9 }
+                                      })
+                                      
+                                      // Fit map to route bounds
+                                      // @ts-ignore
+                                      const bounds = new window.mapboxgl.LngLatBounds()
+                                      routeData.routes[0].geometry.coordinates.forEach((coord: number[]) => {
+                                        bounds.extend(coord)
+                                      })
+                                      map.fitBounds(bounds, { padding: 50 })
+                                    } else {
+                                      // If no route found, still fit bounds to markers
+                                      // @ts-ignore
+                                      const bounds = new window.mapboxgl.LngLatBounds()
+                                      bounds.extend(origin)
+                                      bounds.extend(destination)
+                                      map.fitBounds(bounds, { padding: 100 })
+                                    }
+                                    
+                                    // Add origin marker
+                                    const originEl = document.createElement('div')
+                                    originEl.innerHTML = '🏁'
+                                    originEl.style.cssText = `
+                                      font-size: 20px; width: 30px; height: 30px;
+                                      display: flex; align-items: center; justify-content: center;
+                                      background: #22c55e; border: 2px solid #fff;
+                                      border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                    `
+                                    
+                                    // @ts-ignore
+                                    new window.mapboxgl.Marker(originEl)
+                                      .setLngLat(origin)
+                                      .addTo(map)
+                                    
+                                    // Add destination marker
+                                    const destEl = document.createElement('div')
+                                    destEl.innerHTML = '📍'
+                                    destEl.style.cssText = `
+                                      font-size: 20px; width: 30px; height: 30px;
+                                      display: flex; align-items: center; justify-content: center;
+                                      background: #ef4444; border: 2px solid #fff;
+                                      border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                    `
+                                    
+                                    // @ts-ignore
+                                    new window.mapboxgl.Marker(destEl)
+                                      .setLngLat(destination)
+                                      .addTo(map)
+                                    
+                                    // Route info overlay - single fetch data
+                                    if (routeData.routes?.[0]) {
+                                      const duration = routeData.routes[0].duration
+                                      const distance = routeData.routes[0].distance
+                                      
+                                      const infoBox = document.createElement('div')
+                                      infoBox.style.cssText = `
+                                        position: absolute; top: 10px; right: 10px; z-index: 1000;
+                                        background: rgba(0,0,0,0.85); color: white; padding: 12px;
+                                        border-radius: 8px; font-size: 14px; font-weight: 500;
+                                        box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-width: 200px;
+                                      `
+                                      infoBox.innerHTML = `
+                                        <div style="margin-bottom: 6px; font-weight: bold; color: #3b82f6;">🚛 Route Path</div>
+                                        <div style="margin-bottom: 4px;">📍 Distance: ${(distance/1000).toFixed(1)} km</div>
+                                        <div style="margin-bottom: 4px;">⏱️ Duration: ${Math.round(duration/60)} min</div>
+                                        <div style="font-size: 12px; color: #94a3b8;">Pickup to dropoff route</div>
+                                      `
+                                      el.appendChild(infoBox)
+                                    } else {
+                                      // Show message if no route could be calculated
+                                      const infoBox = document.createElement('div')
+                                      infoBox.style.cssText = `
+                                        position: absolute; top: 10px; right: 10px; z-index: 1000;
+                                        background: rgba(239, 68, 68, 0.9); color: white; padding: 12px;
+                                        border-radius: 8px; font-size: 14px; font-weight: 500;
+                                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                                      `
+                                      infoBox.innerHTML = `
+                                        <div style="margin-bottom: 4px; font-weight: bold;">⚠️ Route Unavailable</div>
+                                        <div style="font-size: 12px;">Could not calculate route path</div>
+                                      `
+                                      el.appendChild(infoBox)
+                                    }
+                                    
+                                  } catch (err) {
+                                    console.error('Error loading route:', err)
+                                    const loadingEl = document.getElementById('route-map-loading')
+                                    if (loadingEl) {
+                                      loadingEl.innerHTML = '<div class="text-red-600 text-center"><div class="text-lg mb-2">⚠️</div><div>Error loading route</div></div>'
+                                    }
+                                    
+                                    // Still show markers even if route fails
+                                    // @ts-ignore
+                                    const bounds = new window.mapboxgl.LngLatBounds()
+                                    bounds.extend(origin)
+                                    bounds.extend(destination)
+                                    map.fitBounds(bounds, { padding: 100 })
+                                  }
+                                })
+                              }
+                            } catch (err) {
+                              console.error('Error loading route:', err)
+                              const loadingEl = document.getElementById('route-map-loading')
+                              if (loadingEl) {
+                                loadingEl.innerHTML = '<div class="text-red-600 text-center p-4"><div class="text-lg mb-2">⚠️</div><div>Unable to load map or geocode addresses</div></div>'
+                              }
+                            }
+                          }
+                        }
+                        
+                        if (!document.querySelector('script[src*="mapbox-gl.js"]')) {
+                          document.head.appendChild(script)
+                        } else if (window.mapboxgl) {
+                          script.onload()
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

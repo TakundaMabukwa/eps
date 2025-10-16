@@ -4,13 +4,13 @@ import { getFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
-  apiKey: "AIzaSyABsInQ1dLpNHhSbfujle09zAlIfmLU2oY",
-  authDomain: "eagleeye-e16e7.firebaseapp.com",
-  projectId: "eagleeye-e16e7",
-  storageBucket: "eagleeye-e16e7.firebasestorage.app",
-  messagingSenderId: "374602045793",
-  appId: "1:374602045793:web:bd7981807e56b8ab24cd20",
-  measurementId: "G-4TCRKLSG7K"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig)

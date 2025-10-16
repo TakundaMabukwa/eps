@@ -342,13 +342,7 @@ export default function Drivers() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Drivers</h1>
-                    <p className="text-gray-600 mt-1">Manage your driver database and performance</p>
-                </div>
-            </div>
+
 
             {/* Tab Navigation - full width container */}
             <div className="w-full bg-white">
@@ -365,17 +359,7 @@ export default function Drivers() {
                             <Users className="w-4 h-4" />
                             <span>Driver Management</span>
                         </button>
-                        <button
-                            onClick={() => setActiveTab('equipment')}
-                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                activeTab === 'equipment'
-                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                    : "text-gray-600 hover:text-blue-700 hover:bg-blue-50"
-                            }`}
-                        >
-                            <Star className="w-4 h-4" />
-                            <span>Equipment</span>
-                        </button>
+
                         <button
                             onClick={() => setActiveTab('executive-dashboard')}
                             className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
@@ -636,54 +620,7 @@ export default function Drivers() {
                 </CardContent>
             </Card>
 
-                    {(activeTab as string) === 'equipment' && (
-                        <div className="space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Equipment</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-gray-50">
-                                                    <TableHead className="font-semibold">Plate</TableHead>
-                                                    <TableHead className="font-semibold">Unit Ip Address</TableHead>
-                                                    <TableHead className="font-semibold">Tank Size</TableHead>
-                                                    <TableHead className="font-semibold">Cost Centre</TableHead>
-                                                    <TableHead className="font-semibold">Actions</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {equipment.length === 0 ? (
-                                                    <TableRow>
-                                                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">No equipment found</TableCell>
-                                                    </TableRow>
-                                                ) : (
-                                                    equipment.map((eq) => (
-                                                        <TableRow key={eq.id} className="hover:bg-gray-50 transition-colors">
-                                                            <TableCell className="text-sm font-medium">{eq.plate}</TableCell>
-                                                            <TableCell className="text-sm">{eq.unitIpAddress}</TableCell>
-                                                            <TableCell className="text-sm">{eq.tankSize}</TableCell>
-                                                            <TableCell className="text-sm">{eq.costCentre}</TableCell>
-                                                            <TableCell>
-                                                                <div className="flex gap-2 items-center">
-                                                                    <Button size="sm" variant="outline" onClick={() => alert('Edit equipment not implemented yet')}>Edit</Button>
-                                                                    <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white" onClick={() => handleDeleteEquipment(eq.id)}>
-                                                                        <Trash className="w-4 h-4" />
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
+
 
             {/* Drivers Table */}
             <Card>

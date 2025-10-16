@@ -40,8 +40,6 @@ export default function FuelCanBusDisplay() {
 
   useEffect(() => {
     fetchVehicles()
-    const interval = setInterval(fetchVehicles, 5000) // Update every 5 seconds
-    return () => clearInterval(interval)
   }, [])
 
   // Convert EPS vehicle data to fuel gauge format

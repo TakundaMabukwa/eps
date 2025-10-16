@@ -131,75 +131,85 @@ export default function DriverPerformanceDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredDrivers.map((driver) => (
           <Card key={`${driver.driverName}-${driver.plate}`} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg truncate">{driver.driverName}</CardTitle>
-                <Badge className={getRewardLevelColor(driver.rewardLevel)}>
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-sm font-semibold leading-tight break-words">{driver.driverName}</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">{driver.plate}</p>
+                </div>
+                <Badge className={`${getRewardLevelColor(driver.rewardLevel)} text-xs px-2 py-1 shrink-0`}>
                   {driver.rewardLevel}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{driver.plate}</p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-yellow-500" />
-                  <span className="text-sm">Points</span>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="bg-yellow-50 rounded-lg p-2">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <Trophy className="h-3 w-3 text-yellow-600" />
+                    <span className="text-xs font-medium">Points</span>
+                  </div>
+                  <span className="font-bold text-lg text-yellow-700">{driver.totalPoints}</span>
                 </div>
-                <span className="font-bold text-lg">{driver.totalPoints}</span>
+                <div className="bg-blue-50 rounded-lg p-2">
+                  <div className="text-xs font-medium mb-1 text-blue-700">Overall</div>
+                  <span className="font-bold text-lg text-blue-700">
+                    {Math.round((driver.speedCompliance + driver.routeCompliance + driver.safetyScore + driver.efficiency) / 4)}%
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Speed Compliance</span>
+                <div className="flex justify-between text-xs">
+                  <span>Speed</span>
                   <span className={getPerformanceColor(driver.speedCompliance)}>{driver.speedCompliance}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
                   <div 
-                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
                     style={{ width: `${driver.speedCompliance}%` }}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Route Compliance</span>
+                <div className="flex justify-between text-xs">
+                  <span>Route</span>
                   <span className={getPerformanceColor(driver.routeCompliance)}>{driver.routeCompliance}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
                   <div 
-                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                    className="bg-green-500 h-1.5 rounded-full transition-all duration-300"
                     style={{ width: `${driver.routeCompliance}%` }}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Safety Score</span>
+                <div className="flex justify-between text-xs">
+                  <span>Safety</span>
                   <span className={getPerformanceColor(driver.safetyScore)}>{driver.safetyScore}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
                   <div 
-                    className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                    className="bg-purple-500 h-1.5 rounded-full transition-all duration-300"
                     style={{ width: `${driver.safetyScore}%` }}
                   />
                 </div>
               </div>
 
               {driver.violations > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <div className="flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3 text-red-500" />
                     <span>Violations</span>
                   </div>
-                  <Badge variant="destructive">{driver.violations}</Badge>
+                  <Badge variant="destructive" className="text-xs px-1.5 py-0.5">{driver.violations}</Badge>
                 </div>
               )}
 
-              <div className="text-xs text-muted-foreground pt-2 border-t">
-                Last update: {new Date(driver.lastUpdate).toLocaleString()}
+              <div className="text-xs text-muted-foreground pt-1 border-t">
+                Updated: {new Date(driver.lastUpdate).toLocaleDateString()}
               </div>
             </CardContent>
           </Card>

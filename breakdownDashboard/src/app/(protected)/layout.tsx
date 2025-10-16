@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,9 @@ const roleNavigation = {
     // { name: "Fleet Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
     // { name: "Call Center", href: "/callcenter", Icon: <Phone /> },
     { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
+    { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
     { name: "Equipment", href: "/equipment", Icon: <Settings /> },
-    { name: "Fleet Manager", href: "/fleetManager", Icon: <Truck /> },
+    // { name: "Fleet Manager", href: "/fleetManager", Icon: <Truck /> },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
     // { name: "Customers", href: "/customer", Icon: <Building2 /> },
@@ -63,6 +64,7 @@ const roleNavigation = {
     },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
     { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
+    { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
     {
       name: "Cost Centres",
@@ -226,13 +228,11 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`
-                    flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
-                    ${isActive
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    isActive
                       ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                    }
-                  `}
+                  }`}
                   onClick={() => setSidebarOpen(false)}
                 >
                   <span className="mr-3">{item.Icon}</span>

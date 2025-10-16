@@ -76,12 +76,22 @@ export function LocationAutocomplete({
   }
 
   const handleInputChange = (e) => {
-    onChange(e.target.value)
+    const newValue = e.target.value
+    onChange(newValue)
+    if (newValue.length >= 2) {
+      setShowSuggestions(true)
+    }
   }
 
   const handleInputBlur = () => {
     // Delay hiding to allow click on suggestions
-    setTimeout(() => setShowSuggestions(false), 150)
+    setTimeout(() => setShowSuggestions(false), 200)
+  }
+
+  const handleInputFocus = () => {
+    if (value.length >= 2 && suggestions.length > 0) {
+      setShowSuggestions(true)
+    }
   }
 
   return (
@@ -92,10 +102,11 @@ export function LocationAutocomplete({
           ref={inputRef}
           value={value}
           onChange={handleInputChange}
-          onFocus={() => value.length >= 2 && setShowSuggestions(true)}
+          onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           placeholder={placeholder}
           className="pr-8"
+          autoComplete="off"
         />
         <MapPin className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
       </div>
@@ -111,7 +122,8 @@ export function LocationAutocomplete({
           {suggestions.map((suggestion) => (
             <div
               key={suggestion.id}
-              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+              className="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSuggestionClick(suggestion)}
             >
               <div className="flex items-start gap-2">

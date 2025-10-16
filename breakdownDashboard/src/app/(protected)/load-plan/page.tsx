@@ -14,6 +14,11 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { LocationAutocomplete } from '@/components/ui/location-autocomplete'
 import { ProgressWithWaypoints } from '@/components/ui/progress-with-waypoints'
+import { RouteOptimizer } from '@/components/ui/route-optimizer'
+import { RouteTracker } from '@/components/ui/route-tracker'
+import { RoutePreviewMap } from '@/components/ui/route-preview-map'
+import { RouteConfirmationModal } from '@/components/ui/route-confirmation-modal'
+import { DateTimePicker } from '@/components/ui/datetime-picker'
 
 export default function LoadPlanPage() {
   console.log('LoadPlanPage component rendering')
@@ -51,12 +56,12 @@ export default function LoadPlanPage() {
   const [dropOffPoint, setDropOffPoint] = useState('')
   const [showSecondSection, setShowSecondSection] = useState(false)
   const secondRef = useRef<HTMLDivElement | null>(null)
+  const [optimizedRoute, setOptimizedRoute] = useState<any>(null)
+  const [showRouteModal, setShowRouteModal] = useState(false)
+  const [isOptimizing, setIsOptimizing] = useState(false)
 
-  // Vehicle assignments state
-  const [vehicleAssignments, setVehicleAssignments] = useState([{
-    vehicle: { id: '', name: '' },
-    drivers: [{ id: '', name: '' }]
-  }])
+  // Driver assignments state
+  const [driverAssignments, setDriverAssignments] = useState([{ id: '', name: '' }])
 
   // Fetch loads and reference data
   const fetchData = async () => {
@@ -225,6 +230,40 @@ export default function LoadPlanPage() {
 
 
 
+  // Auto-optimize route when locations change
+  useEffect(() => {
+    const optimizeRoute = async () => {
+      if (!loadingLocation || !dropOffPoint) {
+        setOptimizedRoute(null)
+        return
+      }
+      
+      setIsOptimizing(true)
+      try {
+        const response = await fetch('/api/routes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            origin: loadingLocation,
+            destination: dropOffPoint,
+            orderId: orderNumber,
+            pickupTime: etaPickup
+          })
+        })
+        
+        if (response.ok) {
+          const routeData = await response.json()
+          setOptimizedRoute(routeData)
+        }
+      } catch (error) {
+        console.error('Route optimization failed:', error)
+      }
+      setIsOptimizing(false)
+    }
+    
+    optimizeRoute()
+  }, [loadingLocation, dropOffPoint, orderNumber, etaPickup])
+
   // Update sorted drivers when pickup location changes
   useEffect(() => {
     if (loadingLocation) {
@@ -235,63 +274,26 @@ export default function LoadPlanPage() {
   }, [loadingLocation, getSortedDriversByDistance, drivers])
 
   // Optimized handlers with useCallback
-  const handleVehicleChange = useCallback((vehicleIndex, vehicleId) => {
-    const selectedVehicle = vehicles.find(v => v.id === vehicleId)
-    setVehicleAssignments(prev => {
-      const updated = [...prev]
-      updated[vehicleIndex] = {
-        ...updated[vehicleIndex],
-        vehicle: { 
-          id: vehicleId, 
-          name: selectedVehicle?.registration_number || '',
-          registration_number: selectedVehicle?.registration_number || '',
-          make: selectedVehicle?.make || '',
-          model: selectedVehicle?.model || ''
-        }
-      }
-      return updated
-    })
-  }, [vehicles])
-
-  const handleDriverChange = useCallback((vehicleIndex, driverIndex, driverId) => {
+  const handleDriverChange = useCallback((driverIndex, driverId) => {
     const selectedDriver = drivers.find(d => d.id === driverId)
-    setVehicleAssignments(prev => {
+    setDriverAssignments(prev => {
       const updated = [...prev]
-      const updatedDrivers = [...updated[vehicleIndex].drivers]
-      updatedDrivers[driverIndex] = { 
+      updated[driverIndex] = { 
         id: driverId, 
-        name: selectedDriver?.surname || '',
+        name: `${driverId} - ${selectedDriver?.surname || ''}`,
         first_name: selectedDriver?.first_name || '',
         surname: selectedDriver?.surname || ''
-      }
-      updated[vehicleIndex] = {
-        ...updated[vehicleIndex],
-        drivers: updatedDrivers
       }
       return updated
     })
   }, [drivers])
 
-  const addVehicle = useCallback(() => {
-    setVehicleAssignments(prev => [
-      ...prev,
-      { vehicle: { id: '', name: '' }, drivers: [{ id: '', name: '' }] }
-    ])
-  }, [])
-
-  const addDriver = useCallback((vehicleIndex) => {
-    setVehicleAssignments(prev => {
-      const updated = [...prev]
-      updated[vehicleIndex] = {
-        ...updated[vehicleIndex],
-        drivers: [...updated[vehicleIndex].drivers, { id: '', name: '' }]
-      }
-      return updated
-    })
+  const addDriver = useCallback(() => {
+    setDriverAssignments(prev => [...prev, { id: '', name: '' }])
   }, [])
 
   // Auto-select closest driver when dropdown is opened
-  const handleDriverDropdownOpen = useCallback(async (vehicleIndex, driverIndex) => {
+  const handleDriverDropdownOpen = useCallback(async (driverIndex) => {
     if (!loadingLocation) return
     
     setIsCalculatingDistance(true)
@@ -302,7 +304,7 @@ export default function LoadPlanPage() {
       // Auto-select closest driver if available
       const closestDriver = sorted.find(d => d.distance !== null)
       if (closestDriver) {
-        handleDriverChange(vehicleIndex, driverIndex, closestDriver.id)
+        handleDriverChange(driverIndex, closestDriver.id)
       }
     } catch (error) {
       console.error('Error calculating driver distances:', error)
@@ -343,9 +345,12 @@ export default function LoadPlanPage() {
     { id: 'b', title: 'TRADELANDER 5 CC', addr: 'Randfontein, South Africa' }
   ])
 
-  const handleCreate = async (e?: React.FormEvent) => {
-    e?.preventDefault()
-    
+  const handleCreateClick = (e: React.FormEvent) => {
+    e.preventDefault()
+    handleCreate()
+  }
+
+  const handleCreate = async () => {
     try {
       const tripData = {
         trip_id: `LOAD-${Date.now()}`,
@@ -358,6 +363,7 @@ export default function LoadPlanPage() {
         status: 'pending',
         startdate: etaPickup ? etaPickup.split('T')[0] : null,
         enddate: etaDropoff ? etaDropoff.split('T')[0] : null,
+
         clientdetails: {
           name: client,
           email: '',
@@ -375,15 +381,18 @@ export default function LoadPlanPage() {
           address: dropOffPoint || '',
           scheduled_time: etaDropoff || ''
         }],
-        vehicleassignments: vehicleAssignments
+        vehicleassignments: [{
+          drivers: driverAssignments,
+          vehicle: { id: '', name: '' }
+        }]
       }
       
       const { error } = await supabase.from('trips').insert([tripData])
       if (error) throw error
       
       // Mark assigned drivers as unavailable
-      const assignedDriverIds = vehicleAssignments
-        .flatMap(assignment => assignment.drivers.map(d => d.id))
+      const assignedDriverIds = driverAssignments
+        .map(d => d.id)
         .filter(id => id)
       
       if (assignedDriverIds.length > 0) {
@@ -400,7 +409,7 @@ export default function LoadPlanPage() {
       // Reset form
       setClient(''); setCommodity(''); setRate(''); setOrderNumber(''); setComment('')
       setEtaPickup(''); setLoadingLocation(''); setEtaDropoff(''); setDropOffPoint('')
-      setVehicleAssignments([{ vehicle: { id: '', name: '' }, drivers: [{ id: '', name: '' }] }])
+      setDriverAssignments([{ id: '', name: '' }])
       setShowSecondSection(false)
       
       // Refresh data
@@ -572,7 +581,11 @@ export default function LoadPlanPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="etaPickup">ETA Pick Up</Label>
-                    <Input type="datetime-local" value={etaPickup} onChange={(e) => setEtaPickup(e.target.value)} />
+                    <DateTimePicker
+                      value={etaPickup}
+                      onChange={setEtaPickup}
+                      placeholder="Select pickup date and time"
+                    />
                   </div>
                   <div>
                     <LocationAutocomplete
@@ -594,7 +607,11 @@ export default function LoadPlanPage() {
                   </div>
                   <div>
                     <Label htmlFor="etaDropoff">ETA Drop Off</Label>
-                    <Input type="datetime-local" value={etaDropoff} onChange={(e) => setEtaDropoff(e.target.value)} />
+                    <DateTimePicker
+                      value={etaDropoff}
+                      onChange={setEtaDropoff}
+                      placeholder="Select drop-off date and time"
+                    />
                   </div>
                   <div>
                     <LocationAutocomplete
@@ -616,111 +633,99 @@ export default function LoadPlanPage() {
                   </div>
                 </div>
 
-                {/* Vehicle Assignments */}
+                {/* Route Preview */}
+                {loadingLocation && dropOffPoint && (
+                  <div className="col-span-full">
+                    <div className="space-y-4">
+                      {isOptimizing && (
+                        <div className="flex items-center gap-2 text-sm text-blue-600">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          Optimizing route...
+                        </div>
+                      )}
+                      <RoutePreviewMap
+                        origin={loadingLocation}
+                        destination={dropOffPoint}
+                        routeData={optimizedRoute}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Driver Assignments */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <Label className="text-lg font-medium">Vehicle Assignments</Label>
-                    <Button type="button" onClick={addVehicle} size="sm">
-                      <Plus className="h-4 w-4 mr-1" /> Add Vehicle
+                    <Label className="text-lg font-medium">Driver Assignments</Label>
+                    <Button type="button" onClick={addDriver} size="sm">
+                      <Plus className="h-4 w-4 mr-1" /> Add Driver
                     </Button>
                   </div>
                   
-                  {vehicleAssignments.map((assignment, vehicleIndex) => (
-                    <Card key={vehicleIndex} className="p-4">
-                      <div className="space-y-4">
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <Label>Drivers</Label>
-                            <Button type="button" onClick={() => addDriver(vehicleIndex)} size="sm" variant="outline">
-                              <Plus className="h-4 w-4 mr-1" /> Add Driver
-                            </Button>
-                          </div>
-                          {assignment.drivers.map((driver, driverIndex) => (
-                            <div key={driverIndex} className="mb-2">
-                              <Select 
-                                value={driver.id} 
-                                onValueChange={(value) => handleDriverChange(vehicleIndex, driverIndex, value)}
-                                onOpenChange={(open) => {
-                                  if (open && loadingLocation && !driver.id) {
-                                    handleDriverDropdownOpen(vehicleIndex, driverIndex)
-                                  }
-                                }}
-                              >
-                                  <SelectTrigger className="w-full text-black">
-                                  <SelectValue className="text-black" placeholder={isCalculatingDistance ? "Finding closest driver..." : "Select driver"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sortedDrivers.filter(d => d.available === true).map((d, index) => (
-                                    <SelectItem key={d.id} value={d.id}>
-                                      <div className="flex items-center justify-between w-full">
-                                        <span>{d.first_name} {d.surname}</span>
-                                        {d.distance !== null && (
-                                          <span className={`text-xs ml-2 px-2 py-1 rounded ${
-                                            index === 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                                          }`}>
-                                            {d.distance}km
-                                          </span>
-                                        )}
-                                        {index === 0 && d.distance !== null && (
-                                          <span className="text-xs text-green-600 ml-1">Closest</span>
-                                        )}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                  {driverAssignments.map((driver, driverIndex) => (
+                    <div key={driverIndex} className="mb-2">
+                      <Select 
+                        value={driver.id} 
+                        onValueChange={(value) => handleDriverChange(driverIndex, value)}
+                        onOpenChange={(open) => {
+                          if (open && loadingLocation && !driver.id) {
+                            handleDriverDropdownOpen(driverIndex)
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full text-black">
+                          <SelectValue className="text-black" placeholder={isCalculatingDistance ? "Finding closest driver..." : "Select driver"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sortedDrivers.filter(d => d.available === true).map((d, index) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              <div className="flex items-center justify-between w-full">
+                                <span>{d.first_name} {d.surname}</span>
+                                {d.distance !== null && (
+                                  <span className={`text-xs ml-2 px-2 py-1 rounded ${
+                                    index === 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {d.distance}km
+                                  </span>
+                                )}
+                                {index === 0 && d.distance !== null && (
+                                  <span className="text-xs text-green-600 ml-1">Closest</span>
+                                )}
+                              </div>
+                            </SelectItem>
                           ))}
-                        </div>
-                        
-                        <div>
-                          <Label>Available Vehicles</Label>
-                          <Select value={assignment.vehicle.id} onValueChange={(value) => handleVehicleChange(vehicleIndex, value)}>
-                            <SelectTrigger className="w-full text-black">
-                              <SelectValue className="text-black" placeholder="Select vehicle" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(() => {
-                                const assignedDriverIds = assignment.drivers
-                                  .map(d => d.id)
-                                  .filter(id => id)
-                                const availableVehicles = assignedDriverIds.length > 0
-                                  ? vehicles.filter(v => assignedDriverIds.includes(v.driver_id))
-                                  : []
-                                return availableVehicles.map((vehicle) => (
-                                  <SelectItem key={vehicle.id} value={vehicle.id}>
-                                    {vehicle.registration_number}
-                                  </SelectItem>
-                                ))
-                              })()
-                              }
-                            </SelectContent>
-                          </Select>
-                          {assignment.drivers.some(d => d.id) && 
-                           !vehicles.some(v => assignment.drivers.map(d => d.id).includes(v.driver_id)) && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              No vehicles assigned to selected drivers
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   ))}
                 </div>
 
-                <Button type="submit" className="w-full">
+                <Button type="button" onClick={handleCreateClick} className="w-full">
                   Create Load
                 </Button>
               </form>
             </CardContent>
           </Card>
+
+
         </TabsContent>
 
         <TabsContent value="routing" className="space-y-6">
           <div className="space-y-6">
+            {/* Route Optimization for All Loads */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Route Optimization Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 mb-4">
+                  View and track optimized truck routes for all loads. Routes are automatically optimized considering truck restrictions, traffic conditions, and delivery schedules.
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Trip Routes Display */}
             <div className="grid grid-cols-1 gap-6">
-              {loads.map((trip) => {
+              {loads.filter(trip => trip.status?.toLowerCase() !== 'delivered').map((trip) => {
                 const assignments = parseJsonField(trip.vehicleassignments) || []
                 const pickupLocations = parseJsonField(trip.pickuplocations) || []
                 const dropoffLocations = parseJsonField(trip.dropofflocations) || []
@@ -809,6 +814,12 @@ export default function LoadPlanPage() {
                               </div>
                             ))}
                           </div>
+                        </div>
+
+                        {/* Route Tracking */}
+                        <div className="space-y-4">
+                          <h4 className="font-medium text-sm text-gray-700">Route Tracking</h4>
+                          <RouteTracker orderId={trip.ordernumber || trip.trip_id} />
                         </div>
 
                         {/* Vehicle Assignments */}
