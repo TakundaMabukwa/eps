@@ -35,37 +35,30 @@ export default function DriverPerformanceDashboard() {
     try {
       setLoading(true)
       
-      // Fetch from multiple EPS endpoints
-      const [riskResponse, performanceResponse, rewardsResponse] = await Promise.all([
-        fetch('http://64.227.138.235:3000/api/eps-rewards/driver-risk-assessment'),
-        fetch('http://64.227.138.235:3000/api/eps-rewards/performance'),
-        fetch('http://64.227.138.235:3000/api/eps-rewards/rewards')
-      ])
+      const response = await fetch('http://64.227.138.235:3000/api/eps-rewards/rewards')
+      const rewardsData = await response.json()
       
-      const [riskData, performanceData, rewardsData] = await Promise.all([
-        riskResponse.json(),
-        performanceResponse.json(), 
-        rewardsResponse.json()
-      ])
-      
-      // Transform the data combining all sources
-      const transformedData = riskData.drivers?.map((driver: any) => {
-        const performance = performanceData.find((p: any) => p.driver_name === driver.driver_name) || {}
-        const rewards = rewardsData.find((r: any) => r.driver_name === driver.driver_name) || {}
+      // Transform the rewards data
+      const transformedData = rewardsData.map((driver: any) => {
+        const currentPoints = driver.current_points || 0
+        const speedViolations = driver.speed_violations_count || 0
+        const routeViolations = driver.route_violations_count || 0
+        const braking = driver.harsh_braking_count || 0
+        const nightDriving = driver.night_driving_count || 0
         
         return {
           driverName: driver.driver_name,
           plate: driver.plate,
-          totalPoints: rewards.total_points || Math.floor(parseFloat(driver.total_risk_score) * 10) || 0,
-          rewardLevel: rewards.reward_level || driver.risk_tier || 'Bronze',
-          speedCompliance: performance.speed_compliance || Math.max(60, 100 - (driver.violations_count * 5)),
-          routeCompliance: performance.route_compliance || Math.max(70, 95 - (driver.violations_count * 3)),
-          safetyScore: performance.safety_score || Math.max(50, 90 - (driver.violations_count * 4)),
-          efficiency: performance.efficiency || Math.max(60, 85 - (driver.violations_count * 2)),
+          totalPoints: currentPoints,
+          rewardLevel: driver.current_level || 'Bronze',
+          speedCompliance: currentPoints,
+          routeCompliance: Math.max(0, currentPoints - (routeViolations * 5)),
+          safetyScore: Math.max(0, currentPoints - (braking * 3)),
+          efficiency: Math.max(0, currentPoints - (nightDriving * 2)),
           violations: driver.violations_count || 0,
           lastUpdate: driver.last_updated || new Date().toISOString()
         }
-      }) || []
+      })
       
       setDrivers(transformedData)
     } catch (error) {
@@ -149,7 +142,7 @@ export default function DriverPerformanceDashboard() {
                     <Trophy className="h-3 w-3 text-yellow-600" />
                     <span className="text-xs font-medium">Points</span>
                   </div>
-                  <span className="font-bold text-lg text-yellow-700">{driver.totalPoints}</span>
+                  <span className="font-bold text-lg text-yellow-700">{driver.totalPoints}%</span>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-2">
                   <div className="text-xs font-medium mb-1 text-blue-700">Overall</div>

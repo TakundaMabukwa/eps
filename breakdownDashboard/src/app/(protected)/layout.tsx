@@ -55,7 +55,7 @@ const roleNavigation = {
 
   ],
   "fleet manager": [
-    { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
+    { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> }, // Read-only access
     { name: "Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
     {
       name: "Inspections",
@@ -118,11 +118,12 @@ const roleNavigation = {
   ],
   customer: [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
+    { name: "Drivers", href: "/drivers", Icon: <Users /> },
+    { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
+    { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
     { name: "Technicians Assignment", href: "/extechnicians", Icon: <Users /> },
     { name: "Workshop Vehicles", href: "/exvehicles", Icon: <Car /> },
     { name: "Qoute Management", href: "/workshopQoute", Icon: <Building2 /> },
-    // { name: 'User Management', href: '/userManagement', Icon: <PlusSquare /> },
-    // { name: 'Profile', href: '/profile', Icon: <Settings2Icon /> },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
   "cost centre": [

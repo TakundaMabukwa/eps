@@ -7,15 +7,18 @@ import { RefreshCw, Fuel } from 'lucide-react'
 import { formatForDisplay } from '@/lib/utils/date-formatter'
 
 interface FuelData {
+  id: number
   plate: string
-  driver_name: string
-  fuel_level: number | null
-  fuel_volume: number | null
-  fuel_temperature: number | null
-  fuel_percentage: number | null
-  name_event: string
-  speed: number
-  last_activity_time: string | null
+  driver_name: string | null
+  fuel_level: string
+  fuel_volume: string | null
+  fuel_temperature: string
+  fuel_percentage: number
+  engine_status: string | null
+  loc_time: string | null
+  latitude: string | null
+  longitude: string | null
+  created_at: string
 }
 
 export default function FuelCanBusDisplay() {
@@ -27,10 +30,10 @@ export default function FuelCanBusDisplay() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch('/api/eps-vehicles')
-      if (!response.ok) throw new Error('Failed to fetch vehicles')
-      const data = await response.json()
-      setVehicles(data)
+      const response = await fetch('http://64.227.138.235:3000/api/eps-vehicles/fuel-data')
+      if (!response.ok) throw new Error('Failed to fetch fuel data')
+      const result = await response.json()
+      setVehicles(result.data || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -42,26 +45,25 @@ export default function FuelCanBusDisplay() {
     fetchVehicles()
   }, [])
 
-  // Convert EPS vehicle data to fuel gauge format
+  // Convert EPS fuel data to fuel gauge format
   const getFuelGaugeData = () => {
-    return vehicles.map((vehicle, index) => {
-      const fuelPercentage = vehicle.fuel_percentage ? parseFloat(vehicle.fuel_percentage.toString()) : 0
-      const fuelVolume = vehicle.fuel_volume ? parseFloat(vehicle.fuel_volume.toString()) : 0
-      const fuelTemp = vehicle.fuel_temperature ? parseFloat(vehicle.fuel_temperature.toString()) : 25
-      const remaining = fuelVolume
-      const capacity = fuelPercentage > 0 ? (fuelVolume / fuelPercentage) * 100 : 100
-      const isEngineOn = vehicle.name_event === 'Engine On'
+    return vehicles.map((vehicle) => {
+      const fuelPercentage = vehicle.fuel_percentage || 0
+      const fuelLevel = parseFloat(vehicle.fuel_level) || 0
+      const fuelTemp = parseFloat(vehicle.fuel_temperature) || 25
+      const fuelVolume = vehicle.fuel_volume ? parseFloat(vehicle.fuel_volume) : 0
+      const isEngineOn = vehicle.engine_status === 'on'
 
       return {
-        id: vehicle.plate || `vehicle-${index + 1}`,
+        id: vehicle.plate || `vehicle-${vehicle.id}`,
         location: vehicle.plate || 'Unknown Plate',
         fuelLevel: Math.max(0, Math.min(100, fuelPercentage)),
         temperature: Math.max(0, fuelTemp),
-        volume: Math.max(0, capacity),
-        remaining: `${capacity.toFixed(1)}L / ${remaining.toFixed(1)}L`,
-        status: isEngineOn ? (vehicle.speed > 5 ? 'Active' : 'Idle') : 'Engine Off',
-        lastUpdated: formatForDisplay(vehicle.last_activity_time || new Date().toISOString()),
-        updated_at: vehicle.last_activity_time
+        volume: Math.max(0, fuelLevel),
+        remaining: `${fuelLevel.toFixed(1)}L / ${fuelVolume.toFixed(1)}L`,
+        status: isEngineOn ? 'Active' : 'Engine Off',
+        lastUpdated: formatForDisplay(vehicle.created_at),
+        updated_at: vehicle.created_at
       }
     })
   }

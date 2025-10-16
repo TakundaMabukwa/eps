@@ -20,6 +20,10 @@ import DriverPerformanceDashboard from '@/components/dashboard/DriverPerformance
 import ExecutiveDashboardEPS from '@/components/dashboard/ExecutiveDashboardEPS'
 import { MaterialCharts } from '@/components/material-charts'
 import { epsApi, BiWeeklyCategory, DailyStats } from '@/lib/eps-api'
+import FleetSummaryChart from '@/components/charts/FleetSummaryChart'
+import DriverPerformanceChart from '@/components/charts/DriverPerformanceChart'
+import ViolationsChart from '@/components/charts/ViolationsChart'
+import FuelSummaryChart from '@/components/charts/FuelSummaryChart'
 
 // NOTE: This file is self-contained for convenience. It uploads files to
 // the Supabase storage *bucket* named `files` and places them under:
@@ -903,7 +907,18 @@ export default function Drivers() {
                     )}
 
                     {activeTab === 'executive-dashboard' && (
-                        <ExecutiveDashboardEPS />
+                        <div className="space-y-6">
+                            {/* Chart Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <FleetSummaryChart />
+                                <DriverPerformanceChart />
+                                <ViolationsChart />
+                                <FuelSummaryChart />
+                            </div>
+                            
+                            {/* Full Executive Dashboard */}
+                            <ExecutiveDashboardEPS />
+                        </div>
                     )}
 
                     {activeTab === 'executive-dashboard-old' && (
