@@ -80,42 +80,9 @@ export function FuelGauge({
       {/* Header */}
       <div className="mb-3 text-center">
         <h3 className="mb-2 font-semibold text-gray-900 text-base">{location}</h3>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge 
-                variant="outline" 
-                className={cn("font-medium text-xs px-2 py-0.5 cursor-help", getStatusColor(status))}
-              >
-                {status}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent 
-              className="bg-white border border-gray-200 shadow-lg max-w-xs"
-              side="bottom"
-              align="center"
-              sideOffset={5}
-            >
-              <div className="flex flex-col items-center py-1 px-2">
-                <p className="text-sm text-black font-medium">Last updated</p>
-                <p className="text-xs text-gray-700">{formatForDisplay(updated_at || lastUpdated)}</p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+
         
-        {/* Display Notes - Always show notes section with "---" for empty notes */}
-        <div className={cn(
-          "mt-2 px-3 py-2 text-sm rounded-md max-h-16 overflow-y-auto text-left",
-          status.includes('ON') || status.includes('on') 
-            ? "bg-green-50 text-green-700 border border-green-100" 
-            : status.includes('No Signal')
-            ? "bg-red-50 text-red-700 border border-red-100"
-            : "bg-blue-50 text-blue-700 border border-blue-100"
-        )}>
-          <span className="block mb-1 text-xs font-medium">Note:</span>
-          {notes || "---"}
-        </div>
+
       </div>
 
       {/* Fuel Gauge */}
@@ -256,19 +223,7 @@ export function FuelGauge({
           </div>
         )}
         
-        {/* Note Button */}
-        <div className="mt-2">
-          {/* Add Note Button */}
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 w-full"
-            onClick={() => onAddNote ? onAddNote(location, id) : alert(`Add note for ${location}`)}
-          >
-            <NotebookPen className="w-4 h-4 mr-1" />
-            Add Note
-          </Button>
-        </div>
+
       </div>
     </div>
   );
