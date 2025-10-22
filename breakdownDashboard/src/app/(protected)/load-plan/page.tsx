@@ -10,7 +10,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogPortal, DialogOverlay } from '@/components/ui/dialog'
-import { X, FileText, CheckCircle, AlertTriangle, Clock, TrendingUp, Plus, Route } from 'lucide-react'
+import { X, FileText, CheckCircle, AlertTriangle, Clock, TrendingUp, Plus, Route, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { LocationAutocomplete } from '@/components/ui/location-autocomplete'
@@ -268,9 +268,9 @@ export default function LoadPlanPage() {
 
 
 
-  // Auto-optimize route when locations change (only for national trips)
+  // Preview route when locations change (only for national trips) - without saving
   useEffect(() => {
-    const optimizeRoute = async () => {
+    const previewRoute = async () => {
       if (!loadingLocation || !dropOffPoint) {
         setOptimizedRoute(null)
         return
@@ -292,13 +292,13 @@ export default function LoadPlanPage() {
           return `${avgLng},${avgLat}`
         })
         
-        const response = await fetch('/api/routes', {
+        // Use preview endpoint that doesn't save to database
+        const response = await fetch('/api/routes/preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             origin: loadingLocation,
             destination: dropOffPoint,
-            orderId: orderNumber,
             pickupTime: etaPickup,
             waypoints: waypoints
           })
@@ -309,12 +309,12 @@ export default function LoadPlanPage() {
           setOptimizedRoute(routeData)
         }
       } catch (error) {
-        console.error('Route optimization failed:', error)
+        console.error('Route preview failed:', error)
       }
       setIsOptimizing(false)
     }
     
-    optimizeRoute()
+    previewRoute()
   }, [loadingLocation, dropOffPoint, orderNumber, etaPickup, tripType, JSON.stringify(stopPoints)])
 
   // Update sorted drivers when pickup location changes
@@ -343,8 +343,30 @@ export default function LoadPlanPage() {
         }
         
         console.log('Calculating distance between:', loadingLocation, 'and', dropOffPoint)
+        
+        // First geocode the locations to get coordinates
+        const [originResponse, destResponse] = await Promise.all([
+          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(loadingLocation)}.json?access_token=${mapboxToken}&country=za&limit=1`),
+          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dropOffPoint)}.json?access_token=${mapboxToken}&country=za&limit=1`)
+        ])
+        
+        const [originData, destData] = await Promise.all([
+          originResponse.json(),
+          destResponse.json()
+        ])
+        
+        if (!originData.features?.[0] || !destData.features?.[0]) {
+          console.log('Could not geocode locations')
+          return
+        }
+        
+        const originCoords = originData.features[0].center
+        const destCoords = destData.features[0].center
+        
+        console.log('Origin coords:', originCoords, 'Dest coords:', destCoords)
+        
         const response = await fetch(
-          `https://api.mapbox.com/directions/v5/mapbox/driving/${encodeURIComponent(loadingLocation)};${encodeURIComponent(dropOffPoint)}?access_token=${mapboxToken}&geometries=geojson`
+          `https://api.mapbox.com/directions/v5/mapbox/driving/${originCoords[0]},${originCoords[1]};${destCoords[0]},${destCoords[1]}?access_token=${mapboxToken}&geometries=geojson`
         )
         const data = await response.json()
         console.log('Mapbox response:', data)
@@ -383,34 +405,39 @@ export default function LoadPlanPage() {
   useEffect(() => {
     const assignedDriver = driverAssignments.find(d => d.id)
     if (assignedDriver?.id) {
-      // Find vehicle assigned to this driver from tracking data
-      const driverFullName = `${assignedDriver.first_name} ${assignedDriver.surname}`.trim().toLowerCase()
-      const trackingData = Array.isArray(vehicleTrackingData) ? vehicleTrackingData : []
-      const matchingVehicle = trackingData.find(vehicle => 
-        vehicle.driver_name && 
-        vehicle.driver_name.toLowerCase() === driverFullName
-      )
-      
-      if (matchingVehicle?.registration) {
-        // Find vehicle in database by registration
-        const vehicle = vehicles.find(v => v.registration_number === matchingVehicle.registration)
-        let vehicleHourlyRate = 0
-        if (vehicle?.hourly_rate) {
-          vehicleHourlyRate = parseFloat(vehicle.hourly_rate)
+      // Find driver in database by surname
+      const driver = drivers.find(d => d.id === assignedDriver.id)
+      if (driver?.surname) {
+        // Find vehicle assigned to this driver from tracking data using surname
+        const trackingData = Array.isArray(vehicleTrackingData) ? vehicleTrackingData : []
+        const matchingVehicle = trackingData.find(vehicle => 
+          vehicle.driver_name && 
+          vehicle.driver_name.toLowerCase().includes(driver.surname.toLowerCase())
+        )
+        
+        if (matchingVehicle?.registration) {
+          // Find vehicle in database by registration
+          const vehicle = vehicles.find(v => v.registration_number === matchingVehicle.registration)
+          let vehicleHourlyRate = 0
+          if (vehicle?.hourly_rate) {
+            vehicleHourlyRate = parseFloat(vehicle.hourly_rate)
+          } else {
+            // Default vehicle hourly rate
+            vehicleHourlyRate = 75 // R75 per hour default
+          }
+          const vehicleCost = vehicleHourlyRate * 8
+          setApproximatedVehicleCost(vehicleCost)
+          console.log('Vehicle cost calculated:', vehicleCost)
         } else {
-          // Default vehicle hourly rate
-          vehicleHourlyRate = 75 // R75 per hour default
+          setApproximatedVehicleCost(0)
         }
-        const vehicleCost = vehicleHourlyRate * 8
-        setApproximatedVehicleCost(vehicleCost)
-        console.log('Vehicle cost calculated:', vehicleCost)
       } else {
         setApproximatedVehicleCost(0)
       }
     } else {
       setApproximatedVehicleCost(0)
     }
-  }, [driverAssignments, vehicles, vehicleTrackingData])
+  }, [driverAssignments, drivers, vehicles, vehicleTrackingData])
 
   // Calculate driver cost when driver is selected
   useEffect(() => {
@@ -553,6 +580,40 @@ export default function LoadPlanPage() {
 
   const handleCreate = async () => {
     try {
+      // Save route to database only when creating the load
+      let routeId = null
+      if (tripType === 'national' && loadingLocation && dropOffPoint) {
+        try {
+          const selectedStopPoints = getSelectedStopPointsData()
+          const waypoints = selectedStopPoints.map(point => {
+            const coords = point.coordinates
+            const avgLng = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length
+            const avgLat = coords.reduce((sum, coord) => sum + coord[1], 0) / coords.length
+            return `${avgLng},${avgLat}`
+          })
+          
+          const routeResponse = await fetch('/api/routes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              origin: loadingLocation,
+              destination: dropOffPoint,
+              orderId: orderNumber,
+              pickupTime: etaPickup,
+              waypoints: waypoints
+            })
+          })
+          
+          if (routeResponse.ok) {
+            const routeData = await routeResponse.json()
+            routeId = routeData.route?.id
+          }
+        } catch (routeError) {
+          console.error('Error saving route:', routeError)
+          // Continue with load creation even if route saving fails
+        }
+      }
+      
       const tripData = {
         trip_id: `LOAD-${Date.now()}`,
         ordernumber: orderNumber,
@@ -564,6 +625,7 @@ export default function LoadPlanPage() {
         status: 'pending',
         startdate: etaPickup ? etaPickup.split('T')[0] : null,
         enddate: etaDropoff ? etaDropoff.split('T')[0] : null,
+        route: routeId ? routeId.toString() : null, // Link to saved route
 
         clientdetails: {
           name: client,
@@ -626,6 +688,7 @@ export default function LoadPlanPage() {
       setFuelPricePerLiter('')
       setGoodsInTransitPremium('')
       setShowSecondSection(false)
+      setOptimizedRoute(null)
       
       // Refresh data
       fetchData()
@@ -1099,135 +1162,156 @@ export default function LoadPlanPage() {
             </Card>
 
             {/* Trip Routes Display */}
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {loads.filter(trip => trip.status?.toLowerCase() !== 'delivered').map((trip) => {
                 const assignments = parseJsonField(trip.vehicleassignments) || []
                 const pickupLocations = parseJsonField(trip.pickuplocations) || []
                 const dropoffLocations = parseJsonField(trip.dropofflocations) || []
                 
                 return (
-                  <Card key={trip.id}>
-                    <CardHeader>
-                      <CardTitle className="flex justify-between items-center">
-                        <span>Trip: {trip.trip_id}</span>
+                  <div key={trip.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                    {/* Header */}
+                    <div className="p-6 border-b border-slate-100">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-slate-100 rounded-lg">
+                            <Route className="h-5 w-5 text-slate-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900">{trip.trip_id}</h3>
+                            <p className="text-sm text-slate-500">{trip.ordernumber}</p>
+                          </div>
+                        </div>
                         <span className={cn(
-                          "px-3 py-1 rounded-full text-xs font-medium",
-                          trip.status === "completed" ? "bg-green-100 text-green-800" :
-                          trip.status === "in-transit" ? "bg-blue-100 text-blue-800" :
-                          trip.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                          "bg-red-100 text-red-800"
+                          "px-3 py-1.5 rounded-full text-xs font-medium uppercase tracking-wide",
+                          trip.status === "completed" ? "bg-emerald-100 text-emerald-700" :
+                          trip.status === "in-transit" ? "bg-blue-100 text-blue-700" :
+                          trip.status === "pending" ? "bg-amber-100 text-amber-700" :
+                          "bg-slate-100 text-slate-700"
                         )}>
                           {trip.status || 'pending'}
                         </span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Trip Details */}
-                        <div className="space-y-4">
-                          <h4 className="font-medium text-sm text-gray-700">Trip Details</h4>
-                          <div className="space-y-2 text-sm">
-                            <p><span className="font-medium">Client:</span> {trip.clientdetails?.name || 'N/A'}</p>
-                            <p><span className="font-medium">Commodity:</span> {trip.cargo || 'N/A'}</p>
-                            <p><span className="font-medium">Rate:</span> {trip.rate || 'N/A'}</p>
-                            <p><span className="font-medium">Order #:</span> {trip.ordernumber || 'N/A'}</p>
-                          </div>
+                      </div>
+                      
+                      {/* Client & Commodity */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Client</p>
+                          <p className="text-sm font-medium text-slate-900">{trip.clientdetails?.name || 'N/A'}</p>
                         </div>
-
-                        {/* Route Progress */}
-                        <div className="space-y-4">
-                          <h4 className="font-medium text-sm text-gray-700">Route Progress</h4>
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <ProgressWithWaypoints
-                              value={trip.status === 'completed' ? 100 : trip.status === 'in-transit' ? 50 : 25}
-                              variant="stepped"
-                              waypoints={[
-                                {
-                                  position: 0,
-                                  label: 'Created',
-                                  completed: true
-                                },
-                                {
-                                  position: 25,
-                                  label: 'Assigned',
-                                  completed: assignments.length > 0
-                                },
-                                {
-                                  position: 50,
-                                  label: 'In Transit',
-                                  completed: trip.status === 'in-transit' || trip.status === 'completed',
-                                  current: trip.status === 'in-transit'
-                                },
-                                {
-                                  position: 100,
-                                  label: 'Completed',
-                                  completed: trip.status === 'completed',
-                                  current: trip.status === 'completed'
-                                }
-                              ]}
-                            />
-                          </div>
-                          
-                          {/* Route Details */}
-                          <div className="space-y-3">
-                            {pickupLocations.map((pickup, index) => (
-                              <div key={index} className="p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Pickup</span>
-                                </div>
-                                <p className="text-sm font-medium">{pickup.location || pickup.address}</p>
-                                <p className="text-xs text-gray-600">{pickup.scheduled_time ? new Date(pickup.scheduled_time).toLocaleString() : 'No time set'}</p>
-                              </div>
-                            ))}
-                            {dropoffLocations.map((dropoff, index) => (
-                              <div key={index} className="p-3 bg-red-50 rounded-lg border-l-4 border-red-400">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Drop-off</span>
-                                </div>
-                                <p className="text-sm font-medium">{dropoff.location || dropoff.address}</p>
-                                <p className="text-xs text-gray-600">{dropoff.scheduled_time ? new Date(dropoff.scheduled_time).toLocaleString() : 'No time set'}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Route Tracking */}
-                        <div className="space-y-4">
-                          <h4 className="font-medium text-sm text-gray-700">Route Tracking</h4>
-                          <RouteTracker orderId={trip.ordernumber || trip.trip_id} />
-                        </div>
-
-                        {/* Vehicle Assignments */}
-                        <div className="space-y-4">
-                          <h4 className="font-medium text-sm text-gray-700">Assignments</h4>
-                          <div className="space-y-3">
-                            {assignments.length > 0 ? assignments.map((assignment, index) => (
-                              <div key={index} className="p-3 bg-blue-50 rounded-lg">
-                                <div className="space-y-2">
-                                  <div>
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Vehicle</span>
-                                    <p className="text-sm font-medium mt-1">{assignment.vehicle?.name || assignment.vehicle?.registration_number || 'Unknown Vehicle'}</p>
-                                  </div>
-                                  <div>
-                                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Drivers</span>
-                                    <div className="mt-1">
-                                      {assignment.drivers?.filter(d => d.name).map((driver, dIndex) => (
-                                        <p key={dIndex} className="text-sm">{driver.name}</p>
-                                      )) || <p className="text-sm text-gray-500">No drivers assigned</p>}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )) : (
-                              <div className="p-3 bg-gray-50 rounded-lg text-center">
-                                <p className="text-sm text-gray-500">No assignments</p>
-                              </div>
-                            )}
-                          </div>
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Commodity</p>
+                          <p className="text-sm font-medium text-slate-900">{trip.cargo || 'N/A'}</p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+
+                    {/* Timeline */}
+                    <div className="p-6 border-b border-slate-100">
+                      <h4 className="text-sm font-semibold text-slate-900 mb-4">Progress Timeline</h4>
+                      <div className="relative">
+                        <div className="flex items-center justify-between mb-2">
+                          {[
+                            { label: 'Created', completed: true },
+                            { label: 'Assigned', completed: assignments.length > 0 },
+                            { label: 'In Transit', completed: trip.status === 'in-transit' || trip.status === 'completed' },
+                            { label: 'Completed', completed: trip.status === 'completed' }
+                          ].map((step, index, array) => (
+                            <div key={step.label} className="flex flex-col items-center relative">
+                              <div className={cn(
+                                "w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-medium transition-colors",
+                                step.completed 
+                                  ? "bg-slate-600 border-slate-600 text-white" 
+                                  : "bg-white border-slate-300 text-slate-400"
+                              )}>
+                                {index + 1}
+                              </div>
+                              <span className={cn(
+                                "text-xs mt-2 font-medium",
+                                step.completed ? "text-slate-900" : "text-slate-400"
+                              )}>
+                                {step.label}
+                              </span>
+                              {index < array.length - 1 && (
+                                <div className={cn(
+                                  "absolute top-4 left-8 w-full h-0.5 -z-10",
+                                  step.completed && array[index + 1].completed 
+                                    ? "bg-slate-600" 
+                                    : "bg-slate-200"
+                                )} style={{ width: 'calc(100% + 2rem)' }} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Locations */}
+                    <div className="p-6 border-b border-slate-100">
+                      <h4 className="text-sm font-semibold text-slate-900 mb-4">Route Details</h4>
+                      <div className="space-y-3">
+                        {pickupLocations.map((pickup, index) => (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                            <div className="p-1.5 bg-emerald-100 rounded-full">
+                              <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">PICKUP</span>
+                              </div>
+                              <p className="text-sm font-medium text-slate-900 truncate">{pickup.location || pickup.address}</p>
+                              <p className="text-xs text-slate-500">{pickup.scheduled_time ? new Date(pickup.scheduled_time).toLocaleString() : 'Time TBD'}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {dropoffLocations.map((dropoff, index) => (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                            <div className="p-1.5 bg-red-100 rounded-full">
+                              <MapPin className="h-3.5 w-3.5 text-red-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded">DROP-OFF</span>
+                              </div>
+                              <p className="text-sm font-medium text-slate-900 truncate">{dropoff.location || dropoff.address}</p>
+                              <p className="text-xs text-slate-500">{dropoff.scheduled_time ? new Date(dropoff.scheduled_time).toLocaleString() : 'Time TBD'}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Assignments */}
+                    <div className="p-6">
+                      <h4 className="text-sm font-semibold text-slate-900 mb-4">Assignments</h4>
+                      {assignments.length > 0 ? (
+                        <div className="space-y-3">
+                          {assignments.map((assignment, index) => (
+                            <div key={index} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Vehicle</p>
+                                  <p className="text-sm font-medium text-slate-900">{assignment.vehicle?.name || assignment.vehicle?.registration_number || 'Unassigned'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Driver(s)</p>
+                                  <div className="space-y-1">
+                                    {assignment.drivers?.filter(d => d.name).map((driver, dIndex) => (
+                                      <p key={dIndex} className="text-sm font-medium text-slate-900">{driver.name}</p>
+                                    )) || <p className="text-sm text-slate-500">Unassigned</p>}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center">
+                          <p className="text-sm text-slate-500">No assignments yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )
               })}
             </div>

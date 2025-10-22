@@ -14,14 +14,18 @@ import { MapPin } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useEffect, useState } from 'react';
 import { TechMap } from './techMap';
+import { fetchRouteByTripId } from '@/lib/route-fetcher';
 
 interface MorphingDialogBasicOneProps {
     name: string;
     location: string;
+    tripId?: string;
+    routeCoordinates?: number[][];
 }
 
-export function MorphingDialogBasicOne({ name, location }: MorphingDialogBasicOneProps) {
+export function MorphingDialogBasicOne({ name, location, tripId, routeCoordinates }: MorphingDialogBasicOneProps) {
     const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [fetchedRoute, setFetchedRoute] = useState<number[][] | null>(null);
 
     useEffect(() => {
         const fetchCoordinates = async () => {
@@ -38,6 +42,20 @@ export function MorphingDialogBasicOne({ name, location }: MorphingDialogBasicOn
         fetchCoordinates();
     }, [location]);
 
+    useEffect(() => {
+        const fetchRoute = async () => {
+            if (tripId && !routeCoordinates) {
+                console.log('🚛 FETCHING ROUTE FOR TRIP:', tripId);
+                const route = await fetchRouteByTripId(tripId);
+                console.log('📍 ROUTE RESULT:', route);
+                setFetchedRoute(route);
+            }
+        };
+        fetchRoute();
+    }, [tripId, routeCoordinates]);
+
+    console.log('AdvanceMap - routeCoordinates:', routeCoordinates, 'fetchedRoute:', fetchedRoute);
+
     return (
         <MorphingDialog
             transition={{
@@ -48,12 +66,11 @@ export function MorphingDialogBasicOne({ name, location }: MorphingDialogBasicOn
         >
             <MorphingDialogTrigger
                 style={{ borderRadius: '12px', width: '100%' }}
-                className="flex max-w-[270px] flex-col overflow-hidden border border-zinc-950/10 bg-white dark:border-zinc-50/10 dark:bg-zinc-900"
+                className="flex max-w-[270px] flex-col overflow-hidden border border-zinc-950/10 bg-white dark:border-zinc-50/10 dark:bg-zinc-900 items-center justify-center px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                onClick={() => console.log('Track button clicked for tripId:', tripId)}
             >
-                <Button variant="outline" size="sm" className="max-w-full">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    Track
-                </Button>
+                <MapPin className="h-4 w-4 mr-1" />
+                Track
             </MorphingDialogTrigger>
             <MorphingDialogContainer>
                 <MorphingDialogContent
@@ -76,7 +93,12 @@ export function MorphingDialogBasicOne({ name, location }: MorphingDialogBasicOn
                             }}
                         >
                             {coords ? (
-                                <TechMap lat={coords.lat} lng={coords.lng} name={name} />
+                                <TechMap 
+                                    lat={coords.lat} 
+                                    lng={coords.lng} 
+                                    name={name} 
+                                    routeCoordinates={routeCoordinates || fetchedRoute}
+                                />
                             ) : (
                                 <div className="text-sm text-zinc-500">Loading map...</div>
                             )}
