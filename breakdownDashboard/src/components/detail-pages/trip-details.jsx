@@ -492,6 +492,27 @@ export default function TripDetails({ id }) {
               showLabels={true}
               className="w-full"
             />
+            
+            {/* Stops Section - Always show for debugging */}
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">Trip Stops</h4>
+              <div className="flex flex-wrap gap-2">
+                {parsedTrip?.selectedStopPoints && parsedTrip.selectedStopPoints.length > 0 ? (
+                  parsedTrip.selectedStopPoints.map((stop, index) => (
+                    <div key={index} className="group relative inline-block">
+                      <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-200 transition-colors">
+                        Stop {index + 1}
+                      </div>
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        {stop.name || stop.address || (stop.lat && stop.lng ? `${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}` : `Stop ${index + 1}`)}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-gray-600">No stops configured for this trip</div>
+                )}
+              </div>
+            </div>
 
             <div className="flex justify-between text-xs text-muted-foreground mt-5">
               <span>Origin: {trip?.origin}</span>

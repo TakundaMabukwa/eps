@@ -344,16 +344,45 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
     'Delivered'
   ]
 
-  const getWaypoints = (trip: any) => {
+  const getWaypointsWithStops = (trip: any) => {
     const currentStatusIndex = TRIP_STATUSES.findIndex(s => s.toLowerCase() === trip.status?.toLowerCase())
-    
-    return TRIP_STATUSES.map((status, index) => ({
+    const baseWaypoints = TRIP_STATUSES.map((status, index) => ({
       position: (index / (TRIP_STATUSES.length - 1)) * 100,
       label: status,
       completed: currentStatusIndex > index,
-      current: currentStatusIndex === index
+      current: currentStatusIndex === index,
+      isStop: false
     }))
+
+    // Insert stops between Loading (index 4) and On Trip (index 5)
+    const stops = trip.selected_stop_points || trip.selectedstoppoints || []
+    if (stops.length > 0) {
+      const loadingPos = baseWaypoints[4].position
+      const onTripPos = baseWaypoints[5].position
+      const stopSpacing = (onTripPos - loadingPos) / (stops.length + 1)
+      
+      const stopWaypoints = stops.map((stopId: any, index: number) => ({
+        position: loadingPos + (stopSpacing * (index + 1)),
+        label: `Stop ${index + 1}`,
+        completed: currentStatusIndex > 4,
+        current: false,
+        isStop: true,
+        stopId
+      }))
+      
+      // Adjust positions of waypoints after Loading
+      const adjustedWaypoints = [...baseWaypoints]
+      for (let i = 5; i < adjustedWaypoints.length; i++) {
+        adjustedWaypoints[i].position = onTripPos + ((i - 5) / (TRIP_STATUSES.length - 6)) * (100 - onTripPos)
+      }
+      
+      return [...adjustedWaypoints.slice(0, 5), ...stopWaypoints, ...adjustedWaypoints.slice(5)]
+    }
+    
+    return baseWaypoints
   }
+
+
 
   const getTripProgress = (status: string) => {
     const statusIndex = TRIP_STATUSES.findIndex(s => s.toLowerCase() === status?.toLowerCase())
@@ -378,7 +407,7 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
   return (
     <div className="space-y-6">
       {tripsList.map((trip: any) => {
-        const waypoints = getWaypoints(trip)
+        const waypoints = getWaypointsWithStops(trip)
         const progress = getTripProgress(trip.status)
 
         const clientDetails = typeof trip.clientdetails === 'string' ? JSON.parse(trip.clientdetails) : trip.clientdetails
@@ -467,14 +496,17 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
                   <div className="relative">
                     <div className="flex justify-between items-center">
                       {waypoints.map((waypoint, index) => (
-                        <div key={index} className="flex flex-col items-center relative z-10">
+                        <div key={index} className="flex flex-col items-center relative z-10 group">
                           <div className={cn(
                             "w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-300",
+                            waypoint.isStop ? "bg-orange-500 border-orange-500 text-white" :
                             waypoint.current ? "bg-blue-500 border-blue-500 text-white" :
                             waypoint.completed ? "bg-emerald-500 border-emerald-500 text-white" :
                             "bg-white border-slate-300 text-slate-400"
                           )}>
-                            {waypoint.completed ? (
+                            {waypoint.isStop ? (
+                              <MapPin className="w-3 h-3" />
+                            ) : waypoint.completed ? (
                               <CheckCircle className="w-3 h-3" />
                             ) : waypoint.current ? (
                               <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
@@ -484,12 +516,18 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
                           </div>
                           <span className={cn(
                             "text-xs mt-1 text-center max-w-12 leading-tight",
+                            waypoint.isStop ? "text-orange-600 font-medium" :
                             waypoint.current ? "text-blue-600 font-semibold" :
                             waypoint.completed ? "text-emerald-600 font-medium" :
                             "text-slate-400"
                           )}>
                             {waypoint.label.split(' ')[0]}
                           </span>
+                          {waypoint.isStop && (
+                            <div className="absolute bottom-full mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
+                              Stop ID: {waypoint.stopId}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -500,6 +538,8 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
                       />
                     </div>
                   </div>
+                  
+
                 </div>
 
                 {/* Cargo Information */}
