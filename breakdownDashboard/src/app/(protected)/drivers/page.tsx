@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Search, Users, Activity, BarChart3, Settings, Star, AlertTriangle, Edit, Trash } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import * as Dialog from '@radix-ui/react-dialog'
+import { X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -58,6 +59,8 @@ type Driver = {
     hazCamDate?: string | null
     medic_exam_date?: string | null
     pop?: string | null
+    salary?: number | null
+    hourly_rate?: number | null
     created_at?: string | null
     created_by?: string | null
     user_id?: string | null
@@ -117,6 +120,8 @@ export default function Drivers() {
         rear_of_driver_pic: null,
         professional_driving_permit: false,
         pdp_expiry_date: null,
+        salary: null,
+        hourly_rate: null,
         created_by: null,
     }
 
@@ -164,13 +169,30 @@ export default function Drivers() {
         }
     }
 
-    // Small utility: uploads a File to the `files` bucket and returns the public URL
+    // Small utility: uploads a File to the `license_info` bucket and returns the public URL
     const uploadToStorage = async (file: File, folder: string): Promise<string | null> => {
         try {
             setIsUploading(true)
             setUploadingField(folder)
 
-            const bucket = 'files' // <-- your bucket name
+            const bucket = 'license_info'
+            
+            // Check if bucket exists, create if not
+            const { data: buckets } = await supabase.storage.listBuckets()
+            const bucketExists = buckets?.some(b => b.name === bucket)
+            
+            if (!bucketExists) {
+                const { error: createError } = await supabase.storage.createBucket(bucket, {
+                    public: true,
+                    allowedMimeTypes: ['image/*', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+                })
+                if (createError) {
+                    console.error('Failed to create bucket:', createError)
+                    toast.error('Failed to create storage bucket')
+                    return null
+                }
+            }
+
             const ext = (file.name.split('.').pop() ?? 'bin')
             const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
             const filePath = `${folder}/${fileName}`
@@ -180,8 +202,8 @@ export default function Drivers() {
                 .upload(filePath, file, { cacheControl: '3600', upsert: false })
 
             if (uploadError) {
-                console.error('upload error', uploadError)
-                toast.error('Failed to upload file')
+                console.error('upload error:', uploadError.message || uploadError)
+                toast.error(`Upload failed: ${uploadError.message || 'Unknown error'}`)
                 return null
             }
 
@@ -191,11 +213,11 @@ export default function Drivers() {
                 toast.error('Failed to get public url')
                 return null
             }
-            toast.success('Uploaded successfully')
+            toast.success('File uploaded successfully')
             return publicUrl
-        } catch (err) {
-            console.error('Unexpected upload error', err)
-            toast.error('Unexpected upload error')
+        } catch (err: any) {
+            console.error('Unexpected upload error:', err)
+            toast.error(`Upload error: ${err.message || 'Unknown error'}`)
             return null
         } finally {
             setIsUploading(false)
@@ -281,6 +303,8 @@ export default function Drivers() {
 
             const payload: Partial<Driver> = {
                 ...formData,
+                salary: formData.salary,
+                hourly_rate: formData.hourly_rate,
                 created_by: formData.created_by ?? userId,
             }
 
@@ -304,9 +328,12 @@ export default function Drivers() {
             setIsAddDialogOpen(false)
             resetForm()
             fetchDrivers()
-        } catch (err) {
-            console.error('submit error', err)
-            toast.error('Failed to save driver')
+        } catch (err: any) {
+            console.error('submit error:', err)
+            toast.error(`Failed to save driver: ${err.message || 'Unknown error'}`)
+            if (err.message?.includes('row-level security')) {
+                toast.error('Permission denied. Please check your access rights.')
+            }
         } finally {
             setIsSubmitting(false)
         }
@@ -406,24 +433,45 @@ export default function Drivers() {
                             {/* Add Driver Button */}
                             <div className="flex justify-end">
 
-                                <Dialog open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) resetForm() }}>
-                                    <DialogTrigger asChild>
+                                <Dialog.Root open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) resetForm() }}>
+                                    <Dialog.Trigger asChild>
                                         <Button className="bg-blue-600 hover:bg-blue-700">
                                             <Plus className="w-4 h-4 mr-2" />
                                             Add Driver
                                         </Button>
-                                    </DialogTrigger>
+                                    </Dialog.Trigger>
 
-                    <DialogContent className="w-11/12 md:w-2/4 max-h-[90vh] overflow-y-auto p-6">
-                        <DialogHeader>
-                            <DialogTitle>{isEditing ? 'Edit Driver' : 'Add New Driver'}</DialogTitle>
-                        </DialogHeader>
+                    <Dialog.Portal>
+                        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+                        <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-xl border border-gray-300 z-50 overflow-hidden">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-gray-200">
+                                <div className="flex items-center space-x-3">
+                                    <div className="flex justify-center items-center bg-slate-700 rounded-lg w-8 h-8">
+                                        <Users className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <Dialog.Title className="text-lg font-semibold text-slate-900">{isEditing ? 'Edit Driver' : 'Add New Driver'}</Dialog.Title>
+                                        <p className="text-slate-600 text-xs">Complete the form below</p>
+                                    </div>
+                                </div>
+                                <Dialog.Close asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-slate-100">
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </Dialog.Close>
+                            </div>
+                            <div className="overflow-y-auto max-h-[calc(90vh-80px)] p-4">
 
-                        <form onSubmit={handleSubmit} className="space-y-6">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             {/* Personal Information */}
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-slate-50 rounded-md p-4 border border-slate-200">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <div className="flex justify-center items-center bg-slate-600 rounded w-6 h-6">
+                                        <Users className="w-3 h-3 text-white" />
+                                    </div>
+                                    <h3 className="text-sm font-semibold text-slate-800">Personal Information</h3>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div>
                                         <Label htmlFor="first_name">First Name *</Label>
                                         <Input id="first_name" value={formData.first_name} onChange={(e) => handleInputChange('first_name', e.target.value)} required />
@@ -431,35 +479,60 @@ export default function Drivers() {
 
                                     <div>
                                         <Label htmlFor="surname">Surname *</Label>
-                                        <Input id="surname" value={formData.surname} onChange={(e) => handleInputChange('surname', e.target.value)} required />
+                                        <Input id="surname" value={formData.surname || ''} onChange={(e) => handleInputChange('surname', e.target.value)} required />
                                     </div>
 
                                     <div>
                                         <Label htmlFor="id_or_passport_number">ID/Passport Number *</Label>
-                                        <Input id="id_or_passport_number" value={formData.id_or_passport_number} onChange={(e) => handleInputChange('id_or_passport_number', e.target.value)} required />
+                                        <Input id="id_or_passport_number" value={formData.id_or_passport_number || ''} onChange={(e) => handleInputChange('id_or_passport_number', e.target.value)} required />
                                     </div>
 
                                     <div>
                                         <Label htmlFor="id_or_passport_document">ID/Passport Document</Label>
-                                        <Input id="id_or_passport_document" value={formData.id_or_passport_document ?? ''} onChange={(e) => handleInputChange('id_or_passport_document', e.target.value)} placeholder="Optional" />
+                                        <Input id="id_or_passport_document" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => handleFileChange(e, 'id_or_passport_document', 'documents')} />
+                                        {formData.id_or_passport_document && (
+                                            <div className="mt-1">
+                                                <a href={formData.id_or_passport_document} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">📄 View document</a>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div>
                                         <Label htmlFor="email_address">Email Address</Label>
-                                        <Input id="email_address" type="email" value={formData.email_address ?? ''} onChange={(e) => handleInputChange('email_address', e.target.value)} />
+                                        <Input id="email_address" type="email" value={formData.email_address || ''} onChange={(e) => handleInputChange('email_address', e.target.value)} />
                                     </div>
 
                                     <div>
                                         <Label htmlFor="cell_number">Cell Number</Label>
-                                        <Input id="cell_number" value={formData.cell_number ?? ''} onChange={(e) => handleInputChange('cell_number', e.target.value)} />
+                                        <Input id="cell_number" value={formData.cell_number || ''} onChange={(e) => handleInputChange('cell_number', e.target.value)} />
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="salary">Monthly Salary/Cost (R)</Label>
+                                        <Input id="salary" type="text" inputMode="decimal" value={formData.salary?.toString() || ''} onChange={(e) => {
+                                            const value = e.target.value.replace(/[^0-9.]/g, '')
+                                            const salary = value && !isNaN(Number(value)) ? Number(value) : null
+                                            handleInputChange('salary', salary)
+                                            handleInputChange('hourly_rate', salary && salary > 0 ? Number((salary / 160).toFixed(2)) : null)
+                                        }} placeholder="0.00" />
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="hourly_rate">Hourly Rate (R)</Label>
+                                        <Input id="hourly_rate" type="text" value={formData.hourly_rate?.toFixed(2) || ''} readOnly className="bg-gray-50" placeholder="Auto-calculated" />
                                     </div>
                                 </div>
                             </div>
 
                             {/* License Information */}
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900">License Information</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-slate-50 rounded-md p-4 border border-slate-200">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <div className="flex justify-center items-center bg-slate-600 rounded w-6 h-6">
+                                        <Edit className="w-3 h-3 text-white" />
+                                    </div>
+                                    <h3 className="text-sm font-semibold text-slate-800">License Information</h3>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div className="flex items-center space-x-2">
                                         <Switch id="sa_issued" checked={!!formData.sa_issued} onCheckedChange={(checked) => handleInputChange('sa_issued', checked)} />
                                         <Label htmlFor="sa_issued">SA Issued License</Label>
@@ -467,7 +540,7 @@ export default function Drivers() {
 
                                     <div>
                                         <Label htmlFor="work_permit_upload">Work Permit (PDF / DOC / Image)</Label>
-                                        <Input id="work_permit_upload" type="file" accept=".pdf,.doc,.docx,image/*" onChange={(e) => handleFileChange(e, 'work_permit_upload', 'files/driver')} />
+                                        <Input id="work_permit_upload" type="file" accept=".pdf,.doc,.docx,image/*" onChange={(e) => handleFileChange(e, 'work_permit_upload', 'documents')} />
                                         {formData.work_permit_upload ? (
                                             <div className="mt-2">
                                                 <a href={formData.work_permit_upload} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">📄 View uploaded work permit</a>
@@ -477,12 +550,12 @@ export default function Drivers() {
 
                                     <div>
                                         <Label htmlFor="license_number">License Number</Label>
-                                        <Input id="license_number" value={formData.license_number ?? ''} onChange={(e) => handleInputChange('license_number', e.target.value)} />
+                                        <Input id="license_number" value={formData.license_number || ''} onChange={(e) => handleInputChange('license_number', e.target.value)} />
                                     </div>
 
                                     <div>
                                         <Label htmlFor="license_expiry_date">License Expiry Date</Label>
-                                        <Input id="license_expiry_date" type="date" value={formData.license_expiry_date ?? ''} onChange={(e) => handleInputChange('license_expiry_date', e.target.value)} />
+                                        <Input id="license_expiry_date" type="date" value={formData.license_expiry_date || ''} onChange={(e) => handleInputChange('license_expiry_date', e.target.value)} />
                                     </div>
 
                                     <div>
@@ -504,17 +577,17 @@ export default function Drivers() {
 
                                     <div>
                                         <Label htmlFor="driver_restriction_code">Driver Restriction Code</Label>
-                                        <Input id="driver_restriction_code" value={formData.driver_restriction_code ?? ''} onChange={(e) => handleInputChange('driver_restriction_code', e.target.value)} />
+                                        <Input id="driver_restriction_code" value={formData.driver_restriction_code || ''} onChange={(e) => handleInputChange('driver_restriction_code', e.target.value)} />
                                     </div>
 
                                     <div>
                                         <Label htmlFor="vehicle_restriction_code">Vehicle Restriction Code</Label>
-                                        <Input id="vehicle_restriction_code" value={formData.vehicle_restriction_code ?? ''} onChange={(e) => handleInputChange('vehicle_restriction_code', e.target.value)} />
+                                        <Input id="vehicle_restriction_code" value={formData.vehicle_restriction_code || ''} onChange={(e) => handleInputChange('vehicle_restriction_code', e.target.value)} />
                                     </div>
 
                                     <div>
                                         <Label htmlFor="front_of_driver_pic">Front of Driver License (image)</Label>
-                                        <Input id="front_of_driver_pic" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'front_of_driver_pic', 'images/drivers')} />
+                                        <Input id="front_of_driver_pic" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'front_of_driver_pic', 'license_images')} />
                                         {formData.front_of_driver_pic ? (
                                             <img src={formData.front_of_driver_pic} alt="front" className="mt-2 w-40 rounded-lg border" />
                                         ) : null}
@@ -522,7 +595,7 @@ export default function Drivers() {
 
                                     <div>
                                         <Label htmlFor="rear_of_driver_pic">Rear of Driver License (image)</Label>
-                                        <Input id="rear_of_driver_pic" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'rear_of_driver_pic', 'images/drivers')} />
+                                        <Input id="rear_of_driver_pic" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'rear_of_driver_pic', 'license_images')} />
                                         {formData.rear_of_driver_pic ? (
                                             <img src={formData.rear_of_driver_pic} alt="rear" className="mt-2 w-40 rounded-lg border" />
                                         ) : null}
@@ -531,8 +604,13 @@ export default function Drivers() {
                             </div>
 
                             {/* Professional Driving Permit */}
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Professional Driving Permit</h3>
+                            <div className="bg-slate-50 rounded-md p-4 border border-slate-200">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <div className="flex justify-center items-center bg-slate-600 rounded w-6 h-6">
+                                        <Star className="w-3 h-3 text-white" />
+                                    </div>
+                                    <h3 className="text-sm font-semibold text-slate-800">Professional Driving Permit</h3>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="flex items-center space-x-2">
                                         <Switch id="professional_driving_permit" checked={!!formData.professional_driving_permit} onCheckedChange={(checked) => handleInputChange('professional_driving_permit', checked)} />
@@ -541,19 +619,23 @@ export default function Drivers() {
 
                                     <div>
                                         <Label htmlFor="pdp_expiry_date">PDP Expiry Date</Label>
-                                        <Input id="pdp_expiry_date" type="date" value={formData.pdp_expiry_date ?? ''} onChange={(e) => handleInputChange('pdp_expiry_date', e.target.value)} />
+                                        <Input id="pdp_expiry_date" type="date" value={formData.pdp_expiry_date || ''} onChange={(e) => handleInputChange('pdp_expiry_date', e.target.value)} />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Actions */}
-                            <div className="flex justify-end space-x-2 pt-4">
-                                <Button type="button" variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm() }} disabled={isSubmitting}>Cancel</Button>
-                                <Button type="submit" disabled={isSubmitting || isUploading} className="bg-blue-600 hover:bg-blue-700">{isSubmitting ? 'Saving...' : (isEditing ? 'Update Driver' : 'Add Driver')}</Button>
+                            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-200">
+                                <Button type="button" variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm() }} disabled={isSubmitting} className="text-slate-600 border-slate-300">Cancel</Button>
+                                <Button type="submit" disabled={isSubmitting || isUploading} className="bg-slate-700 hover:bg-slate-800 text-white">
+                                    {isSubmitting ? 'Saving...' : (isEditing ? 'Update Driver' : 'Add Driver')}
+                                </Button>
                             </div>
                         </form>
-                    </DialogContent>
-                </Dialog>
+                            </div>
+                        </Dialog.Content>
+                    </Dialog.Portal>
+                </Dialog.Root>
             </div>
 
             {/* Stats Cards */}

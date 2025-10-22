@@ -76,17 +76,17 @@ export async function addDriver(driverData: Partial<EpsDriver>): Promise<{ succe
     const supabase = createClient(cookies())
     
     // Validate required fields
-    if (!driverData.first_name || !driverData.surname) {
+    if (!driverData.surname) {
       return {
         success: false,
-        message: 'First name and surname are required'
+        message: 'Full name is required'
       }
     }
     
     const { data, error } = await supabase
       .from('eps_drivers')
       .insert([{
-        first_name: driverData.first_name,
+        first_name: '',
         surname: driverData.surname,
         code: driverData.code || null,
         managed_code: driverData.managed_code || null,

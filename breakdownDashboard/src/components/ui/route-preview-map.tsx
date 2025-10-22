@@ -8,9 +8,14 @@ interface RoutePreviewMapProps {
   origin: string;
   destination: string;
   routeData?: any;
+  stopPoints?: Array<{
+    id: number;
+    name: string;
+    coordinates: number[][];
+  }>;
 }
 
-export function RoutePreviewMap({ origin, destination, routeData }: RoutePreviewMapProps) {
+export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [] }: RoutePreviewMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -60,8 +65,73 @@ export function RoutePreviewMap({ origin, destination, routeData }: RoutePreview
           .setPopup(new (await import('mapbox-gl')).default.Popup().setText(destination))
           .addTo(map.current);
 
-        // Get route
-        const route = routeData?.geometry || await getRoute(originCoords, destCoords);
+        // Add stop point markers
+        if (stopPoints && stopPoints.length > 0) {
+          const mapboxgl = (await import('mapbox-gl')).default;
+          stopPoints.forEach((stopPoint, index) => {
+            const coords = stopPoint.coordinates;
+            const avgLng = coords.reduce((sum: number, coord: number[]) => sum + coord[0], 0) / coords.length;
+            const avgLat = coords.reduce((sum: number, coord: number[]) => sum + coord[1], 0) / coords.length;
+            
+            // Calculate radius from coordinate bounds
+            const lngs = coords.map(coord => coord[0]);
+            const lats = coords.map(coord => coord[1]);
+            const maxLng = Math.max(...lngs);
+            const minLng = Math.min(...lngs);
+            const maxLat = Math.max(...lats);
+            const minLat = Math.min(...lats);
+            const radiusKm = Math.max(
+              (maxLng - minLng) * 111.32 * Math.cos(avgLat * Math.PI / 180),
+              (maxLat - minLat) * 110.54
+            ) / 2;
+            const radiusMeters = radiusKm * 1000;
+            
+            // Add circle for stop point radius
+            const circleId = `stop-circle-${stopPoint.id}`;
+            if (map.current.getSource(circleId)) {
+              map.current.removeLayer(circleId);
+              map.current.removeSource(circleId);
+            }
+            
+            map.current.addSource(circleId, {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                geometry: {
+                  type: 'Point',
+                  coordinates: [avgLng, avgLat]
+                }
+              }
+            });
+            
+            map.current.addLayer({
+              id: circleId,
+              type: 'circle',
+              source: circleId,
+              paint: {
+                'circle-radius': {
+                  stops: [
+                    [0, 0],
+                    [20, radiusMeters / 10]
+                  ],
+                  base: 2
+                },
+                'circle-color': '#87CEEB',
+                'circle-opacity': 0.3,
+                'circle-stroke-color': '#4682B4',
+                'circle-stroke-width': 2
+              }
+            });
+            
+            new mapboxgl.Marker({ color: 'orange' })
+              .setLngLat([avgLng, avgLat])
+              .setPopup(new mapboxgl.Popup().setText(`Stop ${index + 1}: ${stopPoint.name}`))
+              .addTo(map.current);
+          });
+        }
+
+        // Get route with stop points as waypoints
+        const route = routeData?.geometry || await getRoute(originCoords, destCoords, stopPoints);
         
         if (route && map.current.isStyleLoaded()) {
           // Add route line
@@ -102,6 +172,75 @@ export function RoutePreviewMap({ origin, destination, routeData }: RoutePreview
           map.current.fitBounds(bounds, { padding: 50 });
         }
 
+        // Add stop points if available
+        console.log('Stop points to render:', stopPoints);
+        if (stopPoints && stopPoints.length > 0) {
+          stopPoints.forEach((stopPoint, index) => {
+            console.log('Processing stop point:', stopPoint);
+            if (stopPoint.coordinates && stopPoint.coordinates.length > 0) {
+              // Add stop point zones as polygons
+              const sourceId = `stop-point-${stopPoint.id}`;
+              const layerId = `stop-point-layer-${stopPoint.id}`;
+              
+              // Remove existing layers
+              if (map.current.getLayer(`${layerId}-border`)) {
+                map.current.removeLayer(`${layerId}-border`);
+              }
+              if (map.current.getLayer(layerId)) {
+                map.current.removeLayer(layerId);
+              }
+              if (map.current.getSource(sourceId)) {
+                map.current.removeSource(sourceId);
+              }
+
+              console.log('Adding polygon with coordinates:', stopPoint.coordinates);
+              map.current.addSource(sourceId, {
+                type: 'geojson',
+                data: {
+                  type: 'Feature',
+                  properties: {
+                    name: stopPoint.name
+                  },
+                  geometry: {
+                    type: 'Polygon',
+                    coordinates: [stopPoint.coordinates]
+                  }
+                }
+              });
+
+              map.current.addLayer({
+                id: layerId,
+                type: 'fill',
+                source: sourceId,
+                paint: {
+                  'fill-color': `hsl(${(index * 60) % 360}, 70%, 50%)`,
+                  'fill-opacity': 0.4
+                }
+              });
+
+              // Add border
+              map.current.addLayer({
+                id: `${layerId}-border`,
+                type: 'line',
+                source: sourceId,
+                paint: {
+                  'line-color': `hsl(${(index * 60) % 360}, 70%, 40%)`,
+                  'line-width': 2
+                }
+              });
+
+              // Add popup on click
+              map.current.on('click', layerId, async (e: any) => {
+                const mapboxgl = (await import('mapbox-gl')).default;
+                new mapboxgl.Popup()
+                  .setLngLat(e.lngLat)
+                  .setHTML(`<strong>${stopPoint.name}</strong>`)
+                  .addTo(map.current);
+              });
+            }
+          });
+        }
+
       } catch (error) {
         console.error('Error updating route:', error);
       }
@@ -115,7 +254,7 @@ export function RoutePreviewMap({ origin, destination, routeData }: RoutePreview
         map.current = null;
       }
     };
-  }, [origin, destination, routeData, mapLoaded]);
+  }, [origin, destination, routeData, mapLoaded, stopPoints]);
 
   const geocodeLocation = async (location: string) => {
     try {
@@ -135,10 +274,27 @@ export function RoutePreviewMap({ origin, destination, routeData }: RoutePreview
     }
   };
 
-  const getRoute = async (origin: any, destination: any) => {
+  const getRoute = async (origin: any, destination: any, stopPoints: any[] = []) => {
     try {
+      // Build coordinates string: origin -> waypoints -> destination
+      let coordinates = `${origin.lng},${origin.lat}`;
+      
+      // Add stop points as waypoints between origin and destination
+      if (stopPoints && stopPoints.length > 0) {
+        const waypoints = stopPoints.map(point => {
+          const coords = point.coordinates;
+          const avgLng = coords.reduce((sum: number, coord: number[]) => sum + coord[0], 0) / coords.length;
+          const avgLat = coords.reduce((sum: number, coord: number[]) => sum + coord[1], 0) / coords.length;
+          return `${avgLng},${avgLat}`;
+        });
+        
+        coordinates += `;${waypoints.join(';')}`;
+      }
+      
+      coordinates += `;${destination.lng},${destination.lat}`;
+      
       const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
       );
       const data = await response.json();
       return data.routes?.[0]?.geometry;
@@ -185,7 +341,33 @@ export function RoutePreviewMap({ origin, destination, routeData }: RoutePreview
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>
               <span>Drop-off: {destination}</span>
             </div>
+            {stopPoints && stopPoints.length > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span>Stop Points: {stopPoints.length} zones</span>
+              </div>
+            )}
           </div>
+          
+          {stopPoints && stopPoints.length > 0 && (
+            <div className="mt-2">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Stop Points:</h4>
+              <div className="flex flex-wrap gap-2">
+                {stopPoints.map((point, index) => (
+                  <span 
+                    key={point.id} 
+                    className="px-2 py-1 text-xs rounded"
+                    style={{ 
+                      backgroundColor: `hsl(${(index * 60) % 360}, 70%, 90%)`,
+                      color: `hsl(${(index * 60) % 360}, 70%, 30%)`
+                    }}
+                  >
+                    {point.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           
           {routeData && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-sm">

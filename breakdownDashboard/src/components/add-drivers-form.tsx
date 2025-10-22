@@ -25,7 +25,6 @@ import { addDriver } from "@/lib/action/drivers"
 
 interface DriverFormData {
   // Basic Information
-  first_name: string
   surname: string
   identification_number: string
   email_address: string
@@ -61,7 +60,6 @@ interface DriverFormData {
 }
 
 const initialFormData: DriverFormData = {
-  first_name: '',
   surname: '',
   identification_number: '',
   email_address: '',
@@ -101,11 +99,8 @@ export function AddDriversForm() {
     const newErrors: Partial<DriverFormData> = {}
     
     // Required fields validation
-    if (!formData.first_name.trim()) {
-      newErrors.first_name = 'First name is required'
-    }
     if (!formData.surname.trim()) {
-      newErrors.surname = 'Surname is required'
+      newErrors.surname = 'Full name is required'
     }
     
     // Email validation
@@ -157,72 +152,51 @@ export function AddDriversForm() {
   }
 
   return (
-    <div className="bg-white shadow-sm border border-gray-200 rounded-lg">
-      <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-6 border-gray-200 border-b">
+    <div className="bg-white">
+      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-6 border-b border-gray-100">
         <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="flex justify-center items-center bg-gradient-to-br from-cyan-500 to-blue-600 shadow-md rounded-full w-10 h-10">
-              <User className="w-5 h-5 text-white" />
+          <div className="flex items-center space-x-4">
+            <div className="flex justify-center items-center bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg rounded-xl w-12 h-12">
+              <User className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="font-semibold text-gray-900 text-xl">Add New Driver</h2>
-              <p className="text-gray-600 text-sm">Complete the form below to add a new driver to the system</p>
+              <h2 className="font-bold text-gray-900 text-2xl">Add New Driver</h2>
+              <p className="text-gray-600 text-sm mt-1">Complete the form below to add a new driver to the system</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleReset}
-              className="flex items-center space-x-2"
-            >
-              <X className="w-4 h-4" />
-              <span>Reset</span>
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleReset}
+            className="flex items-center space-x-2 hover:bg-gray-50"
+          >
+            <X className="w-4 h-4" />
+            <span>Reset</span>
+          </Button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8 p-6">
+      <form onSubmit={handleSubmit} className="space-y-6 p-6 max-h-[70vh] overflow-y-auto">
         {/* Basic Information Section */}
-        <Card className="p-6 border-l-4 border-l-blue-500">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
           <div className="flex items-center space-x-3 mb-6">
-            <div className="flex justify-center items-center bg-blue-100 rounded-full w-8 h-8">
-              <User className="w-4 h-4 text-blue-600" />
+            <div className="flex justify-center items-center bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg w-10 h-10 shadow-md">
+              <User className="w-5 h-5 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 text-lg">Basic Information</h3>
+            <h3 className="font-bold text-gray-900 text-lg">Basic Information</h3>
           </div>
           
-          <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="first_name" className="font-medium text-gray-700 text-sm">
-                First Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="first_name"
-                value={formData.first_name}
-                onChange={(e) => handleInputChange('first_name', e.target.value)}
-                className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${errors.first_name ? 'border-red-500' : ''}`}
-                placeholder="Enter first name"
-              />
-              {errors.first_name && (
-                <p className="flex items-center space-x-1 text-red-500 text-xs">
-                  <AlertCircle className="w-3 h-3" />
-                  <span>{errors.first_name}</span>
-                </p>
-              )}
-            </div>
-            
+          <div className="gap-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="surname" className="font-medium text-gray-700 text-sm">
-                Surname <span className="text-red-500">*</span>
+                Full Name <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="surname"
                 value={formData.surname}
                 onChange={(e) => handleInputChange('surname', e.target.value)}
                 className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${errors.surname ? 'border-red-500' : ''}`}
-                placeholder="Enter surname"
+                placeholder="Enter full name"
               />
               {errors.surname && (
                 <p className="flex items-center space-x-1 text-red-500 text-xs">
@@ -297,18 +271,18 @@ export function AddDriversForm() {
               />
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Account & Codes Section */}
-        <Card className="p-6 border-l-4 border-l-green-500">
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
           <div className="flex items-center space-x-3 mb-6">
-            <div className="flex justify-center items-center bg-green-100 rounded-full w-8 h-8">
-              <IdCard className="w-4 h-4 text-green-600" />
+            <div className="flex justify-center items-center bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg w-10 h-10 shadow-md">
+              <IdCard className="w-5 h-5 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 text-lg">Account & Codes</h3>
+            <h3 className="font-bold text-gray-900 text-lg">Account & Codes</h3>
           </div>
           
-          <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
+          <div className="gap-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="new_account_number" className="font-medium text-gray-700 text-sm">
                 Account Number
@@ -537,51 +511,53 @@ export function AddDriversForm() {
           </div>
         </Card>
 
-        {/* Submit Section */}
-        <Card className="p-6 border-l-4 border-l-cyan-500">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-              <div className="flex justify-center items-center bg-cyan-100 rounded-full w-8 h-8">
-                <Save className="w-4 h-4 text-cyan-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-lg">Ready to Submit</h3>
-                <p className="text-gray-600 text-sm">Review the information and submit to add the driver</p>
-              </div>
+      </form>
+      
+      {/* Submit Section - Fixed at bottom */}
+      <div className="bg-gradient-to-r from-cyan-50 to-blue-50 p-6 border-t border-gray-100 sticky bottom-0">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-3">
+            <div className="flex justify-center items-center bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg w-10 h-10 shadow-md">
+              <Save className="w-5 h-5 text-white" />
             </div>
-            
-            <div className="flex items-center space-x-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleReset}
-                className="flex items-center space-x-2"
-              >
-                <X className="w-4 h-4" />
-                <span>Reset Form</span>
-              </Button>
-              
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex items-center space-x-2 bg-gradient-to-r from-cyan-500 hover:from-cyan-600 to-blue-600 hover:to-blue-700 shadow-md hover:shadow-lg text-white transition-all duration-200"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="border-2 border-white border-t-transparent rounded-full w-4 h-4 animate-spin" />
-                    <span>Adding Driver...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Add Driver</span>
-                  </>
-                )}
-              </Button>
+            <div>
+              <h3 className="font-bold text-gray-900 text-lg">Ready to Submit</h3>
+              <p className="text-gray-600 text-sm">Review the information and submit to add the driver</p>
             </div>
           </div>
-        </Card>
-      </form>
+          
+          <div className="flex items-center space-x-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleReset}
+              className="flex items-center space-x-2 hover:bg-gray-50"
+            >
+              <X className="w-4 h-4" />
+              <span>Reset Form</span>
+            </Button>
+            
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              onClick={handleSubmit}
+              className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 hover:from-blue-600 to-indigo-600 hover:to-indigo-700 shadow-lg hover:shadow-xl text-white transition-all duration-200 px-8 py-3"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="border-2 border-white border-t-transparent rounded-full w-4 h-4 animate-spin" />
+                  <span>Adding Driver...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Add Driver</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
