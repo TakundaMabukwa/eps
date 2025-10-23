@@ -62,6 +62,7 @@ import { FuelGaugesView } from "@/components/fuelGauge/FuelGaugesView";
 import FuelCanBusDisplay from "@/components/FuelCanBusDisplay";
 import DriverPerformanceDashboard from "@/components/dashboard/DriverPerformanceDashboard";
 import TestRouteMap from "@/components/map/test-route-map";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 
 
 // Driver Card Component with fetched driver info
@@ -159,15 +160,13 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
         </div>
       </div>
       
-      {trip.status_notes && (
-        <div className="mb-2 p-2 bg-slate-50 rounded border-l-2 border-slate-400">
-          <div className="flex items-center gap-1 mb-1">
-            <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
-            <span className="text-xs font-medium text-slate-600 uppercase">Note</span>
-          </div>
-          <div className="text-xs text-slate-900">{trip.status_notes}</div>
+      <div className="mb-2 p-2 bg-slate-50 rounded border-l-2 border-slate-400">
+        <div className="flex items-center gap-1 mb-1">
+          <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
+          <span className="text-xs font-medium text-slate-600 uppercase">Note</span>
         </div>
-      )}
+        <div className="text-xs text-slate-900">{trip.status_notes || 'No notes added'}</div>
+      </div>
       
       <div className="mb-2 bg-slate-50 rounded p-2">
         <div className="flex items-center gap-1 mb-1">
@@ -250,11 +249,6 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
               }).filter(Boolean);
             }
             
-            if (!routeCoords) {
-              alert('No route data available for this trip');
-              return;
-            }
-            
             handleViewMap(driverName, { ...trip, vehicleLocation, routeCoords, stopPoints });
           }}
         >
@@ -295,9 +289,18 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           variant="destructive" 
           className="h-7 text-xs"
           disabled={userRole === "fleet manager"}
-          onClick={() => {
+          onClick={async () => {
             if (userRole === "fleet manager") return;
-            alert('Cancel Load');
+            if (!confirm('Are you sure you want to delete this trip?')) return;
+            try {
+              const supabase = createClient();
+              const { error } = await supabase.from('trips').delete().eq('id', trip.id);
+              if (error) throw error;
+              alert('Trip deleted successfully');
+            } catch (err) {
+              console.error('Failed to delete trip:', err);
+              alert('Failed to delete trip');
+            }
           }}
         >
           <X className="w-3 h-3" />Cancel
@@ -308,7 +311,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
 }
 
 // Enhanced routing components with proper waypoints
-function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNoteText, setNoteOpen, setAvailableDrivers, setCurrentTripForChange, setChangeDriverOpen }: any) {
+function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNoteText, setNoteOpen, setAvailableDrivers, setCurrentTripForChange, setChangeDriverOpen, refreshTrigger, setRefreshTrigger, setPickupTimeOpen, setDropoffTimeOpen, setCurrentTripForTime, setTimeType, setSelectedTime }: any) {
   const [trips, setTrips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -328,7 +331,21 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
     }
     
     fetchTrips()
-  }, [])
+    
+    // Real-time subscription
+    const supabase = createClient()
+    const channel = supabase
+      .channel('trips-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'trips' },
+        () => fetchTrips()
+      )
+      .subscribe()
+    
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [refreshTrigger])
 
   const tripsList = trips.filter(trip => trip.status?.toLowerCase() !== 'delivered')
 
@@ -555,25 +572,75 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
                   </div>
                 )}
 
+                {/* Time Information */}
+                {(() => {
+                  const pickupTime = trip.pickup_locations?.[0]?.scheduled_time || trip.pickuplocations?.[0]?.scheduled_time;
+                  const dropoffTime = trip.dropoff_locations?.[0]?.scheduled_time || trip.dropofflocations?.[0]?.scheduled_time;
+                  return (pickupTime || dropoffTime) && (
+                    <div className="bg-blue-50 rounded p-1.5 mb-2 border border-blue-200">
+                      <div className="flex items-center gap-1 mb-1">
+                        <Clock className="w-2.5 h-2.5 text-blue-600" />
+                        <span className="text-xs font-medium text-blue-800">Schedule</span>
+                      </div>
+                      <div className="space-y-1">
+                        {pickupTime && (
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1">
+                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                              <span className="font-medium text-slate-700">Pickup</span>
+                            </div>
+                            <span className="font-semibold text-slate-900">
+                              {new Date(pickupTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} {new Date(pickupTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        )}
+                        {dropoffTime && (
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1">
+                              <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                              <span className="font-medium text-slate-700">Drop-off</span>
+                            </div>
+                            <span className="font-semibold text-slate-900">
+                              {new Date(dropoffTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} {new Date(dropoffTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-1">
                   <Button 
                     size="sm" 
                     variant="outline" 
                     className="h-7 text-xs"
-                    onClick={() => alert('Set pickup time functionality')}
+                    onClick={() => {
+                      setCurrentTripForTime(trip);
+                      setTimeType('pickup');
+                      const pickupLocs = trip.pickup_locations || trip.pickuplocations || [];
+                      setSelectedTime(pickupLocs[0]?.scheduled_time || '');
+                      setPickupTimeOpen(true);
+                    }}
                   >
                     <Clock className="w-3 h-3 mr-1" />
-                    Pickup Time
+                    {(trip.pickup_locations?.[0]?.scheduled_time || trip.pickuplocations?.[0]?.scheduled_time) ? 'Update Pickup' : 'Set Pickup'}
                   </Button>
                   <Button 
                     size="sm" 
                     variant="outline" 
                     className="h-7 text-xs"
-                    onClick={() => alert('Set drop-off time functionality')}
+                    onClick={() => {
+                      setCurrentTripForTime(trip);
+                      setTimeType('dropoff');
+                      const dropoffLocs = trip.dropoff_locations || trip.dropofflocations || [];
+                      setSelectedTime(dropoffLocs[0]?.scheduled_time || '');
+                      setDropoffTimeOpen(true);
+                    }}
                   >
                     <Clock className="w-3 h-3 mr-1" />
-                    Drop-off Time
+                    {(trip.dropoff_locations?.[0]?.scheduled_time || trip.dropofflocations?.[0]?.scheduled_time) ? 'Update Drop-off' : 'Set Drop-off'}
                   </Button>
                   <Button 
                     size="sm" 
@@ -584,7 +651,8 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
                         const supabase = createClient();
                         const { error } = await supabase.from('trips').update({ status: 'Delivered' }).eq('id', trip.id);
                         if (error) throw error;
-                        alert('Trip marked as completed');
+                        alert('Trip marked as delivered');
+                        setRefreshTrigger(prev => prev + 1);
                       } catch (err) {
                         console.error('Failed to complete trip', err);
                         alert('Failed to complete trip');
@@ -618,6 +686,13 @@ export default function Dashboard() {
   const [currentTripForChange, setCurrentTripForChange] = useState<any>(null);
   const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
   const [allVehicles, setAllVehicles] = useState<any[]>([]);
+  const [driverSearchTerm, setDriverSearchTerm] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [pickupTimeOpen, setPickupTimeOpen] = useState(false);
+  const [dropoffTimeOpen, setDropoffTimeOpen] = useState(false);
+  const [currentTripForTime, setCurrentTripForTime] = useState<any>(null);
+  const [timeType, setTimeType] = useState<'pickup' | 'dropoff'>('pickup');
+  const [selectedTime, setSelectedTime] = useState('');
 
   // Get user role from cookies
   useEffect(() => {
@@ -638,6 +713,24 @@ export default function Dashboard() {
         trip,
         routeCoordinates: trip.routeCoords,
         stopPoints: trip.stopPoints,
+        driverDetails: {
+          fullName: driverName,
+          plate: trip.vehicleLocation.plate,
+          speed: trip.vehicleLocation.speed,
+          mileage: trip.vehicleLocation.mileage,
+          address: trip.vehicleLocation.address,
+          geozone: trip.vehicleLocation.geozone,
+          company: trip.vehicleLocation.company,
+          lastUpdate: trip.vehicleLocation.loc_time
+        }
+      };
+      setMapData(vehicleData);
+      setMapOpen(true);
+    } else if (trip?.vehicleLocation) {
+      const vehicleData = {
+        ...trip.vehicleLocation,
+        latitude: trip.vehicleLocation.latitude,
+        longitude: trip.vehicleLocation.longitude,
         driverDetails: {
           fullName: driverName,
           plate: trip.vehicleLocation.plate,
@@ -743,6 +836,13 @@ export default function Dashboard() {
               setAvailableDrivers={setAvailableDrivers}
               setCurrentTripForChange={setCurrentTripForChange}
               setChangeDriverOpen={setChangeDriverOpen}
+              refreshTrigger={refreshTrigger}
+              setRefreshTrigger={setRefreshTrigger}
+              setPickupTimeOpen={setPickupTimeOpen}
+              setDropoffTimeOpen={setDropoffTimeOpen}
+              setCurrentTripForTime={setCurrentTripForTime}
+              setTimeType={setTimeType}
+              setSelectedTime={setSelectedTime}
             />
           </div>
         )}
@@ -822,6 +922,206 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Change Driver Modal */}
+      {changeDriverOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">Change Driver</h3>
+              <Button variant="ghost" size="sm" onClick={() => {
+                setChangeDriverOpen(false);
+                setDriverSearchTerm('');
+              }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4">
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">Current Trip: {currentTripForChange?.trip_id || currentTripForChange?.id}</p>
+                <p className="text-sm text-gray-600 mb-2">Select a new driver:</p>
+                <input
+                  type="text"
+                  placeholder="Search by surname..."
+                  value={driverSearchTerm}
+                  onChange={(e) => setDriverSearchTerm(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {availableDrivers
+                  .filter(driver => 
+                    driver.surname?.toLowerCase().includes(driverSearchTerm.toLowerCase()) ||
+                    driver.first_name?.toLowerCase().includes(driverSearchTerm.toLowerCase())
+                  )
+                  .map((driver) => (
+                  <div
+                    key={driver.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                    onClick={async () => {
+                      if (!confirm(`Assign ${driver.first_name} ${driver.surname} to this trip?`)) return;
+                      try {
+                        const supabase = createClient();
+                        const currentAssignments = currentTripForChange.vehicleassignments || currentTripForChange.vehicle_assignments || [];
+                        const updatedAssignments = currentAssignments.map(assignment => ({
+                          ...assignment,
+                          drivers: [{ id: driver.id, name: `${driver.first_name} ${driver.surname}` }]
+                        }));
+                        
+                        const { error } = await supabase
+                          .from('trips')
+                          .update({ 
+                            vehicleassignments: updatedAssignments,
+                            vehicle_assignments: updatedAssignments 
+                          })
+                          .eq('id', currentTripForChange.id);
+                        
+                        if (error) throw error;
+                        alert('Driver changed successfully');
+                        setChangeDriverOpen(false);
+                        setRefreshTrigger(prev => prev + 1);
+                      } catch (err) {
+                        console.error('Failed to change driver:', err);
+                        alert('Failed to change driver');
+                      }
+                    }}
+                  >
+                    <div>
+                      <div className="font-medium">{driver.first_name} {driver.surname}</div>
+                      <div className="text-sm text-gray-500">{driver.phone_number}</div>
+                    </div>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      driver.available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {driver.available ? 'Available' : 'Busy'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Time Setting Modal */}
+      {(pickupTimeOpen || dropoffTimeOpen) && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">
+                Set {timeType === 'pickup' ? 'Pickup' : 'Drop-off'} Time
+              </h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setPickupTimeOpen(false);
+                  setDropoffTimeOpen(false);
+                  setSelectedTime('');
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-2">
+                  Trip: {currentTripForTime?.trip_id || currentTripForTime?.id}
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  Select {timeType === 'pickup' ? 'pickup' : 'drop-off'} date and time:
+                </p>
+                <DateTimePicker
+                  value={selectedTime}
+                  onChange={setSelectedTime}
+                  placeholder={`Select ${timeType} time`}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setPickupTimeOpen(false);
+                    setDropoffTimeOpen(false);
+                    setSelectedTime('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                {selectedTime && (
+                  <Button 
+                    variant="destructive" 
+                    onClick={async () => {
+                      try {
+                        const supabase = createClient();
+                        const field = timeType === 'pickup' ? 'pickup_locations' : 'dropoff_locations';
+                        const locations = currentTripForTime[field] || currentTripForTime[field.replace('_', '')] || [];
+                        
+                        const updatedLocations = locations.length > 0 
+                          ? locations.map((loc, index) => index === 0 ? { ...loc, scheduled_time: null } : loc)
+                          : [];
+                        
+                        const { error } = await supabase
+                          .from('trips')
+                          .update({ [field]: updatedLocations })
+                          .eq('id', currentTripForTime.id);
+                        
+                        if (error) throw error;
+                        
+                        alert(`${timeType === 'pickup' ? 'Pickup' : 'Drop-off'} time removed successfully`);
+                        setPickupTimeOpen(false);
+                        setDropoffTimeOpen(false);
+                        setSelectedTime('');
+                        setRefreshTrigger(prev => prev + 1);
+                      } catch (err) {
+                        console.error(`Failed to remove ${timeType} time:`, err);
+                        alert(`Failed to remove ${timeType} time`);
+                      }
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+                <Button 
+                  onClick={async () => {
+                    if (!selectedTime) {
+                      alert('Please select a time');
+                      return;
+                    }
+                    try {
+                      const supabase = createClient();
+                      const field = timeType === 'pickup' ? 'pickup_locations' : 'dropoff_locations';
+                      const locations = currentTripForTime[field] || currentTripForTime[field.replace('_', '')] || [];
+                      
+                      const updatedLocations = locations.length > 0 
+                        ? locations.map((loc, index) => index === 0 ? { ...loc, scheduled_time: selectedTime } : loc)
+                        : [{ scheduled_time: selectedTime }];
+                      
+                      const { error } = await supabase
+                        .from('trips')
+                        .update({ [field]: updatedLocations })
+                        .eq('id', currentTripForTime.id);
+                      
+                      if (error) throw error;
+                      
+                      alert(`${timeType === 'pickup' ? 'Pickup' : 'Drop-off'} time set successfully`);
+                      setPickupTimeOpen(false);
+                      setDropoffTimeOpen(false);
+                      setSelectedTime('');
+                      setRefreshTrigger(prev => prev + 1);
+                    } catch (err) {
+                      console.error(`Failed to set ${timeType} time:`, err);
+                      alert(`Failed to set ${timeType} time`);
+                    }
+                  }}
+                >
+                  Save Time
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Map Modal */}
       {mapOpen && (
