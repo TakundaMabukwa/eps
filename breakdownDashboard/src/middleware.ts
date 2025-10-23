@@ -73,7 +73,7 @@ export async function middleware(req: NextRequest) {
   // If authenticated, get user role from database
   if (isAuthenticated) {
     try {
-      const supabase = await createClient()
+      const supabase = createClient()
       const { data: { user }, error } = await supabase.auth.getUser()
 
       // Query the users table to get the role for the logged-in user

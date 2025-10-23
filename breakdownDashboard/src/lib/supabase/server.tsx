@@ -5,8 +5,8 @@ import { Database } from '@/lib/supabase/database.types';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 
-export const createClient = async () => {
-  const cookieStore = await cookies();
+export const createClient = () => {
+  const cookieStore = cookies();
 
   return createServerClient<Database>(
     supabaseUrl!,
