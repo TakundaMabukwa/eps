@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createMiddlewareClient } from '@/lib/supabase/server'
 
 const roles = [
   {
@@ -73,7 +73,7 @@ export async function middleware(req: NextRequest) {
   // If authenticated, get user role from database
   if (isAuthenticated) {
     try {
-      const supabase = createClient()
+      const supabase = createMiddlewareClient(req)
       const { data: { user }, error } = await supabase.auth.getUser()
 
       // Query the users table to get the role for the logged-in user
