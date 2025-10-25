@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import InspectionTemplatesPage from "@/components/pages/InspectionTemplates";
 
 type InspectionItem = {
   label: string;
@@ -92,6 +93,8 @@ export default function InspectionsPage() {
             </li>
           </ul>
         </div>
+
+        <InspectionTemplatesPage />
       </div>
 
       {inspections.map((insp) => {
