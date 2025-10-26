@@ -30,6 +30,7 @@ export async function GET(request) {
       .from('clients')
       .select('*')
       .eq('company', userProfile.client_id)
+      .order('created_at', { ascending: false })
     
     if (error) throw error
     

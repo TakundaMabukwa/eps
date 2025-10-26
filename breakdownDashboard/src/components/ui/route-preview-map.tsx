@@ -13,9 +13,14 @@ interface RoutePreviewMapProps {
     name: string;
     coordinates: number[][];
   }>;
+  driverLocation?: {
+    lat: number;
+    lng: number;
+    name: string;
+  };
 }
 
-export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [] }: RoutePreviewMapProps) {
+export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [], driverLocation }: RoutePreviewMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -53,6 +58,51 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
         ]);
 
         if (!originCoords || !destCoords) return;
+
+        // Add driver location marker if available
+        if (driverLocation) {
+          new (await import('mapbox-gl')).default.Marker({ color: 'blue' })
+            .setLngLat([driverLocation.lng, driverLocation.lat])
+            .setPopup(new (await import('mapbox-gl')).default.Popup().setText(`Driver: ${driverLocation.name}`))
+            .addTo(map.current);
+
+          // Get route from driver to loading location
+          const driverToLoadingRoute = await getRoute(
+            { lat: driverLocation.lat, lng: driverLocation.lng },
+            originCoords
+          );
+
+          if (driverToLoadingRoute && map.current.isStyleLoaded()) {
+            if (map.current.getSource('driver-route')) {
+              map.current.removeLayer('driver-route');
+              map.current.removeSource('driver-route');
+            }
+
+            map.current.addSource('driver-route', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: driverToLoadingRoute
+              }
+            });
+
+            map.current.addLayer({
+              id: 'driver-route',
+              type: 'line',
+              source: 'driver-route',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#1e40af',
+                'line-width': 3,
+                'line-dasharray': [2, 2]
+              }
+            });
+          }
+        }
 
         // Add markers
         new (await import('mapbox-gl')).default.Marker({ color: 'green' })
@@ -130,44 +180,49 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
           });
         }
 
-        // Get route with stop points as waypoints
-        const route = routeData?.geometry || await getRoute(originCoords, destCoords, stopPoints);
+        // Always get optimized route from loading to dropoff with stop points
+        const mainRoute = routeData?.geometry || await getRoute(originCoords, destCoords, stopPoints);
         
-        if (route && map.current.isStyleLoaded()) {
-          // Add route line
-          if (map.current.getSource('route')) {
-            map.current.removeLayer('route');
-            map.current.removeSource('route');
+        if (mainRoute && map.current.isStyleLoaded()) {
+          // Remove existing route
+          if (map.current.getSource('main-route')) {
+            map.current.removeLayer('main-route');
+            map.current.removeSource('main-route');
           }
 
-          map.current.addSource('route', {
+          map.current.addSource('main-route', {
             type: 'geojson',
             data: {
               type: 'Feature',
               properties: {},
-              geometry: route
+              geometry: mainRoute
             }
           });
 
           map.current.addLayer({
-            id: 'route',
+            id: 'main-route',
             type: 'line',
-            source: 'route',
+            source: 'main-route',
             layout: {
               'line-join': 'round',
               'line-cap': 'round'
             },
             paint: {
-              'line-color': '#3b82f6',
-              'line-width': 4
+              'line-color': '#10b981',
+              'line-width': 5
             }
           });
 
-          // Fit map to route
-          const coordinates = route.coordinates;
+          // Fit map to all elements
+          const coordinates = mainRoute.coordinates;
           const bounds = coordinates.reduce((bounds: any, coord: any) => {
             return bounds.extend(coord);
           }, new (await import('mapbox-gl')).default.LngLatBounds(coordinates[0], coordinates[0]));
+
+          // Include driver location in bounds if available
+          if (driverLocation) {
+            bounds.extend([driverLocation.lng, driverLocation.lat]);
+          }
 
           map.current.fitBounds(bounds, { padding: 50 });
         }
@@ -194,6 +249,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
               }
 
               console.log('Adding polygon with coordinates:', stopPoint.coordinates);
+              if (!map.current.isStyleLoaded()) return;
               map.current.addSource(sourceId, {
                 type: 'geojson',
                 data: {
@@ -254,7 +310,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
         map.current = null;
       }
     };
-  }, [origin, destination, routeData, mapLoaded, stopPoints]);
+  }, [origin, destination, routeData, mapLoaded, stopPoints, driverLocation]);
 
   const geocodeLocation = async (location: string) => {
     try {
@@ -279,7 +335,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
       // Build coordinates string: origin -> waypoints -> destination
       let coordinates = `${origin.lng},${origin.lat}`;
       
-      // Add stop points as waypoints between origin and destination
+      // Add stop points as waypoints for optimization
       if (stopPoints && stopPoints.length > 0) {
         const waypoints = stopPoints.map(point => {
           const coords = point.coordinates;
@@ -293,11 +349,16 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
       
       coordinates += `;${destination.lng},${destination.lat}`;
       
-      const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
-      );
+      // Use optimized routing with waypoint optimization
+      const url = stopPoints.length > 0 
+        ? `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
+        : `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`;
+      
+      const response = await fetch(url);
       const data = await response.json();
-      return data.routes?.[0]?.geometry;
+      
+      // Handle both optimized trips and regular directions response
+      return data.trips?.[0]?.geometry || data.routes?.[0]?.geometry;
     } catch (error) {
       console.error('Route error:', error);
       return null;
@@ -343,10 +404,20 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
             </div>
             {stopPoints && stopPoints.length > 0 && (
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <span>Stop Points: {stopPoints.length} zones</span>
               </div>
             )}
+            {driverLocation && (
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span>Driver: {driverLocation.name}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span>Main Route (Optimized)</span>
+            </div>
           </div>
           
           {stopPoints && stopPoints.length > 0 && (

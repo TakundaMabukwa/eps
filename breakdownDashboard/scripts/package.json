@@ -1,6 +1,11 @@
 {
-  "name": "customer-import",
+  "name": "client-import-script",
   "version": "1.0.0",
+  "description": "Script to import client data from Excel to Supabase",
+  "main": "import-clients.js",
+  "scripts": {
+    "import": "node import-clients.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "xlsx": "^0.18.5"

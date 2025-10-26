@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogPortal, DialogOverlay } from '@/components/ui/dialog'
 import { X, FileText, CheckCircle, AlertTriangle, Clock, TrendingUp, Plus, Route, MapPin } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { LocationAutocomplete } from '@/components/ui/location-autocomplete'
@@ -20,11 +21,20 @@ import { RouteTracker } from '@/components/ui/route-tracker'
 import { RoutePreviewMap } from '@/components/ui/route-preview-map'
 import { RouteConfirmationModal } from '@/components/ui/route-confirmation-modal'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
+import { CommodityDropdown } from '@/components/ui/commodity-dropdown'
+import { ClientDropdown } from '@/components/ui/client-dropdown'
+import { ClientAddressPopup } from '@/components/ui/client-address-popup'
+import { Toast, useToast } from '@/components/ui/toast'
+import { DriverDropdown } from '@/components/ui/driver-dropdown'
+import { StopPointDropdown } from '@/components/ui/stop-point-dropdown'
+import { markDriversUnavailable } from '@/lib/utils/driver-availability'
+
 
 export default function LoadPlanPage() {
   console.log('LoadPlanPage component rendering')
   const supabase = createClient()
   console.log('Supabase client created:', !!supabase)
+  const { toast, showToast, hideToast } = useToast()
   const [loads, setLoads] = useState([
     {
       id: 'test-1',
@@ -41,12 +51,16 @@ export default function LoadPlanPage() {
   const [clients, setClients] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [drivers, setDrivers] = useState([])
+  const [costCenters, setCostCenters] = useState([])
   const [availableDrivers, setAvailableDrivers] = useState([])
   const [vehicleTrackingData, setVehicleTrackingData] = useState([])
 
   // Create Load form state
   const [client, setClient] = useState('')
+  const [selectedClient, setSelectedClient] = useState(null)
+  const [showAddressPopup, setShowAddressPopup] = useState(false)
   const [commodity, setCommodity] = useState('')
+  const [costCenter, setCostCenter] = useState('')
   const [rate, setRate] = useState('')
   const [orderNumber, setOrderNumber] = useState(`ORD-${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}`)
   const [comment, setComment] = useState('')
@@ -63,6 +77,9 @@ export default function LoadPlanPage() {
 
   // Driver assignments state
   const [driverAssignments, setDriverAssignments] = useState([{ id: '', name: '' }])
+  const [selectedVehicleId, setSelectedVehicleId] = useState('')
+  const [selectedVehicleType, setSelectedVehicleType] = useState('')
+  const [selectedDriverLocation, setSelectedDriverLocation] = useState(null)
   
   // Cost calculation state
   const [selectedVehicle, setSelectedVehicle] = useState('')
@@ -77,14 +94,110 @@ export default function LoadPlanPage() {
   const [tripType, setTripType] = useState('local')
   const [stopPoints, setStopPoints] = useState([])
   const [availableStopPoints, setAvailableStopPoints] = useState([])
+  const [isLoadingStopPoints, setIsLoadingStopPoints] = useState(false)
+  const [tripDays, setTripDays] = useState(1)
+
+  // Rate Card System - Variable Costs
+  const RATE_CARD_SYSTEM = {
+    'TAUTLINER': {
+      fuel_rate: 4070,      // R4,070 fuel component
+      base_rate: 7280,      // R7,280 base rate
+      ppk: 3.00,           // R3.00 per km
+      profit_margin: 0.111, // 11.1%
+      extra_stop: 0,       // No extra stop cost
+    },
+    'TAUT X-BRDER - BOTSWANA': {
+      fuel_rate: 3500,
+      base_rate: 6500,
+      ppk: 2.80,
+      profit_margin: 0.10,
+      extra_stop: 500,
+    },
+    'TAUT X-BRDER - NAMIBIA': {
+      fuel_rate: 3800,
+      base_rate: 7000,
+      ppk: 2.90,
+      profit_margin: 0.10,
+      extra_stop: 500,
+    },
+    'CITRUS LOAD (+1 DAY STANDING FPT)': {
+      fuel_rate: 4070,
+      base_rate: 7280,
+      ppk: 3.00,
+      profit_margin: 0.111,
+      extra_stop: 0,
+      standing_day_cost: 2000, // Extra standing day cost
+    },
+    '14M/15M COMBO (NEW)': {
+      fuel_rate: 3200,
+      base_rate: 6800,
+      ppk: 2.50,
+      profit_margin: 0.12,
+      extra_stop: 300,
+    },
+    '14M/15M REEFER': {
+      fuel_rate: 3500,
+      base_rate: 7500,
+      ppk: 2.80,
+      profit_margin: 0.12,
+      extra_stop: 400,
+    },
+    '9 METER (NEW)': {
+      fuel_rate: 2800,
+      base_rate: 5500,
+      ppk: 2.20,
+      profit_margin: 0.11,
+      extra_stop: 250,
+    },
+    '8T JHB (NEW - EPS)': {
+      fuel_rate: 2200,
+      base_rate: 4800,
+      ppk: 1.80,
+      profit_margin: 0.10,
+      extra_stop: 200,
+    },
+    '8T JHB (NEW) - X-BRDER - MOZ': {
+      fuel_rate: 2400,
+      base_rate: 5200,
+      ppk: 1.90,
+      profit_margin: 0.10,
+      extra_stop: 300,
+    },
+    '8T JHB (OLD)': {
+      fuel_rate: 2000,
+      base_rate: 4200,
+      ppk: 1.60,
+      profit_margin: 0.09,
+      extra_stop: 150,
+    },
+    '14 TON CURTAIN': {
+      fuel_rate: 3400,
+      base_rate: 6200,
+      ppk: 2.60,
+      profit_margin: 0.11,
+      extra_stop: 350,
+    },
+    '1TON BAKKIE': {
+      fuel_rate: 1200,
+      base_rate: 2800,
+      ppk: 1.20,
+      profit_margin: 0.08,
+      extra_stop: 100,
+    },
+  }
 
   // Fetch loads and reference data
-  // Fetch stop points separately when needed
+  // Fetch stop points with pagination and caching
   const fetchStopPoints = async () => {
+    if (availableStopPoints.length > 0) return // Already loaded
+    
+    setIsLoadingStopPoints(true)
     try {
       const { data: stopPointsData, error: stopPointsError } = await supabase
         .from('stop_points')
-        .select('id, name, name2, coordinates, color, outline, style_url, value, radius, coordinates5, coordinates6')
+        .select('id, name, name2, coordinates')
+        .order('name')
+        .limit(1000) // Limit to prevent large data loads
       
       if (stopPointsError) {
         console.error('Stop points error:', stopPointsError)
@@ -94,6 +207,7 @@ export default function LoadPlanPage() {
     } catch (err) {
       console.error('Error fetching stop points:', err)
     }
+    setIsLoadingStopPoints(false)
   }
 
   const fetchData = async () => {
@@ -105,19 +219,20 @@ export default function LoadPlanPage() {
         { data: clientsData, error: clientsError },
         { data: vehiclesData, error: vehiclesError },
         { data: driversData, error: driversError },
-
+        { data: costCentersData, error: costCentersError },
         trackingResponse
       ] = await Promise.all([
-        supabase.from('trips').select('*'),
-        supabase.from('clients').select('*'),
-        supabase.from('vehiclesc').select('*'),
+        supabase.from('trips').select('*').order('created_at', { ascending: false }),
+        supabase.from('clients').select('id, name, client_id, address, contact_person, phone, pickup_locations, dropoff_locations').eq('status', 'Active'),
+        supabase.from('vehiclesc').select('id, registration_number, engine_number, vin_number, make, model, sub_model, manufactured_year, vehicle_type').eq('veh_dormant_flag', false),
         supabase.from('drivers').select('*'),
+        supabase.from('cost_centers').select('*'),
         fetch('http://64.227.138.235:3000/api/eps-vehicles')
       ])
       
 
       
-      console.log('Supabase errors:', { loadsError, clientsError, vehiclesError, driversError })
+      console.log('Supabase errors:', { loadsError, clientsError, vehiclesError, driversError, costCentersError })
       
       const trackingData = await trackingResponse.json()
       const vehicleData = trackingData?.result?.data || trackingData?.data || trackingData || []
@@ -173,6 +288,7 @@ export default function LoadPlanPage() {
       setDrivers(formattedDrivers)
       setAvailableDrivers(availableDriversList)
       setVehicleTrackingData(vehicleData)
+      setCostCenters(costCentersData || [])
       setAvailableStopPoints([])
     } catch (err) {
       console.error('Error fetching data:', err)
@@ -182,6 +298,49 @@ export default function LoadPlanPage() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Vehicle type options
+  const vehicleTypeOptions = [
+    'TAUTLINER',
+    'TAUT X-BRDER - BOTSWANA',
+    'TAUT X-BRDER - NAMIBIA', 
+    'CITRUS LOAD (+1 DAY STANDING FPT)',
+    '14M/15M COMBO (NEW)',
+    '14M/15M REEFER',
+    '9 METER (NEW)',
+    '8T JHB (NEW - EPS)',
+    '8T JHB (NEW) - X-BRDER - MOZ',
+    '8T JHB (OLD)',
+    '14 TON CURTAIN',
+    '1TON BAKKIE'
+  ]
+
+  // Filter vehicles based on selected type
+  const filteredVehicles = useMemo(() => {
+    if (!selectedVehicleType) return vehicles
+    
+    const keywords = {
+      'TAUTLINER': ['taut', 'liner'],
+      'TAUT X-BRDER - BOTSWANA': ['taut', 'botswana', 'x-border'],
+      'TAUT X-BRDER - NAMIBIA': ['taut', 'namibia', 'x-border'],
+      'CITRUS LOAD (+1 DAY STANDING FPT)': ['citrus', 'fpt'],
+      '14M/15M COMBO (NEW)': ['14m', '15m', 'combo'],
+      '14M/15M REEFER': ['14m', '15m', 'reefer'],
+      '9 METER (NEW)': ['9m', '9 meter'],
+      '8T JHB (NEW - EPS)': ['8t', '8 ton', 'jhb'],
+      '8T JHB (NEW) - X-BRDER - MOZ': ['8t', '8 ton', 'jhb', 'moz'],
+      '8T JHB (OLD)': ['8t', '8 ton', 'jhb', 'old'],
+      '14 TON CURTAIN': ['14 ton', 'curtain'],
+      '1TON BAKKIE': ['1 ton', 'bakkie']
+    }
+    
+    const typeKeywords = keywords[selectedVehicleType] || []
+    
+    return vehicles.filter(vehicle => {
+      const searchText = `${vehicle.make} ${vehicle.model} ${vehicle.sub_model} ${vehicle.vehicle_type}`.toLowerCase()
+      return typeKeywords.some(keyword => searchText.includes(keyword.toLowerCase()))
+    })
+  }, [vehicles, selectedVehicleType])
 
   // Memoized vehicle and driver lookups
   const vehicleMap = useMemo(() => 
@@ -320,9 +479,15 @@ export default function LoadPlanPage() {
   // Update sorted drivers when pickup location changes
   useEffect(() => {
     if (loadingLocation) {
-      getSortedDriversByDistance(loadingLocation).then(setSortedDrivers)
+      getSortedDriversByDistance(loadingLocation).then((sorted) => {
+        setSortedDrivers(sorted)
+        // Also update available drivers with distance info
+        const availableWithDistance = sorted.filter(d => d.available === true)
+        setAvailableDrivers(availableWithDistance)
+      })
     } else {
       setSortedDrivers(drivers)
+      setAvailableDrivers(drivers.filter(d => d.available === true))
     }
   }, [loadingLocation, getSortedDriversByDistance, drivers])
 
@@ -386,91 +551,88 @@ export default function LoadPlanPage() {
     calculateRouteDistance()
   }, [loadingLocation, dropOffPoint])
 
+  // Rate Card Calculation Function
+  const calculateRateCardCost = useCallback((vehicleType, kms, days) => {
+    if (!vehicleType || !RATE_CARD_SYSTEM[vehicleType]) {
+      return {
+        fuel_cost: 0,
+        base_cost: 0,
+        transport_cost: 0,
+        extra_stop_cost: 0,
+        standing_day_cost: 0,
+        profit_amount: 0,
+        total_transport: 0,
+        ppk_cost: 0
+      }
+    }
+
+    const rateCard = RATE_CARD_SYSTEM[vehicleType]
+    
+    // Rate Card Components
+    const fuel_cost = rateCard.fuel_rate // Fixed fuel component
+    const base_cost = rateCard.base_rate // Fixed base rate
+    const ppk_cost = kms * rateCard.ppk  // Per kilometer cost
+    const extra_stop_cost = rateCard.extra_stop || 0
+    const standing_day_cost = (rateCard.standing_day_cost || 0) * (days > 1 ? days - 1 : 0)
+    
+    // Transport Cost = Fuel + Base + PPK + Standing Days
+    const transport_cost = fuel_cost + base_cost + ppk_cost + standing_day_cost
+    
+    // Profit Calculation
+    const profit_amount = transport_cost * rateCard.profit_margin
+    
+    // Total Transport = Transport + Profit + Extra Stops
+    const total_transport = transport_cost + profit_amount + extra_stop_cost
+
+    return {
+      fuel_cost,
+      base_cost,
+      transport_cost,
+      extra_stop_cost,
+      standing_day_cost,
+      profit_amount,
+      total_transport,
+      ppk_cost
+    }
+  }, [RATE_CARD_SYSTEM])
+
   // Calculate costs when relevant values change
   useEffect(() => {
-    console.log('Calculating costs:', { fuelPricePerLiter, estimatedDistance })
-    // Approximate fuel cost = fuel price * estimated km
-    const fuelPrice = parseFloat(fuelPricePerLiter) || 0
-    const distance = estimatedDistance || 0
-    const fuelCost = fuelPrice * distance
-    setApproximateFuelCost(fuelCost)
-    
-    // CPK = fuel cost per kilometer
-    const cpk = distance > 0 ? fuelCost / distance : 0
-    setApproximatedCPK(cpk)
-    console.log('Calculated fuel cost:', fuelCost, 'CPK:', cpk)
-  }, [fuelPricePerLiter, estimatedDistance])
-
-  // Calculate vehicle cost based on assigned driver's vehicle
-  useEffect(() => {
-    const assignedDriver = driverAssignments.find(d => d.id)
-    if (assignedDriver?.id) {
-      // Find driver in database by surname
-      const driver = drivers.find(d => d.id === assignedDriver.id)
-      if (driver?.surname) {
-        // Find vehicle assigned to this driver from tracking data using surname
-        const trackingData = Array.isArray(vehicleTrackingData) ? vehicleTrackingData : []
-        const matchingVehicle = trackingData.find(vehicle => 
-          vehicle.driver_name && 
-          vehicle.driver_name.toLowerCase().includes(driver.surname.toLowerCase())
-        )
-        
-        if (matchingVehicle?.registration) {
-          // Find vehicle in database by registration
-          const vehicle = vehicles.find(v => v.registration_number === matchingVehicle.registration)
-          let vehicleHourlyRate = 0
-          if (vehicle?.hourly_rate) {
-            vehicleHourlyRate = parseFloat(vehicle.hourly_rate)
-          } else {
-            // Default vehicle hourly rate
-            vehicleHourlyRate = 75 // R75 per hour default
-          }
-          const vehicleCost = vehicleHourlyRate * 8
-          setApproximatedVehicleCost(vehicleCost)
-          console.log('Vehicle cost calculated:', vehicleCost)
-        } else {
-          setApproximatedVehicleCost(0)
-        }
-      } else {
-        setApproximatedVehicleCost(0)
-      }
-    } else {
-      setApproximatedVehicleCost(0)
-    }
-  }, [driverAssignments, drivers, vehicles, vehicleTrackingData])
-
-  // Calculate driver cost when driver is selected
-  useEffect(() => {
-    const assignedDriver = driverAssignments.find(d => d.id)
-    console.log('Calculating driver cost for:', assignedDriver)
-    if (assignedDriver?.id) {
-      const driver = drivers.find(d => d.id === assignedDriver.id)
-      console.log('Found driver:', driver)
-      // Use monthly salary to calculate hourly rate if available
-      let hourlyRate = 0
-      if (driver?.hourly_rate) {
-        hourlyRate = parseFloat(driver.hourly_rate)
-      } else if (driver?.monthly_salary) {
-        // Calculate hourly rate from monthly salary (30 days * 8 hours)
-        hourlyRate = parseFloat(driver.monthly_salary) / (30 * 8)
-      } else {
-        // Default hourly rate if no salary data
-        hourlyRate = 50 // R50 per hour default
-      }
+    if (selectedVehicleType && estimatedDistance > 0) {
+      const costBreakdown = calculateRateCardCost(selectedVehicleType, estimatedDistance, tripDays)
       
-      const driverCost = hourlyRate * 8
-      setApproximatedDriverCost(driverCost)
-      console.log('Driver cost calculated:', driverCost, 'hourly rate:', hourlyRate)
+      setApproximateFuelCost(costBreakdown.fuel_cost)
+      setApproximatedVehicleCost(costBreakdown.base_cost + costBreakdown.ppk_cost)
+      setApproximatedDriverCost(costBreakdown.standing_day_cost + costBreakdown.extra_stop_cost)
+      setTotalVehicleCost(costBreakdown.total_transport)
+      
+      // CPK = total cost per kilometer
+      const cpk = estimatedDistance > 0 ? costBreakdown.total_transport / estimatedDistance : 0
+      setApproximatedCPK(cpk)
     } else {
+      // Reset values when no vehicle type selected
+      setApproximateFuelCost(0)
+      setApproximatedVehicleCost(0)
       setApproximatedDriverCost(0)
+      setTotalVehicleCost(0)
+      setApproximatedCPK(0)
     }
-  }, [driverAssignments, drivers])
+  }, [selectedVehicleType, estimatedDistance, tripDays, calculateRateCardCost])
 
-  // Calculate total cost
+  // Note: Vehicle and driver costs are now handled by the rate card system
+  // Legacy cost calculations removed to prevent conflicts with rate card system
+
+  // Calculate total cost using rate card system
   useEffect(() => {
-    const total = approximateFuelCost + approximatedVehicleCost + approximatedDriverCost + (parseFloat(goodsInTransitPremium) || 0)
-    setTotalVehicleCost(total)
-  }, [approximateFuelCost, approximatedVehicleCost, approximatedDriverCost, goodsInTransitPremium])
+    if (selectedVehicleType && estimatedDistance > 0) {
+      const costBreakdown = calculateRateCardCost(selectedVehicleType, estimatedDistance, tripDays)
+      const total = costBreakdown.total_transport + (parseFloat(goodsInTransitPremium) || 0)
+      setTotalVehicleCost(total)
+    } else {
+      const total = approximateFuelCost + approximatedVehicleCost + approximatedDriverCost + (parseFloat(goodsInTransitPremium) || 0)
+      setTotalVehicleCost(total)
+    }
+  }, [selectedVehicleType, estimatedDistance, tripDays, approximateFuelCost, approximatedVehicleCost, approximatedDriverCost, goodsInTransitPremium, calculateRateCardCost])
 
   // Get selected stop points with coordinates
   const getSelectedStopPointsData = () => {
@@ -508,13 +670,32 @@ export default function LoadPlanPage() {
       const updated = [...prev]
       updated[driverIndex] = { 
         id: driverId, 
-        name: `${driverId} - ${selectedDriver?.surname || ''}`,
+        name: selectedDriver?.surname || '',
         first_name: selectedDriver?.first_name || '',
         surname: selectedDriver?.surname || ''
       }
       return updated
     })
-  }, [drivers])
+    
+    // Show driver location on map
+    if (selectedDriver) {
+      const driverFullName = `${selectedDriver.first_name} ${selectedDriver.surname}`.trim().toLowerCase()
+      const trackingData = Array.isArray(vehicleTrackingData) ? vehicleTrackingData : []
+      const matchingVehicle = trackingData.find(vehicle => 
+        vehicle.driver_name && 
+        vehicle.driver_name.toLowerCase() === driverFullName
+      )
+      
+      if (matchingVehicle?.latitude && matchingVehicle?.longitude) {
+        setSelectedDriverLocation({
+          driver: selectedDriver,
+          vehicle: matchingVehicle,
+          latitude: parseFloat(matchingVehicle.latitude),
+          longitude: parseFloat(matchingVehicle.longitude)
+        })
+      }
+    }
+  }, [drivers, vehicleTrackingData])
 
   const addDriver = useCallback(() => {
     setDriverAssignments(prev => [...prev, { id: '', name: '' }])
@@ -578,6 +759,37 @@ export default function LoadPlanPage() {
     handleCreate()
   }
 
+  const handleClientSelect = (clientData) => {
+    if (typeof clientData === 'object' && clientData.address) {
+      setSelectedClient(clientData)
+      setClient(clientData.name)
+      setShowAddressPopup(true)
+    } else {
+      setClient(typeof clientData === 'string' ? clientData : clientData?.name || '')
+      setSelectedClient(null)
+    }
+  }
+
+  const handleUseAsPickup = () => {
+    if (selectedClient?.address) {
+      setLoadingLocation(selectedClient.address)
+    }
+    setShowAddressPopup(false)
+  }
+
+  const handleUseAsDropoff = () => {
+    if (selectedClient?.address) {
+      setDropOffPoint(selectedClient.address)
+    }
+    setShowAddressPopup(false)
+  }
+
+  const handleSkipAddress = () => {
+    setShowAddressPopup(false)
+  }
+
+
+
   const handleCreate = async () => {
     try {
       // Save route to database only when creating the load
@@ -627,7 +839,15 @@ export default function LoadPlanPage() {
         enddate: etaDropoff ? etaDropoff.split('T')[0] : null,
         route: routeId ? routeId.toString() : null, // Link to saved route
 
-        clientdetails: {
+        clientdetails: selectedClient ? {
+          name: selectedClient.name,
+          email: '',
+          phone: selectedClient.phone || '',
+          address: selectedClient.address || '',
+          contactPerson: selectedClient.contact_person || '',
+          client_id: selectedClient.client_id || '',
+          vat_number: selectedClient.vat_number || ''
+        } : {
           name: client,
           email: '',
           phone: '',
@@ -646,10 +866,14 @@ export default function LoadPlanPage() {
         }],
         vehicleassignments: [{
           drivers: driverAssignments,
-          vehicle: { id: '', name: '' }
+          vehicle: { 
+            id: selectedVehicleId, 
+            name: selectedVehicleId ? vehicles.find(v => v.id.toString() === selectedVehicleId)?.registration_number || '' : ''
+          }
         }],
         trip_type: tripType,
         selected_stop_points: tripType === 'national' ? stopPoints : [],
+        selected_vehicle_type: selectedVehicleType,
         approximate_fuel_cost: approximateFuelCost,
         approximated_cpk: approximatedCPK,
         approximated_vehicle_cost: approximatedVehicleCost,
@@ -669,35 +893,35 @@ export default function LoadPlanPage() {
         .filter(id => id)
       
       if (assignedDriverIds.length > 0) {
-        const { error: driverError } = await supabase
-          .from('drivers')
-          .update({ available: false })
-          .in('id', assignedDriverIds)
-        
-        if (driverError) {
-          console.error('Error updating driver availability:', driverError)
+        try {
+          await markDriversUnavailable(assignedDriverIds)
+          showToast(`${assignedDriverIds.length} driver(s) marked as unavailable`, 'success')
+        } catch (error) {
+          console.error('Error updating driver availability:', error)
+          showToast('Load created successfully, but failed to update driver availability', 'warning')
         }
       }
       
       // Reset form
-      setClient(''); setCommodity(''); setRate(''); setOrderNumber(''); setComment('')
+      setClient(''); setSelectedClient(null); setCommodity(''); setRate(''); setOrderNumber(''); setComment('')
       setEtaPickup(''); setLoadingLocation(''); setEtaDropoff(''); setDropOffPoint('')
       setDriverAssignments([{ id: '', name: '' }])
+      setSelectedVehicleId('')
       setTripType('local')
       setStopPoints([])
       setFuelPricePerLiter('')
       setGoodsInTransitPremium('')
+      setSelectedVehicleType('')
       setShowSecondSection(false)
       setOptimizedRoute(null)
       
       // Refresh data
       fetchData()
       
-      alert('Load created successfully!')
+      showToast('Load created successfully!', 'success')
     } catch (err) {
       console.error('Error creating load:', err)
-      const errorMessage = err?.message || err?.error?.message || 'Unknown error occurred'
-      alert(`Failed to create load: ${errorMessage}`)
+      showToast('Something went wrong while creating the load', 'error')
     }
   }
 
@@ -821,7 +1045,8 @@ export default function LoadPlanPage() {
         </TabsContent>
 
         <TabsContent value="create" className="space-y-6">
-          <Card>
+          <div className="space-y-6">
+            <Card>
             <CardHeader>
               <CardTitle>Create New Load</CardTitle>
             </CardHeader>
@@ -831,21 +1056,23 @@ export default function LoadPlanPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="client">Client</Label>
-                    <Input 
+                    <ClientDropdown 
                       value={client} 
-                      onChange={(e) => setClient(e.target.value)} 
-                      placeholder="Enter client name" 
+                      onChange={handleClientSelect} 
+                      clients={clients}
+                      placeholder="Select client" 
                     />
                   </div>
                   <div>
                     <Label htmlFor="commodity">Commodity</Label>
-                    <Input value={commodity} onChange={(e) => setCommodity(e.target.value)} placeholder="Commodity" />
+                    <CommodityDropdown value={commodity} onChange={setCommodity} placeholder="Select commodity" />
                   </div>
 
                   <div>
                     <Label htmlFor="orderNumber">Order Number</Label>
                     <Input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="Order Number" />
                   </div>
+
                   <div className="md:col-span-2">
                     <Label htmlFor="comment">Comment</Label>
                     <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comment" />
@@ -933,7 +1160,7 @@ export default function LoadPlanPage() {
                         checked={tripType === 'national'}
                         onChange={(e) => {
                           setTripType(e.target.value)
-                          if (e.target.value === 'national' && availableStopPoints.length === 0) {
+                          if (e.target.value === 'national') {
                             fetchStopPoints()
                           }
                         }}
@@ -960,25 +1187,17 @@ export default function LoadPlanPage() {
                     
                     {stopPoints.map((stopPoint, index) => (
                       <div key={index} className="flex gap-2 items-center">
-                        <Select 
-                          value={stopPoint} 
-                          onValueChange={(value) => {
+                        <StopPointDropdown
+                          value={stopPoint}
+                          onChange={(value) => {
                             const updated = [...stopPoints]
                             updated[index] = value
                             setStopPoints(updated)
                           }}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Select stop point" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableStopPoints.map((point) => (
-                              <SelectItem key={point.id} value={point.id.toString()}>
-                                {point.name} {point.name2 ? `- ${point.name2}` : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          stopPoints={availableStopPoints}
+                          placeholder="Search and select stop point"
+                          isLoading={isLoadingStopPoints}
+                        />
                         <Button 
                           type="button" 
                           variant="outline" 
@@ -1010,10 +1229,17 @@ export default function LoadPlanPage() {
                         destination={dropOffPoint}
                         routeData={tripType === 'national' ? optimizedRoute : null}
                         stopPoints={tripType === 'national' ? getSelectedStopPointsData() : []}
+                        driverLocation={selectedDriverLocation ? {
+                          lat: selectedDriverLocation.latitude,
+                          lng: selectedDriverLocation.longitude,
+                          name: `${selectedDriverLocation.driver.first_name} ${selectedDriverLocation.driver.surname}`
+                        } : undefined}
                       />
                     </div>
                   </div>
                 )}
+
+
 
                 {/* Driver Assignments */}
                 <div className="space-y-4">
@@ -1026,47 +1252,65 @@ export default function LoadPlanPage() {
                   
                   {driverAssignments.map((driver, driverIndex) => (
                     <div key={driverIndex} className="mb-2">
-                      <Select 
-                        value={driver.id} 
-                        onValueChange={(value) => handleDriverChange(driverIndex, value)}
-                        onOpenChange={(open) => {
-                          if (open && loadingLocation && !driver.id) {
-                            handleDriverDropdownOpen(driverIndex)
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full text-black">
-                          <SelectValue className="text-black" placeholder={isCalculatingDistance ? "Finding closest driver..." : "Select driver"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sortedDrivers.filter(d => d.available === true).map((d, index) => (
-                            <SelectItem key={d.id} value={d.id}>
-                              <div className="flex items-center justify-between w-full">
-                                <span>{d.first_name} {d.surname}</span>
-                                {d.distance !== null && (
-                                  <span className={`text-xs ml-2 px-2 py-1 rounded ${
-                                    index === 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                                  }`}>
-                                    {d.distance}km
-                                  </span>
-                                )}
-                                {index === 0 && d.distance !== null && (
-                                  <span className="text-xs text-green-600 ml-1">Closest</span>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <DriverDropdown
+                        value={driver.id}
+                        onChange={(value) => handleDriverChange(driverIndex, value)}
+                        drivers={availableDrivers}
+                        placeholder="Select available driver"
+                        isCalculatingDistance={isCalculatingDistance}
+                      />
                     </div>
                   ))}
                 </div>
 
-                {/* Rate Field */}
-                <div>
-                  <Label htmlFor="rate">Rate</Label>
-                  <Input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="Rate" />
+
+
+                {/* Vehicle Selection */}
+                <div className="space-y-4">
+                  <Label className="text-lg font-medium">Vehicle Assignment</Label>
+                  
+                  {/* Vehicle Type Dropdown */}
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicleType" className="text-sm font-medium text-slate-700">Vehicle Type</Label>
+                    <Select value={selectedVehicleType} onValueChange={(value) => {
+                      setSelectedVehicleType(value)
+                      setSelectedVehicleId('') // Reset vehicle selection when type changes
+                    }}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select vehicle type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicleTypeOptions.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Vehicle Dropdown - Filtered */}
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicle" className="text-sm font-medium text-slate-700">Select Vehicle</Label>
+                    <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={selectedVehicleType ? `Select ${selectedVehicleType} vehicle` : "Select vehicle type first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredVehicles.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                            {vehicle.registration_number} - {vehicle.make} {vehicle.model} ({vehicle.vehicle_type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedVehicleType && filteredVehicles.length === 0 && (
+                      <p className="text-sm text-amber-600">No vehicles found for selected type. Try a different vehicle type.</p>
+                    )}
+                  </div>
                 </div>
+
+
 
                 {/* Cost Calculation Section */}
                 <div className="space-y-6 p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200">
@@ -1077,62 +1321,186 @@ export default function LoadPlanPage() {
                     <h3 className="text-xl font-semibold text-slate-800">Trip Cost Estimation</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="fuelPrice" className="text-sm font-medium text-slate-700">Fuel Price per Liter</Label>
-                      <Input 
-                        value={fuelPricePerLiter} 
-                        onChange={(e) => setFuelPricePerLiter(e.target.value)} 
-                        placeholder="R 20.50" 
-                        type="number"
-                        step="0.01"
-                        className="border-slate-300 focus:border-slate-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="goodsInTransit" className="text-sm font-medium text-slate-700">Goods In Transit Premium</Label>
-                      <Input 
-                        value={goodsInTransitPremium} 
-                        onChange={(e) => setGoodsInTransitPremium(e.target.value)} 
-                        placeholder="R 500" 
-                        type="number"
-                        step="0.01"
-                        className="border-slate-300 focus:border-slate-500"
-                      />
-                    </div>
-                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    {/* Left Half - Input Fields and Stats */}
+                    <div className="h-full flex flex-col justify-between space-y-6">
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="fuelPrice" className="text-sm font-medium text-slate-700">Fuel Price per Liter</Label>
+                            <Input 
+                              value={fuelPricePerLiter} 
+                              onChange={(e) => setFuelPricePerLiter(e.target.value)} 
+                              placeholder="R 20.50" 
+                              type="number"
+                              step="0.01"
+                              className="border-slate-300 focus:border-slate-500"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="rate" className="text-sm font-medium text-slate-700">Rate</Label>
+                            <Input 
+                              value={rate} 
+                              onChange={(e) => setRate(e.target.value)} 
+                              placeholder="R 0.00" 
+                              type="number"
+                              step="0.01"
+                              className="border-slate-300 focus:border-slate-500"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="tripDays" className="text-sm font-medium text-slate-700">Trip Days</Label>
+                            <Input 
+                              value={tripDays} 
+                              onChange={(e) => setTripDays(parseFloat(e.target.value) || 1)} 
+                              placeholder="1" 
+                              type="number"
+                              step="0.5"
+                              min="0.5"
+                              className="border-slate-300 focus:border-slate-500"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="goodsInTransit" className="text-sm font-medium text-slate-700">Goods In Transit Premium</Label>
+                            <Input 
+                              value={goodsInTransitPremium} 
+                              onChange={(e) => setGoodsInTransitPremium(e.target.value)} 
+                              placeholder="R 0.00" 
+                              type="number"
+                              step="0.01"
+                              className="border-slate-300 focus:border-slate-500"
+                            />
+                          </div>
+                        </div>
 
-                  {/* Cost Display */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Distance</p>
-                      <p className="text-2xl font-bold text-slate-800 mt-1">{estimatedDistance}</p>
-                      <p className="text-xs text-slate-600">kilometers</p>
+                        {/* Cost Display Cards */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Distance</p>
+                            <p className="text-2xl font-bold text-slate-800 mt-2">{estimatedDistance}</p>
+                            <p className="text-xs text-slate-600">kilometers</p>
+                          </div>
+                          <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">CPK</p>
+                            <p className="text-2xl font-bold text-slate-800 mt-2">R{approximatedCPK.toFixed(2)}</p>
+                            <p className="text-xs text-slate-600">per km</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Total Cost - Bottom Aligned */}
+                      <div className="p-6 bg-gradient-to-r from-slate-600 to-slate-700 rounded-xl shadow-lg">
+                        <p className="text-sm font-medium text-slate-200 uppercase tracking-wide">Total Estimated Cost</p>
+                        <p className="text-3xl font-bold text-white mt-2">R{totalVehicleCost.toLocaleString()}</p>
+                        <p className="text-sm text-slate-300 mt-1">All expenses included</p>
+                      </div>
                     </div>
-                    <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Fuel Cost</p>
-                      <p className="text-2xl font-bold text-slate-800 mt-1">R{approximateFuelCost.toFixed(0)}</p>
-                      <p className="text-xs text-slate-600">estimated</p>
-                    </div>
-                    <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">CPK</p>
-                      <p className="text-2xl font-bold text-slate-800 mt-1">R{approximatedCPK.toFixed(2)}</p>
-                      <p className="text-xs text-slate-600">per km</p>
-                    </div>
-                    <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Vehicle Cost</p>
-                      <p className="text-2xl font-bold text-slate-800 mt-1">R{approximatedVehicleCost.toFixed(0)}</p>
-                      <p className="text-xs text-slate-600">8 hours</p>
-                    </div>
-                    <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Driver Cost</p>
-                      <p className="text-2xl font-bold text-slate-800 mt-1">R{approximatedDriverCost.toFixed(0)}</p>
-                      <p className="text-xs text-slate-600">8 hours</p>
-                    </div>
-                    <div className="p-4 bg-slate-600 rounded-lg shadow-md">
-                      <p className="text-xs font-medium text-slate-200 uppercase tracking-wide">Total Cost</p>
-                      <p className="text-2xl font-bold text-white mt-1">R{totalVehicleCost.toFixed(0)}</p>
-                      <p className="text-xs text-slate-300">estimated</p>
+
+                    {/* Right Half - Stylish Bar Chart */}
+                    <div className="h-full flex flex-col">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+                          <TrendingUp className="h-4 w-4 text-white" />
+                        </div>
+                        <h4 className="text-lg font-semibold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Cost Breakdown</h4>
+                      </div>
+                      <div className="flex-1 w-full p-4 bg-gradient-to-br from-white to-slate-50 rounded-xl border border-slate-200 shadow-lg">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              { name: 'Fuel', value: approximateFuelCost, fill: 'url(#fuelGradient)' },
+                              { name: 'Vehicle', value: approximatedVehicleCost, fill: 'url(#vehicleGradient)' },
+                              { name: 'Driver', value: approximatedDriverCost, fill: 'url(#driverGradient)' },
+                              ...(parseFloat(goodsInTransitPremium) > 0 ? [{ name: 'Premium', value: parseFloat(goodsInTransitPremium), fill: 'url(#premiumGradient)' }] : [])
+                            ]}
+                            margin={{ top: 20, right: 30, left: 40, bottom: 20 }}
+                          >
+                            <defs>
+                              <linearGradient id="fuelGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.9}/>
+                                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.7}/>
+                              </linearGradient>
+                              <linearGradient id="vehicleGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#34d399" stopOpacity={0.9}/>
+                                <stop offset="100%" stopColor="#10b981" stopOpacity={0.7}/>
+                              </linearGradient>
+                              <linearGradient id="driverGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.9}/>
+                                <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.7}/>
+                              </linearGradient>
+                              <linearGradient id="premiumGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.9}/>
+                                <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.7}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid 
+                              strokeDasharray="2 4" 
+                              stroke="#e2e8f0" 
+                              strokeOpacity={0.6}
+                              vertical={false}
+                            />
+                            <XAxis 
+                              dataKey="name" 
+                              tick={{ fontSize: 13, fill: '#475569', fontWeight: 500 }}
+                              axisLine={{ stroke: '#cbd5e1', strokeWidth: 2 }}
+                              tickLine={{ stroke: '#cbd5e1' }}
+                            />
+                            <YAxis 
+                              tick={{ fontSize: 12, fill: '#64748b', fontWeight: 500 }}
+                              axisLine={{ stroke: '#cbd5e1', strokeWidth: 2 }}
+                              tickLine={{ stroke: '#cbd5e1' }}
+                              tickFormatter={(value) => `R${value.toLocaleString()}`}
+                            />
+                            <Tooltip 
+                              formatter={(value, name) => [
+                                `R${value.toLocaleString()}`, 
+                                `${name} Cost`
+                              ]}
+                              labelStyle={{ 
+                                color: '#1e293b', 
+                                fontWeight: 600,
+                                fontSize: '14px'
+                              }}
+                              contentStyle={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                                border: 'none',
+                                borderRadius: '12px',
+                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                                backdropFilter: 'blur(10px)'
+                              }}
+                              cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }}
+                            />
+                            <Bar 
+                              dataKey="value" 
+                              radius={[8, 8, 0, 0]}
+                              strokeWidth={2}
+                              stroke="rgba(255, 255, 255, 0.3)"
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      
+                      {/* Legend */}
+                      <div className="flex flex-wrap gap-3 justify-center">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full border border-blue-200">
+                          <div className="w-3 h-3 rounded-full bg-gradient-to-b from-blue-400 to-blue-600"></div>
+                          <span className="text-xs font-medium text-blue-700">Fuel</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full border border-green-200">
+                          <div className="w-3 h-3 rounded-full bg-gradient-to-b from-green-400 to-green-600"></div>
+                          <span className="text-xs font-medium text-green-700">Vehicle</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 rounded-full border border-yellow-200">
+                          <div className="w-3 h-3 rounded-full bg-gradient-to-b from-yellow-400 to-yellow-600"></div>
+                          <span className="text-xs font-medium text-yellow-700">Driver</span>
+                        </div>
+                        {parseFloat(goodsInTransitPremium) > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-full border border-purple-200">
+                            <div className="w-3 h-3 rounded-full bg-gradient-to-b from-purple-400 to-purple-600"></div>
+                            <span className="text-xs font-medium text-purple-700">Premium</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1142,9 +1510,8 @@ export default function LoadPlanPage() {
                 </Button>
               </form>
             </CardContent>
-          </Card>
-
-
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="routing" className="space-y-6">
@@ -1318,6 +1685,22 @@ export default function LoadPlanPage() {
           </div>
         </TabsContent>
       </Tabs>
+      
+      <ClientAddressPopup
+        isOpen={showAddressPopup}
+        onClose={() => setShowAddressPopup(false)}
+        client={selectedClient}
+        onUseAsPickup={handleUseAsPickup}
+        onUseAsDropoff={handleUseAsDropoff}
+        onSkip={handleSkipAddress}
+      />
+      
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
     </div>
   )
 }

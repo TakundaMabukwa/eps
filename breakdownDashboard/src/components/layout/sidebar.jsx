@@ -29,6 +29,7 @@ import {
   UserCircle,
   ChevronDown,
   MapIcon,
+  FileText,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -160,6 +161,27 @@ const SideBar = () => {
                     }
                   >
                     Routes
+                  </span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                className={pathname.startsWith('/audit') ? 'bg-gray-200' : ''}
+              >
+                <Link href={'/audit'}>
+                  <FileText
+                    color={
+                      pathname.startsWith('/audit') ? '#000000' : '#333333'
+                    }
+                  />
+                  <span
+                    className={
+                      pathname.startsWith('/audit') ? 'font-bold' : undefined
+                    }
+                  >
+                    Audit
                   </span>
                 </Link>
               </SidebarMenuButton>
