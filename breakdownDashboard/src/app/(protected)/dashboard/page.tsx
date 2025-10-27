@@ -63,6 +63,7 @@ import FuelCanBusDisplay from "@/components/FuelCanBusDisplay";
 import DriverPerformanceDashboard from "@/components/dashboard/DriverPerformanceDashboard";
 import TestRouteMap from "@/components/map/test-route-map";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 
 
 
@@ -361,7 +362,7 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
         
         if (recentUnauthorized && !currentUnauthorizedTrip) {
           setCurrentUnauthorizedTrip(recentUnauthorized)
-          setUnauthorizedStopModalOpen(true)
+          // Removed automatic modal opening
         }
       } catch (err) {
         console.error('Error fetching trips:', err)

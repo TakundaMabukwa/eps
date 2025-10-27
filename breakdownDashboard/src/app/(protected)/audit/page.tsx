@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Search, DollarSign, Truck, Calendar, FileText, Eye, MapPin } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
 export default function AuditPage() {
   const [auditRecords, setAuditRecords] = useState<any[]>([])
@@ -172,17 +173,9 @@ export default function AuditPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Audit Dashboard</h1>
-        <Button 
-          onClick={() => setShowSummary(!showSummary)}
-          variant={showSummary ? "default" : "outline"}
-        >
-          <FileText className="w-4 h-4 mr-2" />
-          {showSummary ? 'Hide Summary' : 'Show Summary'}
-        </Button>
       </div>
 
-      {showSummary && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Trips</CardTitle>
@@ -199,7 +192,6 @@ export default function AuditPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">R{summary.totalCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
@@ -222,18 +214,8 @@ export default function AuditPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cost per KM</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">R{summary.avgCostPerKm.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">Average rate</p>
-            </CardContent>
-          </Card>
+
         </div>
-      )}
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
@@ -336,8 +318,10 @@ export default function AuditPage() {
             
             <div className="overflow-y-auto h-full p-8 pb-20">
               {selectedRecord ? (
-                <div className="w-full">
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="w-full flex gap-6">
+                  {/* Left Half - Tables */}
+                  <div className="w-1/2">
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
                     <table className="w-full">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
@@ -443,9 +427,8 @@ export default function AuditPage() {
                   </div>
                   
                   {/* Financial Information Section */}
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                      <DollarSign className="h-5 w-5" />
+                  <div className="mt-8 pt-8 border-t border-slate-200">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">
                       Financial Analysis
                     </h3>
                     <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -528,6 +511,91 @@ export default function AuditPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                  </div>
+
+                  {/* Right Half - Visual Analytics */}
+                  <div className="w-1/2">
+                    <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+                      <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Performance Analytics
+                      </h3>
+                      <div className="space-y-6">
+                        {/* Planned vs Actual Comparison - Bar Chart */}
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                          <h4 className="text-sm font-semibold text-slate-700 mb-3">Planned vs Actual</h4>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={[
+                                {
+                                  metric: 'Distance',
+                                  planned: selectedRecord.planned_distance || 0,
+                                  actual: selectedRecord.actual_distance || selectedRecord.distance || 0
+                                },
+                                {
+                                  metric: 'Duration',
+                                  planned: (selectedRecord.planned_duration_minutes || 0) / 60,
+                                  actual: (selectedRecord.actual_duration_minutes || 0) / 60
+                                },
+                                {
+                                  metric: 'Cost',
+                                  planned: (selectedRecord.planned_total_cost || 0) / 1000,
+                                  actual: (selectedRecord.actual_total_cost || 0) / 1000
+                                }
+                              ]}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                <XAxis dataKey="metric" tick={{ fontSize: 12 }} />
+                                <YAxis tick={{ fontSize: 12 }} />
+                                <Tooltip 
+                                  formatter={(value, name) => {
+                                    if (name === 'planned') return [value, 'Planned']
+                                    return [value, 'Actual']
+                                  }}
+                                  labelStyle={{ color: '#374151' }}
+                                />
+                                <Bar dataKey="planned" fill="#3b82f6" name="planned" radius={[2, 2, 0, 0]} />
+                                <Bar dataKey="actual" fill="#10b981" name="actual" radius={[2, 2, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* Cost Breakdown - Pie Chart */}
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                          <h4 className="text-sm font-semibold text-slate-700 mb-3">Cost Breakdown</h4>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={[
+                                    { name: 'Fuel', value: selectedRecord.actual_fuel_cost || selectedRecord.planned_fuel_cost || 0 },
+                                    { name: 'Vehicle', value: selectedRecord.actual_vehicle_cost || selectedRecord.planned_vehicle_cost || 0 },
+                                    { name: 'Driver', value: selectedRecord.actual_driver_cost || selectedRecord.planned_driver_cost || 0 }
+                                  ].filter(item => item.value > 0)}
+                                  cx="50%"
+                                  cy="50%"
+                                  outerRadius={80}
+                                  dataKey="value"
+                                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
+                                  labelLine={false}
+                                >
+                                  {[
+                                    { name: 'Fuel', value: selectedRecord.actual_fuel_cost || selectedRecord.planned_fuel_cost || 0 },
+                                    { name: 'Vehicle', value: selectedRecord.actual_vehicle_cost || selectedRecord.planned_vehicle_cost || 0 },
+                                    { name: 'Driver', value: selectedRecord.actual_driver_cost || selectedRecord.planned_driver_cost || 0 }
+                                  ].filter(item => item.value > 0).map((entry, index) => {
+                                    const colors = ['#ef4444', '#3b82f6', '#10b981']
+                                    return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                                  })}
+                                </Pie>
+                                <Tooltip formatter={(value) => [`R${parseFloat(value).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 'Cost']} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                    </div>
+                  </div>
                   </div>
                 </div>
               ) : (

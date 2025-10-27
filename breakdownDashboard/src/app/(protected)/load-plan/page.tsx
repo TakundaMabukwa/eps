@@ -58,6 +58,7 @@ export default function LoadPlanPage() {
   // Create Load form state
   const [client, setClient] = useState('')
   const [selectedClient, setSelectedClient] = useState(null)
+  const [manualClientName, setManualClientName] = useState('')
   const [showAddressPopup, setShowAddressPopup] = useState(false)
   const [commodity, setCommodity] = useState('')
   const [costCenter, setCostCenter] = useState('')
@@ -763,10 +764,12 @@ export default function LoadPlanPage() {
     if (typeof clientData === 'object' && clientData.address) {
       setSelectedClient(clientData)
       setClient(clientData.name)
+      setManualClientName('') // Clear manual input
       setShowAddressPopup(true)
     } else {
       setClient(typeof clientData === 'string' ? clientData : clientData?.name || '')
-      setSelectedClient(null)
+      setSelectedClient(clientData)
+      setManualClientName('') // Clear manual input
     }
   }
 
@@ -903,7 +906,7 @@ export default function LoadPlanPage() {
       }
       
       // Reset form
-      setClient(''); setSelectedClient(null); setCommodity(''); setRate(''); setOrderNumber(''); setComment('')
+      setClient(''); setSelectedClient(null); setManualClientName(''); setCommodity(''); setRate(''); setOrderNumber(''); setComment('')
       setEtaPickup(''); setLoadingLocation(''); setEtaDropoff(''); setDropOffPoint('')
       setDriverAssignments([{ id: '', name: '' }])
       setSelectedVehicleId('')
@@ -1054,23 +1057,40 @@ export default function LoadPlanPage() {
               <form onSubmit={handleCreate} className="space-y-6">
                 {/* Basic Load Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="space-y-4">
                     <Label htmlFor="client">Client</Label>
-                    <ClientDropdown 
-                      value={client} 
-                      onChange={handleClientSelect} 
-                      clients={clients}
-                      placeholder="Select client" 
-                    />
+                    <div className="space-y-2">
+                      <div className={selectedClient ? "" : "opacity-50 pointer-events-none"}>
+                        <ClientDropdown 
+                          value={selectedClient ? client : ''} 
+                          onChange={handleClientSelect} 
+                          clients={clients}
+                          placeholder="Select existing client" 
+                        />
+                      </div>
+                      <div className="text-center text-xs text-gray-500">OR</div>
+                      <div className={manualClientName ? "" : "opacity-50 pointer-events-none"}>
+                        <Input 
+                          value={manualClientName}
+                          onChange={(e) => {
+                            setManualClientName(e.target.value)
+                            setClient(e.target.value)
+                            setSelectedClient(null)
+                          }}
+                          placeholder="Type new client name"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="commodity">Commodity</Label>
-                    <CommodityDropdown value={commodity} onChange={setCommodity} placeholder="Select commodity" />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="orderNumber">Order Number</Label>
-                    <Input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="Order Number" />
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="commodity">Commodity</Label>
+                      <CommodityDropdown value={commodity} onChange={setCommodity} placeholder="Select commodity" />
+                    </div>
+                    <div>
+                      <Label htmlFor="orderNumber">Order Number</Label>
+                      <Input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="Order Number" />
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">
@@ -1166,7 +1186,7 @@ export default function LoadPlanPage() {
                         }}
                         className="w-4 h-4"
                       />
-                      <Label htmlFor="national">National Trip</Label>
+                      <Label htmlFor="national">Long Distance</Label>
                     </div>
                   </div>
                 </div>
