@@ -1060,26 +1060,22 @@ export default function LoadPlanPage() {
                   <div className="space-y-4">
                     <Label htmlFor="client">Client</Label>
                     <div className="space-y-2">
-                      <div className={selectedClient ? "" : "opacity-50 pointer-events-none"}>
-                        <ClientDropdown 
-                          value={selectedClient ? client : ''} 
-                          onChange={handleClientSelect} 
-                          clients={clients}
-                          placeholder="Select existing client" 
-                        />
-                      </div>
+                      <ClientDropdown 
+                        value={selectedClient ? client : ''} 
+                        onChange={handleClientSelect} 
+                        clients={clients}
+                        placeholder="Select existing client" 
+                      />
                       <div className="text-center text-xs text-gray-500">OR</div>
-                      <div className={manualClientName ? "" : "opacity-50 pointer-events-none"}>
-                        <Input 
-                          value={manualClientName}
-                          onChange={(e) => {
-                            setManualClientName(e.target.value)
-                            setClient(e.target.value)
-                            setSelectedClient(null)
-                          }}
-                          placeholder="Type new client name"
-                        />
-                      </div>
+                      <Input 
+                        value={manualClientName}
+                        onChange={(e) => {
+                          setManualClientName(e.target.value)
+                          setClient(e.target.value)
+                          setSelectedClient(null)
+                        }}
+                        placeholder="Type new client name"
+                      />
                     </div>
                   </div>
                   <div className="space-y-4">
@@ -1278,6 +1274,7 @@ export default function LoadPlanPage() {
                         drivers={availableDrivers}
                         placeholder="Select available driver"
                         isCalculatingDistance={isCalculatingDistance}
+                        vehicleTrackingData={vehicleTrackingData}
                       />
                     </div>
                   ))}

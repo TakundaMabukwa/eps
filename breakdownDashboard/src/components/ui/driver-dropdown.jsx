@@ -9,7 +9,8 @@ export function DriverDropdown({
   onChange, 
   drivers = [], 
   placeholder = "Select driver",
-  isCalculatingDistance = false 
+  isCalculatingDistance = false,
+  vehicleTrackingData = []
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -50,7 +51,20 @@ export function DriverDropdown({
   }
 
   const selectedDriver = drivers.find(d => d.id === value)
-  const displayValue = selectedDriver ? `${selectedDriver.first_name} ${selectedDriver.surname}` : ''
+  
+  // Get plate for selected driver
+  const getDriverPlate = (driver) => {
+    if (!driver) return ''
+    const driverFullName = `${driver.first_name} ${driver.surname}`.trim().toLowerCase()
+    const matchingVehicle = vehicleTrackingData.find(vehicle => 
+      vehicle.driver_name && 
+      vehicle.driver_name.toLowerCase() === driverFullName
+    )
+    return matchingVehicle?.plate || 'No Vehicle'
+  }
+  
+  const displayValue = selectedDriver ? 
+    `${selectedDriver.first_name} ${selectedDriver.surname}/${getDriverPlate(selectedDriver)}` : ''
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -100,7 +114,7 @@ export function DriverDropdown({
                 >
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
-                      <span>{driver.first_name} {driver.surname}</span>
+                      <span>{driver.first_name} {driver.surname}/{getDriverPlate(driver)}</span>
                       <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
                         Available
                       </span>
