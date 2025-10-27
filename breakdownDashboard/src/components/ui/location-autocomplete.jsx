@@ -85,7 +85,7 @@ export function LocationAutocomplete({
 
   const handleInputBlur = () => {
     // Delay hiding to allow click on suggestions
-    setTimeout(() => setShowSuggestions(false), 200)
+    setTimeout(() => setShowSuggestions(false), 150)
   }
 
   const handleInputFocus = () => {
@@ -123,8 +123,10 @@ export function LocationAutocomplete({
             <div
               key={suggestion.id}
               className="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => handleSuggestionClick(suggestion)}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                handleSuggestionClick(suggestion)
+              }}
             >
               <div className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />

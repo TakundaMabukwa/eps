@@ -63,6 +63,8 @@ import FuelCanBusDisplay from "@/components/FuelCanBusDisplay";
 import DriverPerformanceDashboard from "@/components/dashboard/DriverPerformanceDashboard";
 import TestRouteMap from "@/components/map/test-route-map";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
+
 
 
 // Driver Card Component with fetched driver info
@@ -71,6 +73,16 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
   const [vehicleInfo, setVehicleInfo] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [vehicleLocation, setVehicleLocation] = useState<any>(null)
+  const [isFlashing, setIsFlashing] = useState(false)
+
+  // Check for unauthorized stops and trigger flash animation
+  useEffect(() => {
+    if (trip.unauthorized_stops_count > 0) {
+      setIsFlashing(true)
+      const timer = setTimeout(() => setIsFlashing(false), 3000) // Flash for 3 seconds
+      return () => clearTimeout(timer)
+    }
+  }, [trip.unauthorized_stops_count])
 
   useEffect(() => {
     async function fetchAssignmentInfo() {
@@ -131,7 +143,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
     fetchAssignmentInfo()
   }, [trip.vehicleassignments, trip.vehicle_assignments])
 
-  const driverName = driverInfo ? `${driverInfo.first_name} ${driverInfo.surname}`.trim() : 'Unassigned'
+  const driverName = driverInfo ? driverInfo.surname : 'Unassigned'
   const initials = driverName !== 'Unassigned' ? driverName.split(' ').map((s: string) => s[0]).slice(0,2).join('') : 'DR'
 
   if (loading) {
@@ -149,7 +161,14 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
   }
 
   return (
-    <div className="w-[30%] bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 p-3">
+    <div className={cn(
+      "w-[30%] bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 p-3",
+      trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered'
+        ? isFlashing 
+          ? "unauthorized-stop-alert" 
+          : "border-red-300 bg-red-25"
+        : "border-slate-200"
+    )}>
       <div className="flex items-center gap-2 mb-2">
         <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-medium text-slate-700">
           {initials}
@@ -160,6 +179,19 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
         </div>
       </div>
       
+      {/* Unauthorized Stop Alert */}
+      {trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered' && (
+        <div className="mb-2 p-2 bg-gradient-to-r from-red-50 to-red-100 rounded border-l-2 border-red-400">
+          <div className="flex items-center gap-1 mb-1">
+            <AlertTriangle className="w-3 h-3 text-red-600 animate-pulse" />
+            <span className="text-xs font-medium text-red-700 uppercase">Unauthorized Stop Alert</span>
+          </div>
+          <div className="text-xs text-red-800 font-medium">
+            {trip.unauthorized_stops_count} unauthorized stop{trip.unauthorized_stops_count > 1 ? 's' : ''} detected
+          </div>
+        </div>
+      )}
+
       <div className="mb-2 p-2 bg-slate-50 rounded border-l-2 border-slate-400">
         <div className="flex items-center gap-1 mb-1">
           <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
@@ -311,7 +343,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
 }
 
 // Enhanced routing components with proper waypoints
-function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNoteText, setNoteOpen, setAvailableDrivers, setCurrentTripForChange, setChangeDriverOpen, refreshTrigger, setRefreshTrigger, setPickupTimeOpen, setDropoffTimeOpen, setCurrentTripForTime, setTimeType, setSelectedTime }: any) {
+function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNoteText, setNoteOpen, setAvailableDrivers, setCurrentTripForChange, setChangeDriverOpen, refreshTrigger, setRefreshTrigger, setPickupTimeOpen, setDropoffTimeOpen, setCurrentTripForTime, setTimeType, setSelectedTime, currentUnauthorizedTrip, setCurrentUnauthorizedTrip, setUnauthorizedStopModalOpen }: any) {
   const [trips, setTrips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -322,6 +354,16 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
         const { data, error } = await supabase.from('trips').select('*')
         if (error) throw error
         setTrips(data || [])
+        
+        // Check for most recent unauthorized stop
+        const recentUnauthorized = (data || [])
+          .filter(trip => trip.unauthorized_stops_count > 0)
+          .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())[0]
+        
+        if (recentUnauthorized && !currentUnauthorizedTrip) {
+          setCurrentUnauthorizedTrip(recentUnauthorized)
+          // Removed automatic modal opening
+        }
       } catch (err) {
         console.error('Error fetching trips:', err)
         setTrips([])
@@ -347,7 +389,19 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
     }
   }, [refreshTrigger])
 
-  const tripsList = trips.filter(trip => trip.status?.toLowerCase() !== 'delivered')
+  // Sort trips to put unauthorized stops at the top
+  const tripsList = trips
+    .filter(trip => trip.status?.toLowerCase() !== 'delivered')
+    .sort((a, b) => {
+      // First sort by unauthorized stops (descending)
+      const aUnauthorized = a.unauthorized_stops_count || 0
+      const bUnauthorized = b.unauthorized_stops_count || 0
+      if (aUnauthorized !== bUnauthorized) {
+        return bUnauthorized - aUnauthorized
+      }
+      // Then by creation date (newest first)
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    })
 
   const TRIP_STATUSES = [
     'Pending',
@@ -430,6 +484,7 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
         const clientDetails = typeof trip.clientdetails === 'string' ? JSON.parse(trip.clientdetails) : trip.clientdetails
         const title = clientDetails?.name || trip.selectedClient || trip.clientDetails?.name || `Trip ${trip.trip_id || trip.id}`
         const isOffCourse = false // Simplified for demo
+        const hasUnauthorizedStops = trip.unauthorized_stops_count > 0
 
         return (
           <div key={trip.id || trip.trip_id} className="flex gap-4">
@@ -447,13 +502,23 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
             />
 
             {/* Trip Card - 70% */}
-            <div className="w-[70%] bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className={cn(
+              "w-[70%] bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200",
+              trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered'
+                ? "border-red-300 bg-red-25"
+                : "border-slate-200"
+            )}>
               {/* Alert Banner */}
-              {isOffCourse && (
-                <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-2 rounded-t-lg">
+              {(isOffCourse || (trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered')) && (
+                <div className="bg-gradient-to-r from-white via-red-50 to-red-100 text-red-800 p-2 rounded-t-lg border-b border-red-200">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-3 h-3 animate-pulse" />
-                    <span className="text-xs font-medium">Trip Off-Course - Immediate Attention Required</span>
+                    <AlertTriangle className="w-3 h-3 animate-pulse text-red-600" />
+                    <span className="text-xs font-medium">
+                      {trip.unauthorized_stops_count > 0 
+                        ? `Unauthorized Stop Alert - ${trip.unauthorized_stops_count} stop${trip.unauthorized_stops_count > 1 ? 's' : ''} detected`
+                        : 'Trip Off-Course - Immediate Attention Required'
+                      }
+                    </span>
                   </div>
                 </div>
               )}
@@ -649,7 +714,11 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
                       if (!confirm('Mark this trip as completed?')) return;
                       try {
                         const supabase = createClient();
-                        const { error } = await supabase.from('trips').update({ status: 'Delivered' }).eq('id', trip.id);
+                        // Clear unauthorized stops count when completing trip
+                        const { error } = await supabase.from('trips').update({ 
+                          status: 'Delivered',
+                          unauthorized_stops_count: 0
+                        }).eq('id', trip.id);
                         if (error) throw error;
                         alert('Trip marked as delivered');
                         setRefreshTrigger(prev => prev + 1);
@@ -693,6 +762,12 @@ export default function Dashboard() {
   const [currentTripForTime, setCurrentTripForTime] = useState<any>(null);
   const [timeType, setTimeType] = useState<'pickup' | 'dropoff'>('pickup');
   const [selectedTime, setSelectedTime] = useState('');
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [tripDetailsOpen, setTripDetailsOpen] = useState(false);
+  const [unauthorizedStopModalOpen, setUnauthorizedStopModalOpen] = useState(false);
+  const [currentUnauthorizedTrip, setCurrentUnauthorizedTrip] = useState<any>(null);
+  const [unauthorizedStopNote, setUnauthorizedStopNote] = useState('');
 
   // Get user role from cookies
   useEffect(() => {
@@ -843,6 +918,9 @@ export default function Dashboard() {
               setCurrentTripForTime={setCurrentTripForTime}
               setTimeType={setTimeType}
               setSelectedTime={setSelectedTime}
+              currentUnauthorizedTrip={currentUnauthorizedTrip}
+              setCurrentUnauthorizedTrip={setCurrentUnauthorizedTrip}
+              setUnauthorizedStopModalOpen={setUnauthorizedStopModalOpen}
             />
           </div>
         )}
@@ -859,9 +937,122 @@ export default function Dashboard() {
 
         {activeTab === "audit" && (
           <div className="space-y-4">
-            <div className="mb-4">
-              <h2 className="text-3xl font-bold tracking-tight">Audit</h2>
-              <p className="text-muted-foreground">Transportation audit logs and history</p>
+            <div className="mb-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-3xl font-bold tracking-tight">Audit</h2>
+                <p className="text-muted-foreground">Transportation audit logs and history</p>
+              </div>
+              <Dialog.Root>
+                <Dialog.Trigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Summary
+                  </Button>
+                </Dialog.Trigger>
+                <Dialog.Portal>
+                  <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+                  <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto z-50">
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <Dialog.Title className="text-2xl font-bold">Audit Summary</Dialog.Title>
+                        <Dialog.Close asChild>
+                          <Button variant="ghost" size="sm">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </Dialog.Close>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Trips</CardTitle>
+                            <Truck className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{auditData.length}</div>
+                            <p className="text-xs text-muted-foreground">
+                              {auditData.filter(r => r.status?.toLowerCase() === 'delivered').length} delivered
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              R{auditData.reduce((sum, record) => {
+                                const rate = parseFloat(record.rate?.toString().replace(/[^0-9.-]/g, '') || '0')
+                                return sum + rate
+                              }, 0).toLocaleString('en-ZA')}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Avg: R{auditData.length > 0 ? (auditData.reduce((sum, record) => {
+                                const rate = parseFloat(record.rate?.toString().replace(/[^0-9.-]/g, '') || '0')
+                                return sum + rate
+                              }, 0) / auditData.length).toLocaleString('en-ZA') : '0'} per trip
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Clients Served</CardTitle>
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {new Set(auditData.map(r => r.client)).size}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Unique clients
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+                            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {auditData.length > 0 ? Math.round((auditData.filter(r => r.status?.toLowerCase() === 'delivered').length / auditData.length) * 100) : 0}%
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Delivered trips
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Top Clients by Revenue</h3>
+                        <div className="space-y-2">
+                          {Object.entries(
+                            auditData.reduce((acc, record) => {
+                              const client = record.client
+                              const rate = parseFloat(record.rate?.toString().replace(/[^0-9.-]/g, '') || '0')
+                              acc[client] = (acc[client] || 0) + rate
+                              return acc
+                            }, {})
+                          )
+                          .sort(([,a], [,b]) => b - a)
+                          .slice(0, 5)
+                          .map(([client, revenue]) => (
+                            <div key={client} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                              <span className="font-medium">{client}</span>
+                              <span className="text-green-600 font-semibold">R{revenue.toLocaleString('en-ZA')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </Dialog.Content>
+                </Dialog.Portal>
+              </Dialog.Root>
             </div>
             <Card className="rounded-2xl shadow-md">
               <CardHeader>
@@ -895,7 +1086,26 @@ export default function Dashboard() {
                           </TableCell>
                         </TableRow>
                       ) : auditData.map((row) => (
-                        <TableRow key={row.id} className="hover:bg-muted/50">
+                        <TableRow 
+                          key={row.id} 
+                          className="hover:bg-muted/50 cursor-pointer" 
+                          onClick={async () => {
+                            try {
+                              const supabase = createClient()
+                              const { data: tripData, error } = await supabase
+                                .from('audit')
+                                .select('*')
+                                .eq('id', row.id)
+                                .single()
+                              
+                              if (error) throw error
+                              setSelectedTrip(tripData)
+                              setTripDetailsOpen(true)
+                            } catch (error) {
+                              console.error('Error fetching trip details:', error)
+                            }
+                          }}
+                        >
                           <TableCell className="font-medium">{row.client}</TableCell>
                           <TableCell>{row.commodity}</TableCell>
                           <TableCell>{row.rate}</TableCell>
@@ -1350,6 +1560,265 @@ export default function Dashboard() {
                     }
                   }}
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trip Details Modal */}
+      {tripDetailsOpen && selectedTrip && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
+              <h3 className="text-lg font-semibold">Trip Summary - {selectedTrip.trip_id}</h3>
+              <Button variant="ghost" size="sm" onClick={() => {
+                setTripDetailsOpen(false)
+                setSelectedTrip(null)
+              }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Trip Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Order #:</span>
+                      <span className="font-medium">{selectedTrip.ordernumber || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Status:</span>
+                      <Badge variant={selectedTrip.status === 'delivered' ? 'default' : 'secondary'}>
+                        {selectedTrip.status}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Distance:</span>
+                      <span className="font-medium">{selectedTrip.actual_distance?.toFixed(1) || 'N/A'} km</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Financial</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Rate:</span>
+                      <span className="font-medium text-green-600">
+                        {selectedTrip.rate ? `R${parseFloat(selectedTrip.rate).toLocaleString('en-ZA')}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Total Cost:</span>
+                      <span className="font-medium text-green-600">
+                        R{selectedTrip.actual_total_cost?.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Fuel Price:</span>
+                      <span className="font-medium">R{selectedTrip.fuel_price_used || 'N/A'}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Vehicle & Driver</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Vehicle Type:</span>
+                      <span className="font-medium">{selectedTrip.vehicle_type || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Updated:</span>
+                      <span className="font-medium">
+                        {selectedTrip.updated_at ? new Date(selectedTrip.updated_at).toLocaleDateString('en-ZA') : 'N/A'}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Route Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm text-gray-600">Origin</h4>
+                      <p className="text-sm bg-green-50 p-2 rounded border-l-2 border-green-500">
+                        {selectedTrip.origin || 'N/A'}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm text-gray-600">Destination</h4>
+                      <p className="text-sm bg-red-50 p-2 rounded border-l-2 border-red-500">
+                        {selectedTrip.destination || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Client Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">Client:</span>
+                      <p className="text-sm font-medium">{selectedTrip.selectedclient || selectedTrip.selected_client || 'N/A'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Cargo Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">Cargo Type:</span>
+                      <p className="text-sm font-medium">{selectedTrip.cargo || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">Weight:</span>
+                      <p className="text-sm font-medium">{selectedTrip.cargo_weight || selectedTrip.cargoweight || 'N/A'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {selectedTrip.notes && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Trip Notes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm bg-blue-50 p-3 rounded">{selectedTrip.notes}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unauthorized Stop Note Modal */}
+      {unauthorizedStopModalOpen && currentUnauthorizedTrip && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold text-red-800">Unauthorized Stop Detected</h3>
+              <Button variant="ghost" size="sm" onClick={() => {
+                setUnauthorizedStopModalOpen(false)
+                setCurrentUnauthorizedTrip(null)
+                setUnauthorizedStopNote('')
+              }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="bg-red-50 p-3 rounded border-l-4 border-red-500">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                  <span className="font-medium text-red-800">Trip #{currentUnauthorizedTrip.trip_id || currentUnauthorizedTrip.id}</span>
+                </div>
+                <p className="text-sm text-red-700">
+                  {currentUnauthorizedTrip.unauthorized_stops_count} unauthorized stop{currentUnauthorizedTrip.unauthorized_stops_count > 1 ? 's' : ''} detected
+                </p>
+                {(() => {
+                  const routePoints = currentUnauthorizedTrip.route_points || []
+                  const lastPoint = routePoints[routePoints.length - 1]
+                  return lastPoint && (
+                    <div className="mt-2 text-xs text-red-600">
+                      <div>Last Location: {lastPoint.lat?.toFixed(6)}, {lastPoint.lng?.toFixed(6)}</div>
+                      <div>Time: {new Date(lastPoint.datetime).toLocaleString()}</div>
+                      <div>Speed: {lastPoint.speed} km/h</div>
+                    </div>
+                  )
+                })()}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Add Note for Unauthorized Stop:
+                </label>
+                <textarea
+                  value={unauthorizedStopNote}
+                  onChange={(e) => setUnauthorizedStopNote(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  rows={3}
+                  placeholder="Enter details about the unauthorized stop..."
+                />
+              </div>
+              
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={async () => {
+                    try {
+                      const supabase = createClient()
+                      // Clear unauthorized stops count when dismissing
+                      const { error } = await supabase
+                        .from('trips')
+                        .update({ unauthorized_stops_count: 0 })
+                        .eq('id', currentUnauthorizedTrip.id)
+                      
+                      if (error) throw error
+                      
+                      setUnauthorizedStopModalOpen(false)
+                      setCurrentUnauthorizedTrip(null)
+                      setUnauthorizedStopNote('')
+                      setRefreshTrigger(prev => prev + 1)
+                    } catch (err) {
+                      console.error('Failed to dismiss alert:', err)
+                      alert('Failed to dismiss alert')
+                    }
+                  }}
+                >
+                  Dismiss
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    try {
+                      const supabase = createClient()
+                      const noteToAdd = `[UNAUTHORIZED STOP] ${new Date().toLocaleString()}: ${unauthorizedStopNote}`
+                      const existingNotes = currentUnauthorizedTrip.status_notes || ''
+                      const updatedNotes = existingNotes ? `${existingNotes}\n${noteToAdd}` : noteToAdd
+                      
+                      // Clear unauthorized stops count when adding note
+                      const { error } = await supabase
+                        .from('trips')
+                        .update({ 
+                          status_notes: updatedNotes,
+                          unauthorized_stops_count: 0
+                        })
+                        .eq('id', currentUnauthorizedTrip.id)
+                      
+                      if (error) throw error
+                      
+                      setUnauthorizedStopModalOpen(false)
+                      setCurrentUnauthorizedTrip(null)
+                      setUnauthorizedStopNote('')
+                      setRefreshTrigger(prev => prev + 1)
+                    } catch (err) {
+                      console.error('Failed to add note:', err)
+                      alert('Failed to add note')
+                    }
+                  }}
+                >
+                  Add Note
+                </Button>
               </div>
             </div>
           </div>

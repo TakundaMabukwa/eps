@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import 'mapbox-gl/dist/mapbox-gl.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -120,5 +119,26 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom animations for unauthorized stop alerts */
+@keyframes flash-red {
+  0%, 100% {
+    background-color: rgb(254 242 242); /* red-50 */
+    border-color: rgb(239 68 68); /* red-500 */
+  }
+  50% {
+    background-color: rgb(254 226 226); /* red-100 */
+    border-color: rgb(220 38 38); /* red-600 */
+  }
+}
+
+.flash-red {
+  animation: flash-red 1s ease-in-out infinite;
+}
+
+.unauthorized-stop-alert {
+  @apply border-red-500 bg-red-50;
+  animation: flash-red 2s ease-in-out 3;
 }
 

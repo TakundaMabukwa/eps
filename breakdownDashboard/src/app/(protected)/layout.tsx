@@ -43,6 +43,7 @@ const roleNavigation = {
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
     // { name: "Customers", href: "/customer", Icon: <Building2 /> },
     { name: "Cost Centers", href: "/ccenter", Icon: <Construction /> },
+    { name: "Financials", href: "/audit", Icon: <Settings2Icon /> },
     // { name: "Reports", href: "/reports", Icon: <ChartBar /> },
     // { name: "User Management", href: "/userManagement", Icon: <PlusSquare /> },
     // { name: "System Settings", href: "/settings", Icon: <Settings /> },
