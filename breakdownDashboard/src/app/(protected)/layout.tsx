@@ -37,7 +37,7 @@ const roleNavigation = {
     // { name: "Call Center", href: "/callcenter", Icon: <Phone /> },
     { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
     { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
-    { name: "Equipment", href: "/equipment", Icon: <Settings /> },
+    // { name: "Equipment", href: "/equipment", Icon: <Settings /> },
     // { name: "Fleet Manager", href: "/fleetManager", Icon: <Truck /> },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },

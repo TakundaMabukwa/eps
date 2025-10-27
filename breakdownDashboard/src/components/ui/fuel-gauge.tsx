@@ -69,12 +69,7 @@ export function FuelGauge({
 
   return (
     <div className={cn(
-      "shadow-sm hover:shadow-md p-3 border rounded-lg transition-all duration-300 relative overflow-visible",
-      status.includes('ON') || status.includes('on') 
-        ? "bg-green-50 border-green-200" 
-        : status.includes('No Signal')
-        ? "bg-red-50 border-red-200"
-        : "bg-gray-200 border-gray-300",
+      "shadow-sm hover:shadow-md p-3 border rounded-lg transition-all duration-300 relative overflow-visible bg-white border-gray-200",
       className
     )}>
       {/* Header */}

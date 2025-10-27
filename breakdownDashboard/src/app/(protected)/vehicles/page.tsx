@@ -109,7 +109,6 @@ interface CostCenter {
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState<VehicleFormValues[]>([]);
   const [isAddingVehicle, setIsAddingVehicle] = useState(false);
-  const [selectedVehicleReg, setSelectedVehicleReg] = useState("");
   const router = useRouter();
   const supabase = createClient();
   const [search, setSearch] = useState("");
@@ -166,6 +165,9 @@ export default function Vehicles() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
+  const [equipmentData, setEquipmentData] = useState<any[]>([]);
+  const [isEquipmentSheetOpen, setIsEquipmentSheetOpen] = useState(false);
+  const [equipmentVehicleReg, setEquipmentVehicleReg] = useState("");
   
   
 
@@ -243,7 +245,8 @@ export default function Vehicles() {
     const { data: vehicles, error } = await supabase
       .from("vehiclesc")
       .select("*")
-      .or("type.is.null,type.eq.internal");
+      .or("type.is.null,type.eq.internal")
+      .neq("department_name", "SOLD");
     if (error) {
       console.error("the error is", error.name, error.message);
     } else {
@@ -429,6 +432,24 @@ export default function Vehicles() {
     }
     console.log("Technician assigned successfully:", datav);
   }
+
+  const fetchEquipmentData = async (registration: string) => {
+    console.log('Searching for equipment with registration:', registration);
+    
+    const { data, error } = await supabase
+      .from('equipment')
+      .select('*')
+      .ilike('reg', registration.trim());
+    
+    if (error) {
+      console.error('Error fetching equipment:', error);
+      toast.error('Failed to fetch equipment data');
+      return;
+    }
+    
+    console.log('Equipment data found:', data);
+    setEquipmentData(data || []);
+  };
 
   const { columns } = initialVehiclesState;
   // console.log("The vehicles are", columns)
@@ -1135,6 +1156,18 @@ export default function Vehicles() {
                           >
                             View
                           </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={async () => {
+                              setEquipmentVehicleReg(vehicle.registration_number || '');
+                              await fetchEquipmentData(vehicle.registration_number || '');
+                              setIsEquipmentSheetOpen(true);
+                            }}
+                          >
+                            Equipment
+                          </Button>
                           <Link href={`/vehicles/${vehicle.id}`}>
                             <Button variant="default" size="sm" className="h-7 px-2 text-xs bg-slate-700 hover:bg-slate-800">Details</Button>
                           </Link>
@@ -1309,17 +1342,73 @@ export default function Vehicles() {
         </SheetContent>
       </Sheet>
 
-      {columns && vehicles && vehicles.length > 0 && (
-        <DataTable
-          columns={columns()}
-          data={vehicles}
-          filterColumn={""}
-          filterPlaceholder={""}
-          // csv_headers={[]}
-          // csv_rows={[]}
-          href={`/vehicles`}
-        />
-      )}
+      {/* Equipment Sheet */}
+      <Sheet open={isEquipmentSheetOpen} onOpenChange={setIsEquipmentSheetOpen}>
+        <SheetContent className="w-[600px] max-w-[90vw] p-0 bg-white">
+          <div className="bg-slate-50 border-b border-slate-200 p-6">
+            <SheetTitle className="text-xl font-bold text-slate-900">
+              Equipment for {equipmentVehicleReg}
+            </SheetTitle>
+          </div>
+          
+          <div className="overflow-y-auto h-[calc(100vh-140px)] p-6">
+            {equipmentData.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                No equipment found for this vehicle
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {equipmentData.map((equipment) => (
+                  <Card key={equipment.id} className="bg-slate-50 border border-slate-200">
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Registration</p>
+                          <p className="text-sm font-medium text-slate-900 mt-1">{equipment.reg || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Skylink Pro IP</p>
+                          <p className="text-sm text-slate-700 mt-1">{equipment.skylink_pro_ip || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Industrial Panic</p>
+                          <p className="text-sm text-slate-700 mt-1">{equipment.industrial_panic || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Keypad</p>
+                          <p className="text-sm text-slate-700 mt-1">{equipment.keypad || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Beame</p>
+                          <p className="text-sm text-slate-700 mt-1">{equipment.beame_1 || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Fuel Probe</p>
+                          <p className="text-sm text-slate-700 mt-1">{equipment.fuel_probe_1 || '-'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="border-t border-slate-200 p-4 bg-white">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEquipmentSheetOpen(false)}
+                className="text-slate-600 border-slate-300"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
     </div>
   );
 }

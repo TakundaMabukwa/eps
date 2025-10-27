@@ -94,12 +94,18 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
         const supabase = createClient()
         const assignment = assignments[0]
         
+        // Switch to second driver if status is handover and second driver exists
+        let driverToFetch = assignment.drivers?.[0]
+        if (trip.status?.toLowerCase() === 'handover' && assignment.drivers?.[1]) {
+          driverToFetch = assignment.drivers[1]
+        }
+        
         // Fetch driver info by ID
-        if (assignment.drivers?.[0]?.id) {
+        if (driverToFetch?.id) {
           const { data: driver } = await supabase
             .from('drivers')
             .select('*')
-            .eq('id', assignment.drivers[0].id)
+            .eq('id', driverToFetch.id)
             .single()
           setDriverInfo(driver)
           
@@ -343,7 +349,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
 }
 
 // Enhanced routing components with proper waypoints
-function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNoteText, setNoteOpen, setAvailableDrivers, setCurrentTripForChange, setChangeDriverOpen, refreshTrigger, setRefreshTrigger, setPickupTimeOpen, setDropoffTimeOpen, setCurrentTripForTime, setTimeType, setSelectedTime, currentUnauthorizedTrip, setCurrentUnauthorizedTrip, setUnauthorizedStopModalOpen }: any) {
+function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNoteText, setNoteOpen, setAvailableDrivers, setCurrentTripForChange, setChangeDriverOpen, refreshTrigger, setRefreshTrigger, setPickupTimeOpen, setDropoffTimeOpen, setCurrentTripForTime, setTimeType, setSelectedTime, currentUnauthorizedTrip, setCurrentUnauthorizedTrip, setUnauthorizedStopModalOpen, loadingPhotos, setLoadingPhotos, setCurrentTripPhotos, setPhotosModalOpen }: any) {
   const [trips, setTrips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -403,23 +409,42 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
       return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     })
 
-  const TRIP_STATUSES = [
-    'Pending',
-    'Accept',
-    'Arrived at Loading',
-    'Staging Area', 
-    'Loading',
-    'On Trip',
-    'Offloading',
-    'Weighing In/Out',
-    'Delivered'
+  const STATUS_OPTIONS = [
+    { label: "Pending", value: "pending" },
+    { label: "Accept", value: "accepted" },
+    { label: "Reject", value: "rejected" },
+    { label: "Arrived at Loading", value: "arrived-at-loading" },
+    { label: "Staging Area", value: "staging-area" },
+    { label: "Loading", value: "loading" },
+    { label: "On Trip", value: "on-trip" },
+    { label: "Completed", value: "completed" },
+    { label: "Cancelled", value: "cancelled" },
+    { label: "Stopped", value: "stopped" },
+    { label: "Offloading", value: "offloading" },
+    { label: "Weighing In/Out", value: "weighing" },
+    { label: "Delivered", value: "delivered" },
+  ]
+
+  // Main workflow statuses for progress tracking
+  const WORKFLOW_STATUSES = [
+    { label: "Pending", value: "pending" },
+    { label: "Accept", value: "accepted" },
+    { label: "Arrived at Loading", value: "arrived-at-loading" },
+    { label: "Staging Area", value: "staging-area" },
+    { label: "Loading", value: "loading" },
+    { label: "On Trip", value: "on-trip" },
+    { label: "Offloading", value: "offloading" },
+    { label: "Weighing In/Out", value: "weighing" },
+    { label: "Depo", value: "depo" },
+    { label: "Handover", value: "handover" },
+    { label: "Delivered", value: "delivered" }
   ]
 
   const getWaypointsWithStops = (trip: any) => {
-    const currentStatusIndex = TRIP_STATUSES.findIndex(s => s.toLowerCase() === trip.status?.toLowerCase())
-    const baseWaypoints = TRIP_STATUSES.map((status, index) => ({
-      position: (index / (TRIP_STATUSES.length - 1)) * 100,
-      label: status,
+    const currentStatusIndex = WORKFLOW_STATUSES.findIndex(s => s.value === trip.status?.toLowerCase())
+    const baseWaypoints = WORKFLOW_STATUSES.map((status, index) => ({
+      position: (index / (WORKFLOW_STATUSES.length - 1)) * 100,
+      label: status.label,
       completed: currentStatusIndex > index,
       current: currentStatusIndex === index,
       isStop: false
@@ -444,7 +469,7 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
       // Adjust positions of waypoints after Loading
       const adjustedWaypoints = [...baseWaypoints]
       for (let i = 5; i < adjustedWaypoints.length; i++) {
-        adjustedWaypoints[i].position = onTripPos + ((i - 5) / (TRIP_STATUSES.length - 6)) * (100 - onTripPos)
+        adjustedWaypoints[i].position = onTripPos + ((i - 5) / (WORKFLOW_STATUSES.length - 6)) * (100 - onTripPos)
       }
       
       return [...adjustedWaypoints.slice(0, 5), ...stopWaypoints, ...adjustedWaypoints.slice(5)]
@@ -456,9 +481,9 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
 
 
   const getTripProgress = (status: string) => {
-    const statusIndex = TRIP_STATUSES.findIndex(s => s.toLowerCase() === status?.toLowerCase())
+    const statusIndex = WORKFLOW_STATUSES.findIndex(s => s.value === status?.toLowerCase())
     if (statusIndex === -1) return 0
-    return ((statusIndex + 1) / TRIP_STATUSES.length) * 100
+    return ((statusIndex + 1) / WORKFLOW_STATUSES.length) * 100
   }
 
   if (loading) {
@@ -541,12 +566,13 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
                     <span className={cn(
                       "px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wide",
                       trip.status?.toLowerCase() === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
-                      trip.status?.toLowerCase() === 'on trip' ? 'bg-blue-100 text-blue-700' :
-                      ['pending', 'accept'].includes(trip.status?.toLowerCase()) ? 'bg-amber-100 text-amber-700' :
-                      ['reject', 'cancelled', 'stopped'].includes(trip.status?.toLowerCase()) ? 'bg-red-100 text-red-700' :
+                      trip.status?.toLowerCase() === 'on-trip' ? 'bg-blue-100 text-blue-700' :
+                      ['pending', 'accepted'].includes(trip.status?.toLowerCase()) ? 'bg-amber-100 text-amber-700' :
+                      ['rejected', 'cancelled', 'stopped'].includes(trip.status?.toLowerCase()) ? 'bg-red-100 text-red-700' :
+                      ['completed', 'depo', 'handover'].includes(trip.status?.toLowerCase()) ? 'bg-green-100 text-green-700' :
                       'bg-slate-100 text-slate-700'
                     )}>
-                      {trip.status?.replace('-', ' ') || 'Unknown'}
+                      {trip.status || 'Unknown'}
                     </span>
                   </div>
                 </div>
@@ -709,27 +735,56 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
                   </Button>
                   <Button 
                     size="sm" 
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs ml-auto"
+                    className="bg-blue-600 hover:bg-blue-700 text-white h-7 text-xs ml-auto"
                     onClick={async () => {
-                      if (!confirm('Mark this trip as completed?')) return;
+                      setLoadingPhotos(true);
                       try {
                         const supabase = createClient();
-                        // Clear unauthorized stops count when completing trip
-                        const { error } = await supabase.from('trips').update({ 
-                          status: 'Delivered',
-                          unauthorized_stops_count: 0
-                        }).eq('id', trip.id);
-                        if (error) throw error;
-                        alert('Trip marked as delivered');
-                        setRefreshTrigger(prev => prev + 1);
+                        const tripId = trip.id || trip.trip_id;
+                        
+                        // Fetch photos from both folders
+                        const { data: beforePhotos } = await supabase.storage
+                          .from('trip-photos')
+                          .list(`${tripId}/loadBefore`);
+                        
+                        const { data: duringPhotos } = await supabase.storage
+                          .from('trip-photos')
+                          .list(`${tripId}/loadDuring`);
+                        
+                        // Get Supabase URL and construct direct URLs
+                        const supabaseUrl = supabase.supabaseUrl;
+                        
+                        const beforeUrls = beforePhotos?.filter(item => item.name && !item.name.endsWith('/'))
+                          .map(photo => ({
+                            url: `${supabaseUrl}/storage/v1/object/public/trip-photos/${tripId}/loadBefore/${photo.name}`,
+                            name: photo.name
+                          })) || [];
+                        
+                        const duringUrls = duringPhotos?.filter(item => item.name && !item.name.endsWith('/'))
+                          .map(photo => ({
+                            url: `${supabaseUrl}/storage/v1/object/public/trip-photos/${tripId}/loadDuring/${photo.name}`,
+                            name: photo.name
+                          })) || [];
+                        
+                        console.log('Generated URLs:', { beforeUrls, duringUrls });
+                        
+                        setCurrentTripPhotos({ 
+                          tripId, 
+                          before: beforeUrls, 
+                          during: duringUrls 
+                        });
+                        setPhotosModalOpen(true);
                       } catch (err) {
-                        console.error('Failed to complete trip', err);
-                        alert('Failed to complete trip');
+                        console.error('Failed to load photos:', err);
+                        alert('Failed to load photos');
+                      } finally {
+                        setLoadingPhotos(false);
                       }
                     }}
+                    disabled={loadingPhotos}
                   >
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Complete Trip
+                    <FileText className="w-3 h-3 mr-1" />
+                    {loadingPhotos ? 'Loading...' : 'View Loading Pictures'}
                   </Button>
                 </div>
               </div>
@@ -768,6 +823,9 @@ export default function Dashboard() {
   const [unauthorizedStopModalOpen, setUnauthorizedStopModalOpen] = useState(false);
   const [currentUnauthorizedTrip, setCurrentUnauthorizedTrip] = useState<any>(null);
   const [unauthorizedStopNote, setUnauthorizedStopNote] = useState('');
+  const [photosModalOpen, setPhotosModalOpen] = useState(false);
+  const [currentTripPhotos, setCurrentTripPhotos] = useState<any>(null);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   // Get user role from cookies
   useEffect(() => {
@@ -863,7 +921,7 @@ export default function Dashboard() {
     <>
       <div className="flex-1 space-y-4 p-4 pt-6">
         {/* Top Tabs Navigation */}
-        <div className="flex items-center justify-between">
+        {/* <div className="flex items-center justify-between">
           <Tabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v)}
@@ -890,7 +948,7 @@ export default function Dashboard() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-        </div>
+        </div> */}
 
         {/* Conditionally render the main views */}
         {activeTab === "routing" && (
@@ -921,6 +979,10 @@ export default function Dashboard() {
               currentUnauthorizedTrip={currentUnauthorizedTrip}
               setCurrentUnauthorizedTrip={setCurrentUnauthorizedTrip}
               setUnauthorizedStopModalOpen={setUnauthorizedStopModalOpen}
+              loadingPhotos={loadingPhotos}
+              setLoadingPhotos={setLoadingPhotos}
+              setCurrentTripPhotos={setCurrentTripPhotos}
+              setPhotosModalOpen={setPhotosModalOpen}
             />
           </div>
         )}
@@ -1820,6 +1882,100 @@ export default function Dashboard() {
                   Add Note
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Photos Modal */}
+      {photosModalOpen && currentTripPhotos && (
+        <div className="fixed inset-0 bg-gray-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+            <div className="bg-gray-50 border-b px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Loading Documentation</h2>
+                  <p className="text-sm text-gray-600">Trip #{currentTripPhotos.tripId}</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setPhotosModalOpen(false);
+                  setCurrentTripPhotos(null);
+                }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[calc(90vh-80px)] bg-gray-50">
+              {(currentTripPhotos.before.length > 0 || currentTripPhotos.during.length > 0) ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2">
+                  <div className="p-6 border-r border-gray-200">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">Before Loading</h3>
+                      <p className="text-sm text-gray-500">{currentTripPhotos.before.length} photos</p>
+                    </div>
+                    {currentTripPhotos.before.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        {currentTripPhotos.before.map((photo, index) => (
+                          <div key={index} className="group cursor-pointer" onClick={() => window.open(photo.url, '_blank')}>
+                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                              <img 
+                                src={photo.url} 
+                                alt={`Before ${index + 1}`}
+                                className="w-full h-32 object-cover"
+                              />
+                              <div className="p-3">
+                                <p className="text-xs text-gray-600 truncate">{photo.name}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <p className="text-sm">No photos available</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-6">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">During Loading</h3>
+                      <p className="text-sm text-gray-500">{currentTripPhotos.during.length} photos</p>
+                    </div>
+                    {currentTripPhotos.during.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        {currentTripPhotos.during.map((photo, index) => (
+                          <div key={index} className="group cursor-pointer" onClick={() => window.open(photo.url, '_blank')}>
+                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                              <img 
+                                src={photo.url} 
+                                alt={`During ${index + 1}`}
+                                className="w-full h-32 object-cover"
+                              />
+                              <div className="p-3">
+                                <p className="text-xs text-gray-600 truncate">{photo.name}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <p className="text-sm">No photos available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <div className="text-gray-400 mb-4">
+                    <FileText className="w-12 h-12 mx-auto" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Photos Available</h3>
+                  <p className="text-gray-500">No loading documentation found for this trip.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

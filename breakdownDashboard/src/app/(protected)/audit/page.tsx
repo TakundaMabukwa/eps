@@ -16,8 +16,124 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Search, DollarSign, Truck, Calendar, FileText, Eye, MapPin } from 'lucide-react'
+import { Search, DollarSign, Truck, Calendar, FileText, Eye, MapPin, Route } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+
+// Route Map Component
+function RouteMap({ routePoints }: { routePoints: string | any[] | null }) {
+  useEffect(() => {
+    if (!routePoints) return
+
+    let points: any[] = []
+    try {
+      // Parse the route points data
+      if (typeof routePoints === 'string') {
+        const decoded = routePoints.replace(/&quot;/g, '"')
+        points = JSON.parse(decoded)
+      } else if (Array.isArray(routePoints)) {
+        points = routePoints
+      } else {
+        console.error('Invalid route points format')
+        return
+      }
+    } catch (error) {
+      console.error('Error parsing route points:', error)
+      return
+    }
+
+    if (!points.length) return
+
+    // Initialize map
+    const mapboxgl = (window as any).mapboxgl
+    if (!mapboxgl) {
+      // Load Mapbox GL JS
+      const script = document.createElement('script')
+      script.src = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'
+      script.onload = () => initializeMap()
+      document.head.appendChild(script)
+      
+      const link = document.createElement('link')
+      link.href = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css'
+      link.rel = 'stylesheet'
+      document.head.appendChild(link)
+    } else {
+      initializeMap()
+    }
+
+    function initializeMap() {
+      const mapboxgl = (window as any).mapboxgl
+      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+
+      const map = new mapboxgl.Map({
+        container: 'route-map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [points[0].lng, points[0].lat],
+        zoom: 10
+      })
+
+      map.on('load', () => {
+        // Add route line
+        map.addSource('route', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: points.map(p => [p.lng, p.lat])
+            }
+          }
+        })
+
+        map.addLayer({
+          id: 'route',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#3b82f6',
+            'line-width': 4
+          }
+        })
+
+        // Add start marker
+        new mapboxgl.Marker({ color: '#10b981' })
+          .setLngLat([points[0].lng, points[0].lat])
+          .setPopup(new mapboxgl.Popup().setHTML(`<div><strong>Start</strong><br/>${new Date(points[0].datetime).toLocaleString()}</div>`))
+          .addTo(map)
+
+        // Add end marker
+        const lastPoint = points[points.length - 1]
+        new mapboxgl.Marker({ color: '#ef4444' })
+          .setLngLat([lastPoint.lng, lastPoint.lat])
+          .setPopup(new mapboxgl.Popup().setHTML(`<div><strong>End</strong><br/>${new Date(lastPoint.datetime).toLocaleString()}</div>`))
+          .addTo(map)
+
+        // Fit map to route bounds
+        const bounds = new mapboxgl.LngLatBounds()
+        points.forEach(point => bounds.extend([point.lng, point.lat]))
+        map.fitBounds(bounds, { padding: 50 })
+      })
+    }
+  }, [routePoints])
+
+  if (!routePoints) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-50 rounded-lg">
+        <div className="text-center">
+          <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-500">No route data available</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <div id="route-map" className="w-full h-full rounded-lg" />
+}
+
 
 export default function AuditPage() {
   const [auditRecords, setAuditRecords] = useState<any[]>([])
@@ -28,6 +144,8 @@ export default function AuditPage() {
   const [showSummary, setShowSummary] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<any>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [routeModalOpen, setRouteModalOpen] = useState(false)
+  const [selectedRouteRecord, setSelectedRouteRecord] = useState<any>(null)
   const supabase = createClientComponentClient()
 
   useEffect(() => {
@@ -94,6 +212,23 @@ export default function AuditPage() {
   }
 
   const summary = calculateSummary()
+
+  // Check if route points exist and are valid
+  const hasRoutePoints = (routePoints: any) => {
+    if (!routePoints) return false
+    try {
+      let points = []
+      if (typeof routePoints === 'string') {
+        const decoded = routePoints.replace(/&quot;/g, '"')
+        points = JSON.parse(decoded)
+      } else if (Array.isArray(routePoints)) {
+        points = routePoints
+      }
+      return points && points.length > 0
+    } catch {
+      return false
+    }
+  }
 
   // Helpers for the summary modal
   const fmtDateTime = (val: any) => {
@@ -275,17 +410,31 @@ export default function AuditPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRecord(record)
-                          setSummaryOpen(true)
-                        }}
-                        className="h-7 px-2 text-xs"
-                      >
-                        View
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRecord(record)
+                            setSummaryOpen(true)
+                          }}
+                          className="h-7 px-2 text-xs"
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRouteRecord(record)
+                            setRouteModalOpen(true)
+                          }}
+                          disabled={!hasRoutePoints(record.route_points)}
+                          className={`h-7 px-2 text-xs ${!hasRoutePoints(record.route_points) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <Route className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -601,6 +750,30 @@ export default function AuditPage() {
               ) : (
                 <div className="text-center py-8 text-gray-500">No trip selected</div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Route Modal */}
+      {routeModalOpen && selectedRouteRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-2xl w-[90vw] h-[80vh] max-w-none overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Actual Route - {selectedRouteRecord?.trip_id}</h2>
+                <p className="text-sm text-slate-600 mt-1">GPS tracking points visualization</p>
+              </div>
+              <button 
+                onClick={() => setRouteModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="h-full p-4">
+              <RouteMap routePoints={selectedRouteRecord.route_points} />
             </div>
           </div>
         </div>

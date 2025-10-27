@@ -79,6 +79,7 @@ export default function LoadPlanPage() {
   // Driver assignments state
   const [driverAssignments, setDriverAssignments] = useState([{ id: '', name: '' }])
   const [selectedVehicleId, setSelectedVehicleId] = useState('')
+  const [selectedTrailerId, setSelectedTrailerId] = useState('')
   const [selectedVehicleType, setSelectedVehicleType] = useState('')
   const [selectedDriverLocation, setSelectedDriverLocation] = useState(null)
   
@@ -635,6 +636,89 @@ export default function LoadPlanPage() {
     }
   }, [selectedVehicleType, estimatedDistance, tripDays, approximateFuelCost, approximatedVehicleCost, approximatedDriverCost, goodsInTransitPremium, calculateRateCardCost])
 
+  // Calculate distance from point to route line
+  const distanceToRoute = useCallback((pointLat, pointLng, routeCoords) => {
+    if (!routeCoords || routeCoords.length < 2) return Infinity
+    
+    let minDistance = Infinity
+    for (let i = 0; i < routeCoords.length - 1; i++) {
+      const [lng1, lat1] = routeCoords[i]
+      const [lng2, lat2] = routeCoords[i + 1]
+      
+      // Distance from point to line segment
+      const A = pointLat - lat1
+      const B = pointLng - lng1
+      const C = lat2 - lat1
+      const D = lng2 - lng1
+      
+      const dot = A * C + B * D
+      const lenSq = C * C + D * D
+      let param = -1
+      if (lenSq !== 0) param = dot / lenSq
+      
+      let xx, yy
+      if (param < 0) {
+        xx = lat1
+        yy = lng1
+      } else if (param > 1) {
+        xx = lat2
+        yy = lng2
+      } else {
+        xx = lat1 + param * C
+        yy = lng1 + param * D
+      }
+      
+      const distance = calculateDistance(pointLat, pointLng, xx, yy)
+      minDistance = Math.min(minDistance, distance)
+    }
+    return minDistance
+  }, [calculateDistance])
+
+  // Filter stop points within 25km of route and between origin/destination
+  const filteredStopPoints = useMemo(() => {
+    if (!loadingLocation || !dropOffPoint || !optimizedRoute?.route?.geometry?.coordinates) {
+      return availableStopPoints
+    }
+    
+    const routeCoords = optimizedRoute.route.geometry.coordinates
+    const [originLng, originLat] = routeCoords[0]
+    const [destLng, destLat] = routeCoords[routeCoords.length - 1]
+    
+    return availableStopPoints.filter(point => {
+      if (!point.coordinates) return false
+      
+      try {
+        const coordPairs = point.coordinates.split(' ')
+          .filter(coord => coord.trim())
+          .map(coord => {
+            const [lng, lat] = coord.split(',')
+            return [parseFloat(lng), parseFloat(lat)]
+          })
+          .filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]))
+        
+        if (coordPairs.length === 0) return false
+        
+        // Use centroid of stop point polygon
+        const avgLng = coordPairs.reduce((sum, coord) => sum + coord[0], 0) / coordPairs.length
+        const avgLat = coordPairs.reduce((sum, coord) => sum + coord[1], 0) / coordPairs.length
+        
+        // Check if within 25km of route
+        const distance = distanceToRoute(avgLat, avgLng, routeCoords)
+        if (distance > 25) return false
+        
+        // Check if between origin and destination
+        const distToOrigin = calculateDistance(avgLat, avgLng, originLat, originLng)
+        const distToDest = calculateDistance(avgLat, avgLng, destLat, destLng)
+        const originToDestDist = calculateDistance(originLat, originLng, destLat, destLng)
+        
+        // Point is between origin and destination if sum of distances is roughly equal to direct distance
+        return (distToOrigin + distToDest) <= (originToDestDist * 1.2) // 20% tolerance
+      } catch (error) {
+        return false
+      }
+    })
+  }, [availableStopPoints, loadingLocation, dropOffPoint, optimizedRoute, distanceToRoute, calculateDistance])
+
   // Get selected stop points with coordinates
   const getSelectedStopPointsData = () => {
     return stopPoints.map(pointId => {
@@ -872,6 +956,10 @@ export default function LoadPlanPage() {
           vehicle: { 
             id: selectedVehicleId, 
             name: selectedVehicleId ? vehicles.find(v => v.id.toString() === selectedVehicleId)?.registration_number || '' : ''
+          },
+          trailer: {
+            id: selectedTrailerId,
+            name: selectedTrailerId ? vehicles.find(v => v.id.toString() === selectedTrailerId)?.registration_number || '' : ''
           }
         }],
         trip_type: tripType,
@@ -910,6 +998,7 @@ export default function LoadPlanPage() {
       setEtaPickup(''); setLoadingLocation(''); setEtaDropoff(''); setDropOffPoint('')
       setDriverAssignments([{ id: '', name: '' }])
       setSelectedVehicleId('')
+      setSelectedTrailerId('')
       setTripType('local')
       setStopPoints([])
       setFuelPricePerLiter('')
@@ -933,10 +1022,10 @@ export default function LoadPlanPage() {
       <h1 className="text-2xl font-bold mb-6">Load Plan</h1>
       
       <Tabs defaultValue="loads" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="loads">Loads</TabsTrigger>
           <TabsTrigger value="create">Create Load</TabsTrigger>
-          <TabsTrigger value="routing">Routing</TabsTrigger>
+          {/* <TabsTrigger value="routing">Routing</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="loads" className="space-y-6">
@@ -1210,8 +1299,8 @@ export default function LoadPlanPage() {
                             updated[index] = value
                             setStopPoints(updated)
                           }}
-                          stopPoints={availableStopPoints}
-                          placeholder="Search and select stop point"
+                          stopPoints={filteredStopPoints}
+                          placeholder="Search stop points (25km radius, between origin/destination)"
                           isLoading={isLoadingStopPoints}
                         />
                         <Button 
@@ -1306,24 +1395,38 @@ export default function LoadPlanPage() {
                     </Select>
                   </div>
 
-                  {/* Vehicle Dropdown - Filtered */}
+                  {/* Horse Dropdown - Vehicles only */}
                   <div className="space-y-2">
-                    <Label htmlFor="vehicle" className="text-sm font-medium text-slate-700">Select Vehicle</Label>
+                    <Label htmlFor="horse" className="text-sm font-medium text-slate-700">Select Horse</Label>
                     <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder={selectedVehicleType ? `Select ${selectedVehicleType} vehicle` : "Select vehicle type first"} />
+                        <SelectValue placeholder="Select horse (vehicle)" />
                       </SelectTrigger>
                       <SelectContent>
-                        {filteredVehicles.map((vehicle) => (
+                        {vehicles.filter(vehicle => vehicle.vehicle_type === 'vehicle').map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                            {vehicle.registration_number} - {vehicle.make} {vehicle.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Trailer Dropdown - All except vehicles */}
+                  <div className="space-y-2">
+                    <Label htmlFor="trailer" className="text-sm font-medium text-slate-700">Select Trailer</Label>
+                    <Select value={selectedTrailerId} onValueChange={setSelectedTrailerId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select trailer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicles.filter(vehicle => vehicle.vehicle_type !== 'vehicle').map((vehicle) => (
                           <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
                             {vehicle.registration_number} - {vehicle.make} {vehicle.model} ({vehicle.vehicle_type})
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {selectedVehicleType && filteredVehicles.length === 0 && (
-                      <p className="text-sm text-amber-600">No vehicles found for selected type. Try a different vehicle type.</p>
-                    )}
                   </div>
                 </div>
 
