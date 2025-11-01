@@ -738,7 +738,7 @@ export default function AuditPage() {
                                     return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                                   })}
                                 </Pie>
-                                <Tooltip formatter={(value) => [`R${parseFloat(value).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 'Cost']} />
+                                <Tooltip formatter={(value) => [`R${parseFloat(value as string).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 'Cost']} />
                               </PieChart>
                             </ResponsiveContainer>
                           </div>

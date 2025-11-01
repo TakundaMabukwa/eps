@@ -14,90 +14,38 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
   const isSignup = pathname === '/signup'
 
   return (
-    <div className="min-h-screen">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-40 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-      </div>
+    <div className="min-h-screen bg-[#F5F6FA] relative overflow-hidden flex items-center justify-center">
+      {/* Background diagonal accents */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#1A245E]/10 via-white to-[#C7322F]/10"></div>
+      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#1A245E] to-[#C7322F]" />
 
-      {/* Main content */}
-      <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          {/* Logo/Brand */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4 shadow-lg">
-              <img src="https://datatim.co.za/wp-content/uploads/2017/05/eps-logo.jpg" alt="EPS Courier Services" className="w-16 h-16 object-contain" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">EPS Courier Services</h1>
-            <p className="text-gray-600">Welcome back to EPS Courier Services</p>
+      {/* Auth Card */}
+      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-xl p-8 mx-4 border border-gray-100">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <img
+              src="https://datatim.co.za/wp-content/uploads/2017/05/eps-logo.jpg"
+              alt="EPS Courier Services"
+              width={100}
+              height={100}
+              className="object-contain"
+            />
           </div>
+          <h1 className="text-3xl font-bold text-[#1A245E] mb-1">EPS Courier Services</h1>
+          <p className="text-gray-600 text-sm">Reliable. Professional. Nationwide.</p>
+        </div>
 
-          {/* Auth form container */}
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-            {children}
-          </div>
+        {children}
 
-          {/* Navigation between auth pages */}
-          {/* <div className="mt-6 text-center">
-            {isLogin ? (
-              <p className="text-gray-600">
-                Don't have an account?{' '}
-                <Link 
-                  href="/signup" 
-                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
-                >
-                  Sign up
-                </Link>
-              </p>
-            ) : isSignup ? (
-              <p className="text-gray-600">
-                Already have an account?{' '}
-                <Link 
-                  href="/login" 
-                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
-                >
-                  Sign in
-                </Link>
-              </p>
-            ) : null}
-          </div> */}
-
-          {/* Footer */}
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">
-              © 2025 EPS Courier Services. All rights reserved.
-            </p>
-          </div>
+        {/* Footer */}
+        <div className="mt-6 text-center text-xs text-gray-500">
+          © 2025 EPS Courier Services. All rights reserved.
         </div>
       </div>
 
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
+      {/* Decorative stripes (inspired by truck design) */}
+      <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-r from-[#1A245E] via-[#1A245E]/70 to-[#C7322F]/70 transform -skew-y-3"></div>
     </div>
   )
-} 
+}

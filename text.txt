@@ -1,0 +1,13 @@
+| Name          | Color     | Usage                                       |
+| ------------- | --------- | ------------------------------------------- |
+| **EPS Blue**  | `#1A245E` | Primary buttons, headers, accents           |
+| **EPS Red**   | `#C7322F` | Highlights, status indicators, links hover  |
+| **Cool Gray** | `#F5F6FA` | Background / panels                         |
+| **Dark Gray** | `#333333` | Text and icons                              |
+| **White**     | `#FFFFFF` | Card background, inputs, typography balance |
+
+
+
+my logins
+admin@eps.com
+Btim@1998
