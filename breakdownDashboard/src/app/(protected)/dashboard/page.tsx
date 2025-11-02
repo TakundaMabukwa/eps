@@ -168,84 +168,108 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
 
   return (
     <div className={cn(
-      "w-[30%] bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 p-3",
+      "w-[30%] rounded-xl p-4 bg-white/30 backdrop-blur-md border border-white/10 shadow-lg transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl",
       trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered'
-        ? isFlashing 
-          ? "unauthorized-stop-alert" 
-          : "border-red-300 bg-red-25"
-        : "border-slate-200"
+        ? isFlashing
+          ? "ring-2 ring-red-400 animate-pulse"
+          : "ring-1 ring-red-300"
+        : "border-slate-200/30"
     )}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-medium text-slate-700">
+      {/* Top accent */}
+      <div className="h-1 w-full rounded-full bg-gradient-to-r from-blue-400 via-blue-400  to-indigo-500 mb-3 opacity-90" />
+
+      <div className="flex items-center gap-3 mb-3">
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-semibold text-white"
+          style={{
+            background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
+            boxShadow: "0 6px 18px rgba(59,130,246,0.18)"
+          }}
+        >
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold text-slate-900 truncate">{driverInfo?.surname || 'Unassigned'}</div>
-          <div className="text-xs text-slate-500">{driverInfo ? driverInfo.phone_number : 'No driver assigned'}</div>
+          <div className="text-sm font-semibold text-slate-900 truncate">{driverInfo?.surname || 'Unassigned'}</div>
+          <div className="text-xs text-slate-600">{driverInfo ? driverInfo.phone_number : 'No driver assigned'}</div>
         </div>
-      </div>
-      
-      {/* Unauthorized Stop Alert */}
-      {trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered' && (
-        <div className="mb-2 p-2 bg-gradient-to-r from-red-50 to-red-100 rounded border-l-2 border-red-400">
-          <div className="flex items-center gap-1 mb-1">
-            <AlertTriangle className="w-3 h-3 text-red-600 animate-pulse" />
-            <span className="text-xs font-medium text-red-700 uppercase">Unauthorized Stop Alert</span>
-          </div>
-          <div className="text-xs text-red-800 font-medium">
-            {trip.unauthorized_stops_count} unauthorized stop{trip.unauthorized_stops_count > 1 ? 's' : ''} detected
-          </div>
-        </div>
-      )}
-
-      <div className="mb-2 p-2 bg-slate-50 rounded border-l-2 border-slate-400">
-        <div className="flex items-center gap-1 mb-1">
-          <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
-          <span className="text-xs font-medium text-slate-600 uppercase">Note</span>
-        </div>
-        <div className="text-xs text-slate-900">{trip.status_notes || 'No notes added'}</div>
-      </div>
-      
-      <div className="mb-2 bg-slate-50 rounded p-2">
-        <div className="flex items-center gap-1 mb-1">
-          <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
-          <span className="text-xs font-medium text-slate-600 uppercase">Vehicle</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-900 truncate">
-            {vehicleLocation?.plate || vehicleInfo?.registration_number || 'Not assigned'}
-          </span>
+        <div className="flex-shrink-0">
           <span className={cn(
-            "px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wide",
-            driverInfo?.available ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+            "px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide",
+            driverInfo?.available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
           )}>
             {driverInfo?.available ? 'Available' : 'Unavailable'}
           </span>
         </div>
+      </div>
+
+      {/* Unauthorized Stop Alert */}
+      {trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered' && (
+        <div className="mb-3 p-3 rounded-lg bg-red-50/70 border border-red-200/40 backdrop-blur-sm">
+          <div className="flex items-start gap-2">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+            </div>
+            <div className="flex-1">
+              <div className="text-xs font-semibold text-red-800 uppercase">Unauthorized Stop Alert</div>
+              <div className="text-sm font-medium text-red-900">
+                {trip.unauthorized_stops_count} unauthorized stop{trip.unauthorized_stops_count > 1 ? 's' : ''} detected
+              </div>
+              {trip.route_points && trip.route_points.length > 0 && (
+                <div className="text-xs text-red-700 mt-1">
+                  Last: {(() => {
+                    const last = trip.route_points[trip.route_points.length - 1]
+                    return last ? `${last.lat?.toFixed(4)}, ${last.lng?.toFixed(4)}` : 'Unknown'
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-3 p-3 rounded-lg bg-white/20 border border-white/5">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-1.5 h-1.5 bg-slate-500 rounded-full" />
+          <span className="text-xs font-medium text-slate-700 uppercase">Note</span>
+        </div>
+        <div className="text-sm text-slate-900">{trip.status_notes || 'No notes added'}</div>
+      </div>
+
+      <div className="mb-3 p-3 rounded-lg bg-white/20 border border-white/5">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-1.5 h-1.5 bg-slate-500 rounded-full" />
+          <span className="text-xs font-medium text-slate-700 uppercase">Vehicle</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-slate-900 truncate">
+            {vehicleLocation?.plate || vehicleInfo?.registration_number || 'Not assigned'}
+          </span>
+          <span className="text-xs text-slate-500">{vehicleLocation ? `Speed: ${vehicleLocation.speed} km/h` : ''}</span>
+        </div>
         {vehicleLocation && (
-          <div className="mt-1 text-xs text-slate-500">
-            Speed: {vehicleLocation.speed} km/h | {vehicleLocation.address}
+          <div className="mt-2 text-xs text-slate-600">
+            {vehicleLocation.address}
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-1">
-        <Button 
-          size="sm" 
-          variant="outline" 
-          className="h-7 text-xs border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          size="sm"
+          variant="link"
+          className="h-8 text-xs border"
           onClick={async () => {
             const supabase = createClient();
             let routeCoords = null;
             let stopPoints = [];
-            
+
             if (trip.route) {
-              const { data: route, error } = await supabase
+              const { data: route } = await supabase
                 .from('routes')
                 .select('route_geometry, route_data')
                 .eq('id', trip.route)
                 .single();
-              
+
               if (route) {
                 if (route?.route_geometry?.coordinates) {
                   routeCoords = route.route_geometry.coordinates;
@@ -254,15 +278,14 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
                 }
               }
             }
-            
-            // Get selected stop points
+
             const selectedStopPoints = trip.selected_stop_points || trip.selectedstoppoints || [];
             if (selectedStopPoints.length > 0) {
               const { data: stopPointsData } = await supabase
                 .from('stop_points')
                 .select('id, name, coordinates')
                 .in('id', selectedStopPoints);
-              
+
               stopPoints = (stopPointsData || []).map(point => {
                 if (point.coordinates) {
                   const coordPairs = point.coordinates.split(' ')
@@ -272,12 +295,12 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
                       return [parseFloat(lng), parseFloat(lat)];
                     })
                     .filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]));
-                  
+
                   if (coordPairs.length > 0) {
                     const avgLng = coordPairs.reduce((sum, coord) => sum + coord[0], 0) / coordPairs.length;
                     const avgLat = coordPairs.reduce((sum, coord) => sum + coord[1], 0) / coordPairs.length;
-                    return { 
-                      name: point.name, 
+                    return {
+                      name: point.name,
                       coordinates: [avgLng, avgLat],
                       polygon: coordPairs
                     };
@@ -286,16 +309,17 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
                 return null;
               }).filter(Boolean);
             }
-            
+
             handleViewMap(driverName, { ...trip, vehicleLocation, routeCoords, stopPoints });
           }}
         >
-          <MapPin className="w-3 h-3" />Track
+          <MapPin className="w-3 h-3" /> Track
         </Button>
-        <Button 
-          size="sm" 
-          variant="outline" 
-          className="h-7 text-xs border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+
+        <Button
+          size="sm"
+          variant="link"
+          className="h-8 text-xs border"
           disabled={userRole === "fleet manager"}
           onClick={() => {
             if (userRole === "fleet manager") return;
@@ -304,12 +328,13 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
             setNoteOpen(true);
           }}
         >
-          <FileText className="w-3 h-3" />Note
+          <FileText className="w-3 h-3" /> Note
         </Button>
-        <Button 
-          size="sm" 
-          variant="outline" 
-          className="h-7 text-xs border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+
+        <Button
+          size="sm"
+          variant="link"
+          className="h-8 text-xs border"
           disabled={userRole === "fleet manager"}
           onClick={async () => {
             if (userRole === "fleet manager") return;
@@ -320,12 +345,13 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
             setChangeDriverOpen(true);
           }}
         >
-          <User className="w-3 h-3" />Change
+          <User className="w-3 h-3" /> Change
         </Button>
-        <Button 
-          size="sm" 
-          variant="destructive" 
-          className="h-7 text-xs"
+
+        <Button
+          size="sm"
+          variant="destructive"
+          className="h-8 text-xs border"
           disabled={userRole === "fleet manager"}
           onClick={async () => {
             if (userRole === "fleet manager") return;
@@ -341,7 +367,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
             }
           }}
         >
-          <X className="w-3 h-3" />Cancel
+          <X className="w-3 h-3" /> Cancel
         </Button>
       </div>
     </div>
@@ -512,7 +538,7 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
         const hasUnauthorizedStops = trip.unauthorized_stops_count > 0
 
         return (
-          <div key={trip.id || trip.trip_id} className="flex gap-4">
+          <div key={trip.id || trip.trip_id} className="flex gap-4 border-b-gray-500 border-b-2 pb-10">
             {/* Driver Card - 30% */}
             <DriverCard 
               trip={trip} 
@@ -525,268 +551,266 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
               setCurrentTripForChange={setCurrentTripForChange}
               setChangeDriverOpen={setChangeDriverOpen}
             />
-
             {/* Trip Card - 70% */}
             <div className={cn(
-              "w-[70%] bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200",
+              "w-[70%] rounded-xl p-4 bg-white shadow-sm border border-slate-200 transition-transform duration-200 hover:scale-[1.01] text-black",
               trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered'
-                ? "border-red-300 bg-red-25"
-                : "border-slate-200"
-            )}>
+              ? "ring-2 ring-red-400"
+              : "ring-0"
+            )} style={{ backgroundImage: "linear-gradient(180deg, rgba(255,255,255,1), rgba(249,250,251,1))" }}>
+              {/* Top accent */}
+              <div className="h-1 w-full rounded-full bg-gradient-to-r from-blue-500 via-blue-400 to-blue-400 mb-3 opacity-100" />
+
               {/* Alert Banner */}
               {(isOffCourse || (trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered')) && (
-                <div className="bg-gradient-to-r from-white via-red-50 to-red-100 text-red-800 p-2 rounded-t-lg border-b border-red-200">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-3 h-3 animate-pulse text-red-600" />
-                    <span className="text-xs font-medium">
-                      {trip.unauthorized_stops_count > 0 
-                        ? `Unauthorized Stop Alert - ${trip.unauthorized_stops_count} stop${trip.unauthorized_stops_count > 1 ? 's' : ''} detected`
-                        : 'Trip Off-Course - Immediate Attention Required'
-                      }
-                    </span>
-                  </div>
-                </div>
+              <div className="rounded-md p-2 mb-3 text-sm flex items-center gap-2 bg-red-50 border border-red-200">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+              <span className="text-sm font-medium text-red-700">
+              {trip.unauthorized_stops_count > 0 
+              ? `Unauthorized Stop — ${trip.unauthorized_stops_count} detected`
+              : 'Trip Off-Course — Attention Required'
+              }
+              </span>
+              </div>
               )}
 
               <div className="p-3">
-                {/* Header Section */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <Truck className="w-4 h-4 text-slate-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900 text-sm truncate">{title}</h3>
-                        <p className="text-xs text-slate-500">Trip #{trip.trip_id || trip.id}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className={cn(
-                      "px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wide",
-                      trip.status?.toLowerCase() === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
-                      trip.status?.toLowerCase() === 'on-trip' ? 'bg-blue-100 text-blue-700' :
-                      ['pending', 'accepted'].includes(trip.status?.toLowerCase()) ? 'bg-amber-100 text-amber-700' :
-                      ['rejected', 'cancelled', 'stopped'].includes(trip.status?.toLowerCase()) ? 'bg-red-100 text-red-700' :
-                      ['completed', 'depo', 'handover'].includes(trip.status?.toLowerCase()) ? 'bg-green-100 text-green-700' :
-                      'bg-slate-100 text-slate-700'
-                    )}>
-                      {trip.status || 'Unknown'}
-                    </span>
-                  </div>
-                </div>
+              {/* Header Section */}
+              <div className="flex items-start justify-between mb-3">
+              <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-1">
+              <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center border border-indigo-200">
+              <Truck className="w-4 h-4 text-indigo-700" />
+              </div>
+              <div className="min-w-0">
+              <h3 className="font-semibold text-black text-sm truncate">{title}</h3>
+              <p className="text-xs text-gray-700">Trip #{trip.trip_id || trip.id}</p>
+              </div>
+              </div>
+              </div>
+              <div className="flex flex-col items-end">
+              <span className={cn(
+              "px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wide",
+              trip.status?.toLowerCase() === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
+              trip.status?.toLowerCase() === 'on-trip' ? 'bg-sky-100 text-sky-800' :
+              ['pending', 'accepted'].includes(trip.status?.toLowerCase()) ? 'bg-amber-100 text-amber-800' :
+              ['rejected', 'cancelled', 'stopped'].includes(trip.status?.toLowerCase()) ? 'bg-rose-100 text-rose-800' :
+              ['completed', 'depo', 'handover'].includes(trip.status?.toLowerCase()) ? 'bg-lime-100 text-lime-800' :
+              'bg-slate-100 text-slate-800'
+              )}>
+              {trip.status || 'Unknown'}
+              </span>
+              </div>
+              </div>
 
-                {/* Route Information */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div className="bg-slate-50 rounded p-2">
-                    <div className="flex items-center gap-1 mb-1">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-slate-600 uppercase">Pickup</span>
-                    </div>
-                    <p className="text-xs font-medium text-slate-900 truncate">{trip.origin || 'Not specified'}</p>
-                  </div>
-                  <div className="bg-slate-50 rounded p-2">
-                    <div className="flex items-center gap-1 mb-1">
-                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-slate-600 uppercase">Drop-off</span>
-                    </div>
-                    <p className="text-xs font-medium text-slate-900 truncate">{trip.destination || 'Not specified'}</p>
-                  </div>
-                </div>
+              {/* Route Information */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="bg-white rounded-lg p-2 border border-slate-100">
+              <div className="flex items-center gap-1 mb-1">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+              <span className="text-xs font-medium text-gray-700 uppercase">Pickup</span>
+              </div>
+              <p className="text-xs font-medium text-black truncate">{trip.origin || 'Not specified'}</p>
+              </div>
+              <div className="bg-white rounded-lg p-2 border border-slate-100">
+              <div className="flex items-center gap-1 mb-1">
+              <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+              <span className="text-xs font-medium text-gray-700 uppercase">Drop-off</span>
+              </div>
+              <p className="text-xs font-medium text-black truncate">{trip.destination || 'Not specified'}</p>
+              </div>
+              </div>
 
-                {/* Enhanced Timeline */}
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-semibold text-slate-700">Trip Progress</h4>
-                    <span className="text-xs text-slate-500">{Math.round(progress)}% Complete</span>
-                  </div>
-                  <div className="relative">
-                    <div className="flex justify-between items-center">
-                      {waypoints.map((waypoint, index) => (
-                        <div key={index} className="flex flex-col items-center relative z-10 group">
-                          <div className={cn(
-                            "w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-300",
-                            waypoint.isStop ? "bg-orange-500 border-orange-500 text-white" :
-                            waypoint.current ? "bg-blue-500 border-blue-500 text-white" :
-                            waypoint.completed ? "bg-emerald-500 border-emerald-500 text-white" :
-                            "bg-white border-slate-300 text-slate-400"
-                          )}>
-                            {waypoint.isStop ? (
-                              <MapPin className="w-3 h-3" />
-                            ) : waypoint.completed ? (
-                              <CheckCircle className="w-3 h-3" />
-                            ) : waypoint.current ? (
-                              <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                            ) : (
-                              index + 1
-                            )}
-                          </div>
-                          <span className={cn(
-                            "text-xs mt-1 text-center max-w-12 leading-tight",
-                            waypoint.isStop ? "text-orange-600 font-medium" :
-                            waypoint.current ? "text-blue-600 font-semibold" :
-                            waypoint.completed ? "text-emerald-600 font-medium" :
-                            "text-slate-400"
-                          )}>
-                            {waypoint.label.split(' ')[0]}
-                          </span>
-                          {waypoint.isStop && (
-                            <div className="absolute bottom-full mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
-                              Stop ID: {waypoint.stopId}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="absolute top-3 left-3 right-3 h-0.5 bg-slate-200 -z-0">
-                      <div 
-                        className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 transition-all duration-500 ease-out"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
-                  
+              {/* Enhanced Timeline */}
+              <div className="mb-3">
+              <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-semibold text-black">Trip Progress</h4>
+              <span className="text-xs text-gray-700">{Math.round(progress)}% Complete</span>
+              </div>
+              <div className="relative">
+              <div className="flex justify-between items-center">
+              {waypoints.map((waypoint, index) => (
+              <div key={index} className="flex flex-col items-center relative z-10 group">
+              <div className={cn(
+              "w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-300",
+              waypoint.isStop ? "bg-orange-500 border-orange-600 text-white" :
+              waypoint.current ? "bg-blue-500 border-blue-700 text-white" :
+              waypoint.completed ? "bg-emerald-600 border-emerald-700 text-white" :
+              "bg-slate-100 border-slate-200 text-slate-600"
+              )}>
+              {waypoint.isStop ? (
+                <MapPin className="w-3 h-3" />
+              ) : waypoint.completed ? (
+                <CheckCircle className="w-3 h-3" />
+              ) : waypoint.current ? (
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              ) : (
+                index + 1
+              )}
+              </div>
+              <span className={cn(
+              "text-xs mt-1 text-center max-w-12 leading-tight",
+              waypoint.isStop ? "text-orange-600 font-medium" :
+              waypoint.current ? "text-sky-700 font-semibold" :
+              waypoint.completed ? "text-emerald-700 font-medium" :
+              "text-gray-600"
+              )}>
+              {waypoint.label.split(' ')[0]}
+              </span>
+              {waypoint.isStop && (
+              <div className="absolute bottom-full mb-1 px-2 py-1 bg-white border rounded text-xs text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
+                Stop ID: {waypoint.stopId}
+              </div>
+              )}
+              </div>
+              ))}
+              </div>
+              <div className="absolute top-3 left-3 right-3 h-1 bg-slate-100 -z-0 rounded">
+              <div 
+              className="h-full rounded bg-gradient-to-r from-blue-500 via-sky-500 to-blue-400 transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+              />
+              </div>
+              </div>
+              </div>
 
-                </div>
+              {/* Cargo Information */}
+              {trip.cargo && (
+              <div className="bg-white rounded-lg p-2 mb-3 border border-slate-100">
+              <div className="flex items-center gap-1 mb-1">
+              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+              <span className="text-xs font-medium text-gray-700 uppercase">Cargo</span>
+              </div>
+              <p className="text-sm font-medium text-black">
+              {trip.cargo}{trip.cargo_weight && ` (${trip.cargo_weight})`}
+              </p>
+              </div>
+              )}
 
-                {/* Cargo Information */}
-                {trip.cargo && (
-                  <div className="bg-slate-50 rounded p-2 mb-3">
-                    <div className="flex items-center gap-1 mb-1">
-                      <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-slate-600 uppercase">Cargo</span>
-                    </div>
-                    <p className="text-xs font-medium text-slate-900">
-                      {trip.cargo}{trip.cargo_weight && ` (${trip.cargo_weight})`}
-                    </p>
-                  </div>
-                )}
+              {/* Time Information */}
+              {(() => {
+              const pickupTime = trip.pickup_locations?.[0]?.scheduled_time || trip.pickuplocations?.[0]?.scheduled_time;
+              const dropoffTime = trip.dropoff_locations?.[0]?.scheduled_time || trip.dropofflocations?.[0]?.scheduled_time;
+              return (pickupTime || dropoffTime) && (
+              <div className="bg-white rounded p-2 mb-2 border border-slate-100">
+              <div className="flex items-center gap-1 mb-1">
+              <Clock className="w-3 h-3 text-sky-500" />
+              <span className="text-xs font-medium text-gray-700">Schedule</span>
+              </div>
+              <div className="space-y-1">
+              {pickupTime && (
+              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                <span className="font-medium text-gray-800">Pickup</span>
+              </div>
+              <span className="font-semibold text-black">
+                {new Date(pickupTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} {new Date(pickupTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              </div>
+              )}
+              {dropoffTime && (
+              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                <span className="font-medium text-gray-800">Drop-off</span>
+              </div>
+              <span className="font-semibold text-black">
+                {new Date(dropoffTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} {new Date(dropoffTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              </div>
+              )}
+              </div>
+              </div>
+              );
+              })()}
 
-                {/* Time Information */}
-                {(() => {
-                  const pickupTime = trip.pickup_locations?.[0]?.scheduled_time || trip.pickuplocations?.[0]?.scheduled_time;
-                  const dropoffTime = trip.dropoff_locations?.[0]?.scheduled_time || trip.dropofflocations?.[0]?.scheduled_time;
-                  return (pickupTime || dropoffTime) && (
-                    <div className="bg-blue-50 rounded p-1.5 mb-2 border border-blue-200">
-                      <div className="flex items-center gap-1 mb-1">
-                        <Clock className="w-2.5 h-2.5 text-blue-600" />
-                        <span className="text-xs font-medium text-blue-800">Schedule</span>
-                      </div>
-                      <div className="space-y-1">
-                        {pickupTime && (
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                              <span className="font-medium text-slate-700">Pickup</span>
-                            </div>
-                            <span className="font-semibold text-slate-900">
-                              {new Date(pickupTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} {new Date(pickupTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                        )}
-                        {dropoffTime && (
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                              <span className="font-medium text-slate-700">Drop-off</span>
-                            </div>
-                            <span className="font-semibold text-slate-900">
-                              {new Date(dropoffTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} {new Date(dropoffTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Action Buttons */}
-                <div className="flex flex-wrap gap-1">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-7 text-xs"
-                    onClick={() => {
-                      setCurrentTripForTime(trip);
-                      setTimeType('pickup');
-                      const pickupLocs = trip.pickup_locations || trip.pickuplocations || [];
-                      setSelectedTime(pickupLocs[0]?.scheduled_time || '');
-                      setPickupTimeOpen(true);
-                    }}
-                  >
-                    <Clock className="w-3 h-3 mr-1" />
-                    {(trip.pickup_locations?.[0]?.scheduled_time || trip.pickuplocations?.[0]?.scheduled_time) ? 'Update Pickup' : 'Set Pickup'}
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-7 text-xs"
-                    onClick={() => {
-                      setCurrentTripForTime(trip);
-                      setTimeType('dropoff');
-                      const dropoffLocs = trip.dropoff_locations || trip.dropofflocations || [];
-                      setSelectedTime(dropoffLocs[0]?.scheduled_time || '');
-                      setDropoffTimeOpen(true);
-                    }}
-                  >
-                    <Clock className="w-3 h-3 mr-1" />
-                    {(trip.dropoff_locations?.[0]?.scheduled_time || trip.dropofflocations?.[0]?.scheduled_time) ? 'Update Drop-off' : 'Set Drop-off'}
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    className="bg-blue-600 hover:bg-blue-700 text-white h-7 text-xs ml-auto"
-                    onClick={async () => {
-                      setLoadingPhotos(true);
-                      try {
-                        const supabase = createClient();
-                        const tripId = trip.id || trip.trip_id;
-                        
-                        // Fetch photos from both folders
-                        const { data: beforePhotos } = await supabase.storage
-                          .from('trip-photos')
-                          .list(`${tripId}/loadBefore`);
-                        
-                        const { data: duringPhotos } = await supabase.storage
-                          .from('trip-photos')
-                          .list(`${tripId}/loadDuring`);
-                        
-                        // Get Supabase URL and construct direct URLs
-                        const supabaseUrl = supabase.supabaseUrl;
-                        
-                        const beforeUrls = beforePhotos?.filter(item => item.name && !item.name.endsWith('/'))
-                          .map(photo => ({
-                            url: `${supabaseUrl}/storage/v1/object/public/trip-photos/${tripId}/loadBefore/${photo.name}`,
-                            name: photo.name
-                          })) || [];
-                        
-                        const duringUrls = duringPhotos?.filter(item => item.name && !item.name.endsWith('/'))
-                          .map(photo => ({
-                            url: `${supabaseUrl}/storage/v1/object/public/trip-photos/${tripId}/loadDuring/${photo.name}`,
-                            name: photo.name
-                          })) || [];
-                        
-                        console.log('Generated URLs:', { beforeUrls, duringUrls });
-                        
-                        setCurrentTripPhotos({ 
-                          tripId, 
-                          before: beforeUrls, 
-                          during: duringUrls 
-                        });
-                        setPhotosModalOpen(true);
-                      } catch (err) {
-                        console.error('Failed to load photos:', err);
-                        alert('Failed to load photos');
-                      } finally {
-                        setLoadingPhotos(false);
-                      }
-                    }}
-                    disabled={loadingPhotos}
-                  >
-                    <FileText className="w-3 h-3 mr-1" />
-                    {loadingPhotos ? 'Loading...' : 'View Loading Pictures'}
-                  </Button>
-                </div>
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-2 mt-1">
+              <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-8 text-xs"
+              onClick={() => {
+              setCurrentTripForTime(trip);
+              setTimeType('pickup');
+              const pickupLocs = trip.pickup_locations || trip.pickuplocations || [];
+              setSelectedTime(pickupLocs[0]?.scheduled_time || '');
+              setPickupTimeOpen(true);
+              }}
+              >
+              <Clock className="w-3 h-3 mr-1" />
+              {(trip.pickup_locations?.[0]?.scheduled_time || trip.pickuplocations?.[0]?.scheduled_time) ? 'Update Pickup' : 'Set Pickup'}
+              </Button>
+              <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-8 text-xs"
+              onClick={() => {
+              setCurrentTripForTime(trip);
+              setTimeType('dropoff');
+              const dropoffLocs = trip.dropoff_locations || trip.dropofflocations || [];
+              setSelectedTime(dropoffLocs[0]?.scheduled_time || '');
+              setDropoffTimeOpen(true);
+              }}
+              >
+              <Clock className="w-3 h-3 mr-1" />
+              {(trip.dropoff_locations?.[0]?.scheduled_time || trip.dropofflocations?.[0]?.scheduled_time) ? 'Update Drop-off' : 'Set Drop-off'}
+              </Button>
+              <Button 
+              size="sm" 
+              className="h-8 text-xs ml-auto bg-gradient-to-r from-sky-600 to-indigo-600 text-white"
+              onClick={async () => {
+              setLoadingPhotos(true);
+              try {
+              const supabase = createClient();
+              const tripId = trip.id || trip.trip_id;
+              
+              // Fetch photos from both folders
+              const { data: beforePhotos } = await supabase.storage
+              .from('trip-photos')
+              .list(`${tripId}/loadBefore`);
+              
+              const { data: duringPhotos } = await supabase.storage
+              .from('trip-photos')
+              .list(`${tripId}/loadDuring`);
+              
+              // Get Supabase URL and construct direct URLs
+              const supabaseUrl = supabase.supabaseUrl;
+              
+              const beforeUrls = beforePhotos?.filter(item => item.name && !item.name.endsWith('/'))
+              .map(photo => ({
+              url: `${supabaseUrl}/storage/v1/object/public/trip-photos/${tripId}/loadBefore/${photo.name}`,
+              name: photo.name
+              })) || [];
+              
+              const duringUrls = duringPhotos?.filter(item => item.name && !item.name.endsWith('/'))
+              .map(photo => ({
+              url: `${supabaseUrl}/storage/v1/object/public/trip-photos/${tripId}/loadDuring/${photo.name}`,
+              name: photo.name
+              })) || [];
+              
+              console.log('Generated URLs:', { beforeUrls, duringUrls });
+              
+              setCurrentTripPhotos({ 
+              tripId, 
+              before: beforeUrls, 
+              during: duringUrls 
+              });
+              setPhotosModalOpen(true);
+              } catch (err) {
+              console.error('Failed to load photos:', err);
+              alert('Failed to load photos');
+              } finally {
+              setLoadingPhotos(false);
+              }
+              }}
+              disabled={loadingPhotos}
+              >
+              <FileText className="w-3 h-3 mr-1" />
+              {loadingPhotos ? 'Loading...' : 'View Loading Pictures'}
+              </Button>
+              </div>
               </div>
             </div>
           </div>
