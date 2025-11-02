@@ -721,11 +721,11 @@ export default function Drivers() {
                                     <TableHead className="font-semibold">Driver Code</TableHead>
                                     <TableHead className="font-semibold">Name</TableHead>
                                     <TableHead className="font-semibold">ID/Passport Document</TableHead>
-                                    <TableHead className="font-semibold">Passport Status</TableHead>
-                                    <TableHead className="font-semibold">Passport Expiry</TableHead>
+                                    {/* <TableHead className="font-semibold">Passport Status</TableHead> */}
+                                    {/* <TableHead className="font-semibold">Passport Expiry</TableHead> */}
                                     <TableHead className="font-semibold">Cell Number</TableHead>
                                     <TableHead className="font-semibold">PDP Expiry Date</TableHead>
-                                    <TableHead className="font-semibold">License Expiry Date</TableHead>
+                                    {/* <TableHead className="font-semibold">License Expiry Date</TableHead> */}
                                     <TableHead className="font-semibold">HazCam Date</TableHead>
                                     <TableHead className="font-semibold">Medic Exam Date</TableHead>
                                     <TableHead className="font-semibold">Actions</TableHead>
@@ -751,11 +751,11 @@ export default function Drivers() {
                                             <TableCell className="text-sm">{driver.driver_restriction_code || '-'}</TableCell>
                                             <TableCell className="text-sm font-medium">{driver.surname}</TableCell>
                                             <TableCell className="text-sm">{driver.id_or_passport_document || '-'}</TableCell>
-                                            <TableCell className="text-sm">{driver.passport_status || '-'}</TableCell>
-                                            <TableCell className="text-sm">{formatDate(driver.passport_expiry)}</TableCell>
+                                            {/* <TableCell className="text-sm">{driver.passport_status || '-'}</TableCell> */}
+                                            {/* <TableCell className="text-sm">{formatDate(driver.passport_expiry)}</TableCell> */}
                                             <TableCell className="text-sm">{driver.cell_number || '-'}</TableCell>
                                             <TableCell className="text-sm">{formatDate(driver.pdp_expiry_date)}</TableCell>
-                                            <TableCell className="text-sm">{formatDate(driver.license_expiry_date)}</TableCell>
+                                            {/* <TableCell className="text-sm">{formatDate(driver.license_expiry_date)}</TableCell> */}
                                             <TableCell className="text-sm">{formatDate(driver.hazCamDate)}</TableCell>
                                             <TableCell className="text-sm">{formatDate(driver.medic_exam_date)}</TableCell>
                                             <TableCell>

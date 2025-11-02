@@ -758,8 +758,9 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
               {(trip.dropoff_locations?.[0]?.scheduled_time || trip.dropofflocations?.[0]?.scheduled_time) ? 'Update Drop-off' : 'Set Drop-off'}
               </Button>
               <Button 
-              size="sm" 
-              className="h-8 text-xs ml-auto bg-gradient-to-r from-sky-600 to-indigo-600 text-white"
+              size="sm"
+              variant="link"
+              className="h-8 text-xs ml-auto border border-gray-300"
               onClick={async () => {
               setLoadingPhotos(true);
               try {

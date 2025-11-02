@@ -23,6 +23,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Fuel,
 } from "lucide-react";
 import GlobalProvider from "@/context/global-context/provider";
 
@@ -36,10 +37,10 @@ const roleNavigation = {
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
     { name: "Fleet Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
     { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
-    { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
+    { name: "Fuel Can Bus", href: "/fuel", Icon: <Fuel /> },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
-    { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
-    { name: "Cost Centers", href: "/ccenter", Icon: <Construction /> },
+    { name: "Vehicles", href: "/vehicles", Icon: <Truck /> },
+    { name: "Cost Centers", href: "/ccenter", Icon: <DollarSign /> },
     { name: "Financials", href: "/audit", Icon: <Settings2Icon /> },
     {
       name: "Inspections",

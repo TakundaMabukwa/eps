@@ -101,7 +101,7 @@ export default function FuelCanBusDisplay() {
     <div className="bg-gray-50 h-full">
       <div className="p-4">
         <div className="mb-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">Fuel CAN Bus Monitor</h2>
+          {/* <h2 className="text-2xl font-bold text-gray-900">Fuel CAN Bus Monitor</h2> */}
           <Button onClick={fetchVehicles} variant="outline" size="sm">
             <RefreshCw className="mr-2 w-4 h-4" />
             Refresh
