@@ -169,7 +169,7 @@ export default function LoginPage() {
           <Button
             type="submit"
             disabled={isPending}
-            className={`w-full py-2 font-semibold text-white rounded-md transition-all duration-300 bg-gradient-to-r from-[#1335f4] to-[#f94747] hover:opacity-90 ${
+            className={`w-full py-2 font-semibold text-white rounded-md transition-all duration-300 bg-blue-500 hover:opacity-90 ${
               isPending ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
