@@ -284,7 +284,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <GlobalProvider>{children}</GlobalProvider>
           </div>
         </main>
