@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Briefcase,
   Building2,
@@ -21,6 +20,10 @@ import {
   Wrench,
   Route,
   Construction,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Fuel,
 } from "lucide-react";
 import GlobalProvider from "@/context/global-context/provider";
 
@@ -28,32 +31,22 @@ interface ProtectedLayoutProps {
   children: React.ReactNode;
 }
 
-// Role-based navigation configuration
+// Role-based navigation
 const roleNavigation = {
-  "admin": [
+  admin: [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
-    // { name: "Jobs", href: "/jobs", Icon: <Briefcase /> },
-    // { name: "Fleet Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
-    // { name: "Call Center", href: "/callcenter", Icon: <Phone /> },
+    { name: "Fleet Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
     { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
-    { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
-    // { name: "Equipment", href: "/equipment", Icon: <Settings /> },
-    // { name: "Fleet Manager", href: "/fleetManager", Icon: <Truck /> },
+    { name: "Fuel Can Bus", href: "/fuel", Icon: <Fuel /> },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
-    { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
-    // { name: "Customers", href: "/customer", Icon: <Building2 /> },
-    { name: "Cost Centers", href: "/ccenter", Icon: <Construction /> },
+    { name: "Vehicles", href: "/vehicles", Icon: <Truck /> },
+    { name: "Cost Centers", href: "/ccenter", Icon: <DollarSign /> },
     { name: "Financials", href: "/audit", Icon: <Settings2Icon /> },
-    // { name: "Reports", href: "/reports", Icon: <ChartBar /> },
-    // { name: "User Management", href: "/userManagement", Icon: <PlusSquare /> },
-    // { name: "System Settings", href: "/settings", Icon: <Settings /> },
     {
       name: "Inspections",
       href: "/fleetManager/inspections",
       Icon: <QrCode />,
     },
-
-
   ],
   "fleet manager": [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
@@ -71,7 +64,6 @@ const roleNavigation = {
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
     { name: "Qoute Management", href: "/qoutation", Icon: <Building2 /> },
-    // { name: 'Profile', href: '/profile', Icon: <Settings2Icon /> },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
     { name: "User Management", href: "/userManagement", Icon: <PlusSquare /> },
   ],
@@ -91,7 +83,6 @@ const roleNavigation = {
     },
     { name: "Workshops", href: "/callcenter/clients", Icon: <Users /> },
     { name: "Qoute Management", href: "/ccenter", Icon: <Building2 /> },
-    // { name: 'Profile', href: '/profile', Icon: <Settings2Icon /> },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
   customer: [
@@ -102,7 +93,6 @@ const roleNavigation = {
     { name: "Technicians Assignment", href: "/extechnicians", Icon: <Users /> },
     { name: "Workshop Vehicles", href: "/exvehicles", Icon: <Car /> },
     { name: "Qoute Management", href: "/workshopQoute", Icon: <Building2 /> },
-    // { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
   "cost centre": [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
@@ -112,19 +102,17 @@ const roleNavigation = {
       href: "/ccenter/create-qoutation",
       Icon: <DollarSign />,
     },
-    // { name: 'Profile', href: '/profile', Icon: <Settings2Icon /> },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
 };
 
 export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
   const [navigation, setNavigation] = useState<any[]>([]);
   const pathname = usePathname();
 
   useEffect(() => {
-    // Get user role from cookies
     const getCookie = (name: string) => {
       const value = `; ${document.cookie}`;
       const parts = value.split(`; ${name}=`);
@@ -135,43 +123,29 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
     const role = decodeURIComponent(getCookie("role") || "");
     const session = getCookie("session");
 
-    console.log("Layout - Session cookie:", session ? "exists" : "missing");
-    console.log("Layout - Role cookie:", role || "missing");
-
     if (role) {
       setUserRole(role);
-      // Set navigation based on role
-      const roleNav = roleNavigation[role as keyof typeof roleNavigation] || [];
-      
-      // Force fleet manager to only have 2 items
+      let roleNav = roleNavigation[role as keyof typeof roleNavigation] || [];
+
       if (role === "fleet manager") {
-        const fleetManagerNav = [
+        roleNav = [
           { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
           { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
         ];
-        setNavigation(fleetManagerNav);
-        console.log("Layout - Fleet Manager restricted to 2 items:", fleetManagerNav.length);
       } else if (role === "customer") {
-        const customerNav = [
+        roleNav = [
           { name: "Drivers", href: "/drivers", Icon: <Users /> },
           { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
-          { name: "Inspections", href: "/fleetManager/inspections", Icon: <QrCode /> },
+          {
+            name: "Inspections",
+            href: "/fleetManager/inspections",
+            Icon: <QrCode />,
+          },
           { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
         ];
-        setNavigation(customerNav);
-        console.log("Layout - Customer restricted to 4 items:", customerNav.length);
-      } else {
-        setNavigation(roleNav);
       }
-      
-      console.log(
-        "Layout - Navigation set for role:",
-        role,
-        "Items:",
-        navigation.length || roleNav.length
-      );
+      setNavigation(roleNav);
     } else {
-      console.log("Layout - No role found, redirecting to login");
       window.location.href = "/login";
     }
   }, []);
@@ -181,107 +155,136 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
   };
 
   return (
-    <div className="bg-gray-50 w-full">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden w-full"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar: this is sticky/fixed and does NOT move */}
-      <div
-        className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg
-        transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0
-        h-screen
-      `}
+    <div className="flex h-screen bg-gray-100 text-gray-900">
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col justify-between bg-gradient-to-br from-blue-950 to-blue-800 text-white shadow-2xl transition-width duration-300 ease-in-out overflow-hidden ${
+          sidebarExpanded ? "w-64" : "w-20"
+        }`}
       >
-        {/* Header, nav, footer go here */}
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b">
-            <h1 className="text-xl font-bold text-gray-900">
-              EPS Couriers
-            </h1>
-            {/* <img src="/logo.png" alt="EPS Couriers Logo" className="h-8" style={{ backgroundImage: `url('https://www.google.com/url?sa=i&url=https%3A%2F%2Fza.linkedin.com%2Fcompany%2Feps-courier-services&psig=AOvVaw2aviQqiN_mPND55EdCSh9P&ust=1760559434203000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCMDwl4_BpJADFQAAAAAdAAAAABAE')` }} /> */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden"
-            >
-              ✕
-            </Button>
+        {/* Top: logo + toggle */}
+        <div className="px-3 py-4">
+          <div className="flex items-center justify-between">
+            <img
+              src="/Logo.png"
+              alt="EPS Logo"
+              className="h-10 w-10 rounded-lg bg-white p-1 shadow"
+            />
+            {/* Toggle is duplicated here visually hidden on small but kept for layout */}
+            <div className="hidden"></div>
           </div>
+        </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+        {/* Navigation: scrollable */}
+        <nav
+          className="flex-1 px-2 pb-4 overflow-y-auto"
+          // allow keyboard/scroll focus
+          tabIndex={0}
+        >
+          <ul className="flex flex-col items-center space-y-2">
             {navigation.map((item) => {
-              // const isActive = pathname.startsWith(item.href)
               const isActive = pathname === item.href;
-
               return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    isActive
-                      ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <span className="mr-3">{item.Icon}</span>
-                  {item.name}
-                </Link>
+                <li key={item.name} className="w-full">
+                  <Link
+                    href={item.href}
+                    className={`group flex items-center gap-3 p-2 rounded-xl transition-colors duration-200 w-full
+                      ${
+                        isActive
+                          ? "bg-white/90 text-blue-900 shadow-md"
+                          : "text-gray-300 hover:text-white hover:bg-blue-900/40"
+                      }`}
+                  >
+                    <span
+                      title={item.name}
+                      className={`flex-shrink-0 flex items-center justify-center ${
+                        sidebarExpanded ? "ml-1" : "mx-auto"
+                      }`}
+                    >
+                      <span
+                        className={`p-2 rounded-full flex items-center justify-center transition-colors duration-150
+                          ${
+                            isActive
+                              ? "bg-white text-blue-900"
+                              : "bg-white/10 text-white group-hover:bg-white/20 group-hover:text-white"
+                          }`}
+                        style={{ width: 36, height: 36 }}
+                      >
+                        {item.Icon}
+                      </span>
+                    </span>
+
+                    {sidebarExpanded && (
+                      <span className="font-medium">{item.name}</span>
+                    )}
+                  </Link>
+                </li>
               );
             })}
-          </nav>
+          </ul>
+        </nav>
 
-          {/* Footer */}
-          <div className="p-4 border-t">
-            <div className="mb-2 text-xs text-gray-500 text-center">
-              Role:{" "}
-              {userRole
-                ? userRole === "customer"
-                  ? "workshop"
-                  : userRole
-                : "No User"}
-            </div>
-            <Button onClick={handleLogout} variant="outline" className="w-full">
-              🚪 Logout
-            </Button>
-          </div>
+        {/* Logout */}
+        <div className="flex flex-col items-center mb-4 px-3">
+          <Button
+            onClick={handleLogout}
+            size="icon"
+            className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2"
+            aria-label="Logout"
+          >
+            <LogOut className="w-5 h-5" />
+          </Button>
         </div>
-      </div>
+      </aside>
 
-      {/* Main content: this scrolls */}
-      <div className="ml-64 h-screen overflow-y-auto">
-        {/* Top bar */}
-        <div className="sticky top-0 z-30 bg-white border-b shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3">
+      {/* Main area */}
+      <div
+        className={`flex-1 flex flex-col transition-margin duration-300 ease-in-out ${
+          sidebarExpanded ? "ml-64" : "ml-20"
+        }`}
+      >
+        {/* Top Bar */}
+        <header className="sticky top-0 z-40 bg-white border-b shadow-sm">
+          <div className="flex items-center justify-between px-6 py-3">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden"
+              size="icon"
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              className="text-white bg-blue-700 hover:bg-blue-800"
+              aria-label="Toggle sidebar"
             >
-              ☰
+              {sidebarExpanded ? (
+                <ChevronLeft size={16} />
+              ) : (
+                <ChevronRight size={16} />
+              )}
             </Button>
-
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome back</span>
+            <div className="flex flex-col">
+              <span className="text-sm text-gray-500">Welcome back,</span>
+              <span className="text-base font-semibold text-gray-800">
+                EPS Couriers
+              </span>
+            </div>
+            <div className="text-right text-sm text-gray-500">
+              <div>
+                {new Date().toLocaleDateString(undefined, {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </div>
+              <div className="font-medium text-gray-700">
+                {new Date().toLocaleTimeString(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Page content - full width */}
-        <main className="p-4 w-full">
-          <div className="w-full">
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+          <div className="max-w-7xl mx-auto">
             <GlobalProvider>{children}</GlobalProvider>
           </div>
         </main>

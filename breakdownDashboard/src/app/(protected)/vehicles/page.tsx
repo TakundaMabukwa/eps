@@ -221,6 +221,27 @@ export default function Vehicles() {
     );
   });
 
+  // Pagination state & logic (50 per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
+  const totalPages = Math.max(1, Math.ceil(filteredVehicles.length / PAGE_SIZE));
+  // Ensure currentPage stays within bounds when filteredVehicles changes
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const paginatedVehicles = filteredVehicles.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   // Row background color by type
   const getRowBg = (type: string) => {
     switch (type) {
@@ -1086,7 +1107,10 @@ export default function Vehicles() {
               <Input
                 placeholder="Search by make, model, registration, or type..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="max-w-sm"
               />
             </div>
@@ -1107,7 +1131,7 @@ export default function Vehicles() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVehicles.map((vehicle, index) => (
+                  {paginatedVehicles.map((vehicle, index) => (
                     <TableRow
                       key={vehicle.id}
                       className="h-12 hover:bg-slate-50 border-b border-slate-100 transition-colors"
@@ -1177,6 +1201,35 @@ export default function Vehicles() {
                   ))}
                 </TableBody>
               </Table>
+
+              {/* Pagination Controls */}
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-200">
+                <div className="text-sm text-slate-600">
+                  Showing {(filteredVehicles.length === 0) ? 0 : ( (currentPage - 1) * PAGE_SIZE + 1 )} - {Math.min(currentPage * PAGE_SIZE, filteredVehicles.length)} of {filteredVehicles.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Prev
+                  </Button>
+                  <div className="text-sm text-slate-700 px-2">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+
             </div>
           </CardContent>
         </Card>
