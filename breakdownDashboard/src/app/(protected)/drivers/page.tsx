@@ -100,8 +100,7 @@ export default function Drivers() {
     // Chart data for Executive Dashboard
     const [biWeeklyData, setBiWeeklyData] = useState<BiWeeklyCategory[]>([])
     const [dailyStats, setDailyStats] = useState<DailyStats[]>([])
-    const [driverProfiles, setDriverProfiles] = useState<any[]>([])
-    const [loadingRewards, setLoadingRewards] = useState(false)
+
 
     const emptyForm: Driver = {
         first_name: '',
@@ -130,9 +129,6 @@ export default function Drivers() {
 
     useEffect(() => {
         fetchDrivers()
-        if (activeTab === 'driver-rewards') {
-            fetchDriverRewards()
-        }
     }, [activeTab])
 
     useEffect(() => {
@@ -154,22 +150,7 @@ export default function Drivers() {
         return () => { mounted = false }
     }, [])
 
-    const fetchDriverRewards = async () => {
-        setLoadingRewards(true)
-        try {
-            const HTTP_SERVER_ENDPOINT = process.env.NEXT_PUBLIC_HTTP_SERVER_ENDPOINT || 'http://localhost:3001'
-            const response = await fetch(`${HTTP_SERVER_ENDPOINT}/api/eps-rewards/all-driver-profiles`)
-            if (!response.ok) throw new Error('Failed to fetch driver rewards')
-            const data = await response.json()
-            setDriverProfiles(data)
-        } catch (err) {
-            console.error('Error fetching driver rewards:', err)
-            toast.error('Failed to fetch driver rewards')
-            setDriverProfiles([])
-        } finally {
-            setLoadingRewards(false)
-        }
-    }
+
 
     const fetchDrivers = async () => {
         setIsLoading(true)
@@ -445,17 +426,7 @@ export default function Drivers() {
                             <Settings className="w-4 h-4" />
                             <span>Driver Monitoring Config</span>
                         </button>
-                        <button
-                            onClick={() => setActiveTab('driver-rewards')}
-                            className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                activeTab === 'driver-rewards'
-                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                    : "text-gray-600 hover:text-blue-700 hover:bg-blue-50"
-                            }`}
-                        >
-                            <Star className="w-4 h-4" />
-                            <span>Driver Rewards</span>
-                        </button>
+
                     </div>
                 </div>
 
@@ -1537,172 +1508,7 @@ export default function Drivers() {
                         </div>
                     )}
 
-                    {activeTab === 'driver-rewards' && (
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center">
-                                <h2 className="text-xl font-semibold text-gray-900">Driver Rewards System</h2>
-                                <Button onClick={fetchDriverRewards} disabled={loadingRewards}>
-                                    {loadingRewards ? 'Loading...' : 'Refresh Rewards'}
-                                </Button>
-                            </div>
 
-                            {loadingRewards ? (
-                                <Card>
-                                    <CardContent className="p-8">
-                                        <div className="flex items-center justify-center">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                            <span className="ml-2">Loading driver rewards...</span>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ) : (
-                                <>
-                                    {/* Rewards Stats */}
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                        <Card>
-                                            <CardContent className="p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-600">Total Profiles</p>
-                                                        <p className="text-2xl font-bold text-gray-900">{driverProfiles.length}</p>
-                                                    </div>
-                                                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                                        <Users className="w-4 h-4 text-blue-600" />
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-
-                                        <Card>
-                                            <CardContent className="p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-600">Active Rewards</p>
-                                                        <p className="text-2xl font-bold text-green-600">
-                                                            {driverProfiles.filter(p => p.totalPoints > 0).length}
-                                                        </p>
-                                                    </div>
-                                                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                                        <Star className="w-4 h-4 text-green-600" />
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-
-                                        <Card>
-                                            <CardContent className="p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-600">Total Points</p>
-                                                        <p className="text-2xl font-bold text-purple-600">
-                                                            {driverProfiles.reduce((sum, p) => sum + (p.totalPoints || 0), 0)}
-                                                        </p>
-                                                    </div>
-                                                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                                                        <BarChart3 className="w-4 h-4 text-purple-600" />
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-
-                                        <Card>
-                                            <CardContent className="p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-600">Avg Points</p>
-                                                        <p className="text-2xl font-bold text-orange-600">
-                                                            {driverProfiles.length > 0 
-                                                                ? Math.round(driverProfiles.reduce((sum, p) => sum + (p.totalPoints || 0), 0) / driverProfiles.length)
-                                                                : 0
-                                                            }
-                                                        </p>
-                                                    </div>
-                                                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                                                        <Activity className="w-4 h-4 text-orange-600" />
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-
-                                    {/* Driver Rewards Table */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Driver Rewards Profiles</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="overflow-x-auto">
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow className="bg-gray-50">
-                                                            <TableHead className="font-semibold">Driver ID</TableHead>
-                                                            <TableHead className="font-semibold">Name</TableHead>
-                                                            <TableHead className="font-semibold">Total Points</TableHead>
-                                                            <TableHead className="font-semibold">Level</TableHead>
-                                                            <TableHead className="font-semibold">Status</TableHead>
-                                                            <TableHead className="font-semibold">Last Updated</TableHead>
-                                                            <TableHead className="font-semibold">Actions</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {driverProfiles.length === 0 ? (
-                                                            <TableRow>
-                                                                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                                                                    No driver reward profiles found
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ) : (
-                                                            driverProfiles.map((profile, index) => (
-                                                                <TableRow key={profile.driverId || index} className="hover:bg-gray-50 transition-colors">
-                                                                    <TableCell className="text-sm font-medium">
-                                                                        {profile.driverId || '-'}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        {profile.driverName || profile.name || '-'}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        <span className="inline-flex items-center bg-blue-100 px-2.5 py-0.5 rounded-full font-medium text-blue-800 text-xs">
-                                                                            {profile.totalPoints || 0} pts
-                                                                        </span>
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        <Badge variant={profile.level === 'Gold' ? 'default' : profile.level === 'Silver' ? 'secondary' : 'outline'}>
-                                                                            {profile.level || 'Bronze'}
-                                                                        </Badge>
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        <Badge variant={profile.status === 'active' ? 'default' : 'secondary'}>
-                                                                            {profile.status || 'active'}
-                                                                        </Badge>
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        {profile.lastUpdated 
-                                                                            ? new Date(profile.lastUpdated).toLocaleDateString()
-                                                                            : '-'
-                                                                        }
-                                                                    </TableCell>
-                                                                    <TableCell>
-                                                                        <div className="flex gap-1">
-                                                                            <Button size="sm" variant="outline">
-                                                                                View Details
-                                                                            </Button>
-                                                                            <Button size="sm" variant="outline">
-                                                                                Edit Points
-                                                                            </Button>
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            ))
-                                                        )}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </>
-                            )}
-                        </div>
-                    )}
                 </div>
             </div>
         </div>
