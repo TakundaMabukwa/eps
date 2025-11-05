@@ -14,9 +14,9 @@ export async function GET(request) {
     const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Error fetching daily performance data:', error)
+    console.error('Error fetching executive dashboard data:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch daily performance data' },
+      { error: 'Failed to fetch executive dashboard data' },
       { status: 500 }
     )
   }
