@@ -320,9 +320,9 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           size="sm"
           variant="link"
           className="h-8 text-xs border"
-          disabled={userRole === "fleet manager"}
+          disabled={userRole === "fleet manager" || userRole === "fc"}
           onClick={() => {
-            if (userRole === "fleet manager") return;
+            if (userRole === "fleet manager" || userRole === "fc") return;
             setCurrentTripForNote(trip);
             setNoteText(trip.status_notes || '');
             setNoteOpen(true);
@@ -335,9 +335,9 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           size="sm"
           variant="link"
           className="h-8 text-xs border"
-          disabled={userRole === "fleet manager"}
+          disabled={userRole === "fleet manager" || userRole === "fc"}
           onClick={async () => {
-            if (userRole === "fleet manager") return;
+            if (userRole === "fleet manager" || userRole === "fc") return;
             const supabase = createClient();
             const { data: drivers } = await supabase.from('drivers').select('*');
             setAvailableDrivers(drivers || []);
@@ -352,9 +352,9 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           size="sm"
           variant="destructive"
           className="h-8 text-xs border"
-          disabled={userRole === "fleet manager"}
+          disabled={userRole === "fleet manager" || userRole === "fc"}
           onClick={async () => {
-            if (userRole === "fleet manager") return;
+            if (userRole === "fleet manager" || userRole === "fc") return;
             if (!confirm('Are you sure you want to delete this trip?')) return;
             try {
               const supabase = createClient();
@@ -731,7 +731,9 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
               size="sm" 
               variant="outline" 
               className="h-8 text-xs"
+              disabled={userRole === "fc"}
               onClick={() => {
+              if (userRole === "fc") return;
               setCurrentTripForTime(trip);
               setTimeType('pickup');
               const pickupLocs = trip.pickup_locations || trip.pickuplocations || [];
@@ -746,7 +748,9 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
               size="sm" 
               variant="outline" 
               className="h-8 text-xs"
+              disabled={userRole === "fc"}
               onClick={() => {
+              if (userRole === "fc") return;
               setCurrentTripForTime(trip);
               setTimeType('dropoff');
               const dropoffLocs = trip.dropoff_locations || trip.dropofflocations || [];

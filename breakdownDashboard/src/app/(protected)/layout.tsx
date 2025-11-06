@@ -31,6 +31,45 @@ interface ProtectedLayoutProps {
   children: React.ReactNode;
 }
 
+// Client-side only date display to prevent hydration mismatch
+function DateTimeDisplay() {
+  const [mounted, setMounted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    setMounted(true);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="text-right text-sm text-gray-500">
+        <div>Loading...</div>
+        <div className="font-medium text-gray-700">--:--</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-right text-sm text-gray-500">
+      <div>
+        {currentTime.toLocaleDateString('en-US', {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        })}
+      </div>
+      <div className="font-medium text-gray-700">
+        {currentTime.toLocaleTimeString('en-US', {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Role-based navigation
 const roleNavigation = {
   admin: [
@@ -47,12 +86,10 @@ const roleNavigation = {
       href: "/fleetManager/inspections",
       Icon: <QrCode />,
     },
+    { name: "User Management", href: "/userManagement", Icon: <PlusSquare /> },
+    { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
   "fleet manager": [
-    { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
-    { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
-  ],
-  fc: [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
     { name: "Fleet Manager", href: "/fleetManager", Icon: <Truck /> },
     {
@@ -60,12 +97,17 @@ const roleNavigation = {
       href: "/fleetManager/inspections",
       Icon: <Briefcase />,
     },
+    { name: "Financials", href: "/audit", Icon: <Settings2Icon /> },
     { name: "Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
     { name: "Qoute Management", href: "/qoutation", Icon: <Building2 /> },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
     { name: "User Management", href: "/userManagement", Icon: <PlusSquare /> },
+  ],
+  fc: [
+    { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
+    { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
   ],
   "call centre": [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
@@ -82,7 +124,7 @@ const roleNavigation = {
       Icon: <Truck />,
     },
     { name: "Workshops", href: "/callcenter/clients", Icon: <Users /> },
-    { name: "Qoute Management", href: "/ccenter", Icon: <Building2 /> },
+    // { name: "Qoute Management", href: "/ccenter", Icon: <Building2 /> },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
   customer: [
@@ -92,16 +134,18 @@ const roleNavigation = {
     { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
     { name: "Technicians Assignment", href: "/extechnicians", Icon: <Users /> },
     { name: "Workshop Vehicles", href: "/exvehicles", Icon: <Car /> },
-    { name: "Qoute Management", href: "/workshopQoute", Icon: <Building2 /> },
+    { name: "Financials", href: "/audit", Icon: <Settings2Icon /> },
+    // { name: "Qoute Management", href: "/workshopQoute", Icon: <Building2 /> },
+    { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
   "cost centre": [
     { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
     { name: "Cost", href: "/ccenter", Icon: <Building2 /> },
-    {
-      name: "Qoute Management",
-      href: "/ccenter/create-qoutation",
-      Icon: <DollarSign />,
-    },
+    // {
+    //   name: "Qoute Management",
+    //   href: "/ccenter/create-qoutation",
+    //   Icon: <DollarSign />,
+    // },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
   ],
 };
@@ -127,7 +171,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
       setUserRole(role);
       let roleNav = roleNavigation[role as keyof typeof roleNavigation] || [];
 
-      if (role === "fleet manager") {
+      if (role === "fc") {
         roleNav = [
           { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
           { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
@@ -158,9 +202,8 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
     <div className="flex h-screen bg-gray-100 text-gray-900">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col justify-between bg-gradient-to-br from-blue-950 to-blue-800 text-white shadow-2xl transition-width duration-300 ease-in-out overflow-hidden ${
-          sidebarExpanded ? "w-64" : "w-20"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col justify-between bg-gradient-to-br from-blue-950 to-blue-800 text-white shadow-2xl transition-width duration-300 ease-in-out overflow-hidden ${sidebarExpanded ? "w-64" : "w-20"
+          }`}
       >
         {/* Top: logo + toggle */}
         <div className="px-3 py-4">
@@ -189,24 +232,21 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
                   <Link
                     href={item.href}
                     className={`group flex items-center gap-3 p-2 rounded-xl transition-colors duration-200 w-full
-                      ${
-                        isActive
-                          ? "bg-white/90 text-blue-900 shadow-md"
-                          : "text-gray-300 hover:text-white hover:bg-blue-900/40"
+                      ${isActive
+                        ? "bg-white/90 text-blue-900 shadow-md"
+                        : "text-gray-300 hover:text-white hover:bg-blue-900/40"
                       }`}
                   >
                     <span
                       title={item.name}
-                      className={`flex-shrink-0 flex items-center justify-center ${
-                        sidebarExpanded ? "ml-1" : "mx-auto"
-                      }`}
+                      className={`flex-shrink-0 flex items-center justify-center ${sidebarExpanded ? "ml-1" : "mx-auto"
+                        }`}
                     >
                       <span
                         className={`p-2 rounded-full flex items-center justify-center transition-colors duration-150
-                          ${
-                            isActive
-                              ? "bg-white text-blue-900"
-                              : "bg-white/10 text-white group-hover:bg-white/20 group-hover:text-white"
+                          ${isActive
+                            ? "bg-white text-blue-900"
+                            : "bg-white/10 text-white group-hover:bg-white/20 group-hover:text-white"
                           }`}
                         style={{ width: 36, height: 36 }}
                       >
@@ -239,9 +279,8 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
       {/* Main area */}
       <div
-        className={`flex-1 flex flex-col transition-margin duration-300 ease-in-out ${
-          sidebarExpanded ? "ml-64" : "ml-20"
-        }`}
+        className={`flex-1 flex flex-col transition-margin duration-300 ease-in-out ${sidebarExpanded ? "ml-64" : "ml-20"
+          }`}
       >
         {/* Top Bar */}
         <header className="sticky top-0 z-40 bg-white border-b shadow-sm">
@@ -264,21 +303,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
                 EPS Couriers
               </span>
             </div>
-            <div className="text-right text-sm text-gray-500">
-              <div>
-                {new Date().toLocaleDateString(undefined, {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </div>
-              <div className="font-medium text-gray-700">
-                {new Date().toLocaleTimeString(undefined, {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </div>
-            </div>
+            <DateTimeDisplay />
           </div>
         </header>
 

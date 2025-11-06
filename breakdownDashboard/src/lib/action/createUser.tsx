@@ -1,85 +1,93 @@
 "use server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
+import { sendWelcomeEmail, generateTempPassword } from "@/lib/services/emailService";
 
 export async function CreateUser(formData: FormData) {
     const role = formData.get("role") as string;
-    const fullName = formData.get("name") as string;
-    const phone = formData.get("phone") as string;
     const email = formData.get("email") as string;
+    
     // Validate role
     if (
+        role !== "admin" &&
         role !== "fleet manager" &&
-        role !== "customer" &&
-        role !== "call centre" &&
-        role !== "cost centre"
+        role !== "fc" &&
+        role !== "customer"
     ) {
-        redirect(`/signup?message=Role not found`);
+        redirect(`/userManagement?message=Invalid role`);
     }
 
-    const supabase = await createClient();
+    // Generate temporary password
+    const tempPassword = generateTempPassword();
 
-    // ✅ Get the logged-in user
-    const {
-        data: { user: currentUser },
-        error: currentUserError,
-    } = await supabase.auth.getUser();
+    // Create Supabase client with service role
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!,
+        {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        }
+    );
 
-    if (currentUserError || !currentUser) {
-        redirect("/login?message=You need to be logged in");
-    }
-
-    // ✅ Fetch the logged-in user's workshop_id from profiles table
-    const { data: currentProfile, error: profileError } = await supabase
-        .from("users")
-        .select("workshop_id")
-        .eq("id", currentUser.id)
-        .single();
-
-    if (profileError || !currentProfile) {
-        console.error("Error fetching current profile:", profileError?.message);
-        redirect("/signup?message=Could not find your profile");
-    }
-
-    const workshopId = currentProfile.workshop_id;
-
-    // ✅ Create new user in Supabase Auth
-    const { data: signUpResult, error: signUpError } = await supabase.auth.signUp({
+    // Create user using service role
+    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email,
-        password: phone,
-        options: {
-            data: {
-                name: fullName,
-                phone,
-                role,
-            },
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+            role,
         },
     });
 
-    if (signUpError) {
-        redirect("/userManagement?message=" + signUpError.message);
+    if (createError) {
+        console.error("Error creating user:", createError.message);
+        redirect(`/userManagement?message=${encodeURIComponent(createError.message)}`);
     }
 
-    const newUserId = signUpResult.user?.id;
-    if (!newUserId) {
-        redirect("/userManagement?message=Failed to create user");
+    const userId = newUser.user?.id;
+    if (!userId) {
+        redirect("/userManagement?message=No+user+ID+returned");
     }
 
-    // ✅ Insert into profiles table and link to the same workshop_id
+    // Insert into users table
     const { error: insertError } = await supabase.from("users").insert({
-        id: newUserId,
-        full_name: fullName,
-        role,
-        phone_number: phone,
+        id: userId,
         email,
-        workshop_id: workshopId, // ✅ Linking with logged-in user's workshop
+        role,
+        created_at: new Date().toISOString(),
+        tech_admin: false,
+        first_login: true,
+        permissions: null,
+        energyrite: false,
+        cost_code: "",
+        company: "EPS Courier Services"
     });
 
     if (insertError) {
-        console.error("Error inserting profile:", insertError.message);
+        console.error("Error inserting user profile:", insertError.message);
+        redirect(`/userManagement?message=Failed+to+create+user+profile`);
     }
 
-    console.log("New user created and linked to workshop:", workshopId);
+    // Send welcome email
+    const emailResult = await sendWelcomeEmail({
+        email,
+        password: tempPassword,
+        role,
+        company: "EPS Courier Services",
+        cost_code: "",
+        site_id: ""
+    });
+
+    if (emailResult.success) {
+        console.log("✅ User created and welcome email sent");
+        redirect("/userManagement?message=User+created+successfully+and+welcome+email+sent");
+    } else {
+        console.log("⚠️ User created but email failed:", emailResult.error);
+        redirect("/userManagement?message=User+created+but+email+failed+to+send");
+    }
 }
 
 

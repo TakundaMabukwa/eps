@@ -28,12 +28,15 @@ import { createClient } from "@/lib/supabase/client"
 
 interface User {
     id: string
-    full_name: string
     email: string
-    role: "call-center" | "fleet-manager" | "cost-center" | "customer" | "admin"
-    status: "active" | "inactive"
-    lastLogin: string
-    permissions: string[]
+    role: string
+    created_at: string
+    tech_admin: boolean
+    first_login: boolean
+    permissions: any
+    energyrite: boolean
+    cost_code: string
+    company: string
 }
 
 interface Role {
@@ -66,13 +69,13 @@ export default function SettingsPage() {
 
     // Form states:
     const [editEmail, setEditEmail] = useState("");
-    const [editPhone, setEditPhone] = useState("");
+    const [editRole, setEditRole] = useState("");
 
     // Handlers:
     function openEditDialog(user: User) {
         setEditingUser(user as any);
         setEditEmail(user.email);
-        setEditPhone(user.role ?? "");
+        setEditRole(user.role ?? "");
         setIsEditOpen(true);
     }
 
@@ -80,18 +83,18 @@ export default function SettingsPage() {
         setIsEditOpen(false);
         setEditingUser(null);
         setEditEmail("");
-        setEditPhone("");
+        setEditRole("");
     }
 
     async function submitUserUpdate() {
         if (!editingUser) return;
 
         const { error } = await supabase
-            .from("profiles")
-            .update({ email: editEmail, role: editPhone })
+            .from("users")
+            .update({ email: editEmail, role: editRole })
             .eq("id", (editingUser as { id: string }).id);
 
-        console.log("Update user : " + editEmail + " " + editPhone);
+        console.log("Update user : " + editEmail + " " + editRole);
 
         if (error) {
             alert("Failed to update user: " + error.message);
@@ -105,14 +108,21 @@ export default function SettingsPage() {
 
 
     const fetchUsers = async () => {
-        const { data, error } = await supabase.from('profiles')
-            .select('*')
-            .is('workshop_id', null)
-        if (error) {
-            console.error('Error fetching users:', error);
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+            
+            if (error) {
+                console.error('Error fetching users:', error);
+                setUsers([]);
+                return;
+            }
+            
+            setUsers(data || []);
+        } catch (err) {
+            console.error('Error in fetchUsers:', err);
             setUsers([]);
-        } else {
-            setUsers(data as []);
         }
     }
 
@@ -124,31 +134,25 @@ export default function SettingsPage() {
                 id: "1",
                 name: "Administrator",
                 description: "Full system access and configuration",
-                permissions: ["all"],
+                permissions: ["dashboard", "user management", "drivers", "vehicles", "inspections", "fuel"],
             },
             {
                 id: "2",
                 name: "Fleet Manager",
                 description: "Manage vehicles, drivers, and approve jobs",
-                permissions: ["manage_vehicles", "manage_drivers", "approve_jobs", "view_reports"],
+                permissions: ["dashboard", "drivers", "vehicles", "inspections", "fuel"],
             },
             {
                 id: "3",
-                name: "Call Center",
-                description: "Handle breakdown requests and dispatch technicians",
-                permissions: ["view_breakdowns", "dispatch_technicians", "manage_technicians"],
+                name: "FC",
+                description: "Fleet Controller with read-only dashboard access",
+                permissions: ["dashboard (read-only)"],
             },
             {
                 id: "4",
-                name: "Cost Center",
-                description: "Create and manage quotations",
-                permissions: ["create_quotations", "view_jobs", "manage_costs"],
-            },
-            {
-                id: "5",
-                name: "Customer",
-                description: "Request breakdown services and view own requests",
-                permissions: ["request_breakdown", "view_own_requests", "approve_quotations"],
+                name: "External",
+                description: "External customer access to fleet services",
+                permissions: ["drivers", "vehicles", "inspections", "fuel", "financials"],
             },
         ])
 
@@ -240,17 +244,27 @@ export default function SettingsPage() {
         {} as Record<string, SystemSetting[]>,
     )
 
-    async function handleDeleteUser(userId: string) {
+    function handleDeleteUser(userId: string) {
         const confirmed = window.confirm("Are you sure you want to delete this user?");
         if (!confirmed) return;
 
-        const { error } = await supabase.from("profiles").delete().eq("id", userId);
-        if (error) {
-            alert("Failed to delete user: " + error.message);
-            return;
-        }
-
-        await fetchUsers();
+        // Create a form and submit it to trigger server action
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.style.display = 'none';
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'userId';
+        input.value = userId;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        
+        // Import and call delete action
+        import("@/lib/action/deleteUser").then(({ deleteUser }) => {
+            deleteUser(userId);
+        });
     }
 
 
@@ -286,18 +300,10 @@ export default function SettingsPage() {
                                             Create a new user account with appropriate role and permissions.
                                         </DialogDescription>
                                     </DialogHeader>
-                                    <form action={CreateUser}>
-                                        <div>
-                                            <Label htmlFor="name">Full Name</Label>
-                                            <Input id="name" name="name" required />
-                                        </div>
+                                    <form action={CreateUser} className="space-y-4">
                                         <div>
                                             <Label htmlFor="email">Email Address</Label>
                                             <Input id="email" name="email" type="email" required />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="phone">Phone Number</Label>
-                                            <Input id="phone" name="phone" required />
                                         </div>
                                         <div>
                                             <Label htmlFor="role">Role</Label>
@@ -308,10 +314,13 @@ export default function SettingsPage() {
                                                 <SelectContent>
                                                     <SelectItem value="admin">Administrator</SelectItem>
                                                     <SelectItem value="fleet manager">Fleet Manager</SelectItem>
-                                                    <SelectItem value="call centre">Call Center</SelectItem>
-                                                    <SelectItem value="cost centre">Cost Center</SelectItem>
+                                                    <SelectItem value="fc">FC</SelectItem>
+                                                    <SelectItem value="customer">External</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                        </div>
+                                        <div className="text-sm text-gray-600">
+                                            A temporary password will be generated and sent to the user's email.
                                         </div>
                                         <Button type="submit" className="w-full">
                                             Create User
@@ -337,11 +346,11 @@ export default function SettingsPage() {
                                     <TableBody>
                                         {users.map((user) => (
                                             <TableRow key={user.id}>
-                                                <TableCell className="font-medium">{user.full_name}</TableCell>
+                                                <TableCell className="font-medium">{user.email}</TableCell>
                                                 <TableCell>{user.email}</TableCell>
                                                 <TableCell>
                                                     <Badge className={getRoleBadgeColor(user.role)}>
-                                                        {user.role.replace("-", " ").toUpperCase()}
+                                                        {user.role === 'customer' ? 'EXTERNAL' : user.role?.replace("-", " ").toUpperCase() || 'NO ROLE'}
                                                     </Badge>
                                                 </TableCell>
                                                 {/* <TableCell>
@@ -494,7 +503,7 @@ export default function SettingsPage() {
                         <DialogHeader>
                             <DialogTitle>Edit User</DialogTitle>
                             <DialogDescription>
-                                Update email and phone number for the user.
+                                Update email and role for the user.
                             </DialogDescription>
                         </DialogHeader>
                         <form
@@ -503,25 +512,32 @@ export default function SettingsPage() {
                                 submitUserUpdate();
                             }}
                         >
-                            <div>
-                                <Label htmlFor="editEmail">Email Address</Label>
-                                <Input
-                                    id="editEmail"
-                                    name="editEmail"
-                                    type="email"
-                                    value={editEmail}
-                                    onChange={(e) => setEditEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="editPhone">Phone Number</Label>
-                                <Input
-                                    id="editPhone"
-                                    name="editPhone"
-                                    value={editPhone}
-                                    onChange={(e) => setEditPhone(e.target.value)}
-                                />
+                            <div className="space-y-4">
+                                <div>
+                                    <Label htmlFor="editEmail">Email Address</Label>
+                                    <Input
+                                        id="editEmail"
+                                        name="editEmail"
+                                        type="email"
+                                        value={editEmail}
+                                        onChange={(e) => setEditEmail(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="editRole">Role</Label>
+                                    <Select value={editRole} onValueChange={setEditRole}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a role" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="admin">Administrator</SelectItem>
+                                            <SelectItem value="fleet manager">Fleet Manager</SelectItem>
+                                            <SelectItem value="fc">FC</SelectItem>
+                                            <SelectItem value="customer">External</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                             <div className="flex justify-end gap-2 mt-4">
                                 <Button
