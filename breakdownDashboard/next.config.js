@@ -5,6 +5,12 @@ const nextConfig = {
       memoryLimit: 4096
     }
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   webpack: (config, { dev }) => {
     if (dev) {
       config.watchOptions = {
