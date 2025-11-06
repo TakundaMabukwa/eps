@@ -30,6 +30,7 @@ import { createClient } from "@/lib/supabase/client"
 import { PagePermissionSelector } from "@/components/ui/page-permission-selector"
 import { PageActionSelector } from "@/components/ui/page-action-selector"
 import { DEFAULT_ROLE_PERMISSIONS, Permission, PAGES, ACTIONS } from "@/lib/permissions/permissions"
+import { SecureButton } from "@/components/SecureButton"
 
 interface User {
     id: string
@@ -308,10 +309,10 @@ export default function SettingsPage() {
                                 }
                             }}>
                                 <DialogTrigger asChild>
-                                    <Button>
+                                    <SecureButton page="userManagement" action="create">
                                         <Plus className="h-4 w-4 mr-2" />
                                         Add User
-                                    </Button>
+                                    </SecureButton>
                                 </DialogTrigger>
                                 <DialogContent className="!max-w-none w-[80vw] max-h-[90vh] overflow-y-auto sm:!max-w-none">
                                     <DialogHeader className="pb-6">
@@ -663,10 +664,9 @@ export default function SettingsPage() {
                                                 {/* <TableCell>{user.lastLogin}</TableCell> */}
                                                 <TableCell>
                                                     <div className="flex gap-2">
-                                                        {/* <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button> */}
-                                                        <Button 
+                                                        <SecureButton 
+                                                            page="userManagement"
+                                                            action="edit"
                                                             variant="outline" 
                                                             size="sm" 
                                                             onClick={() => {
@@ -676,10 +676,16 @@ export default function SettingsPage() {
                                                             }}
                                                         >
                                                             <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="outline" size="sm" onClick={() => handleDeleteUser(user.id)}>
+                                                        </SecureButton>
+                                                        <SecureButton 
+                                                            page="userManagement"
+                                                            action="delete"
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            onClick={() => handleDeleteUser(user.id)}
+                                                        >
                                                             <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                        </SecureButton>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>

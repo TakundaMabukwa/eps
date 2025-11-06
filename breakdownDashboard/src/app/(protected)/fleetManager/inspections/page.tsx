@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import InspectionTemplatesPage from "@/components/pages/InspectionTemplates";
 import Link from "next/link";
+import { SecureButton } from "@/components/SecureButton";
 
 type InspectionItem = {
   label: string;
@@ -158,13 +159,15 @@ export default function InspectionsPage() {
             </div>
 
             <div className="flex-shrink-0 flex items-center gap-3">
-              <Button
+              <SecureButton
+                page="inspections"
+                action="create"
                 onClick={() => setIsTemplateModalOpen(true)}
                 variant="secondary"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full shadow"
               >
                 Inspection Template Manager
-              </Button>
+              </SecureButton>
               <Button
                 onClick={() => {
                   setSearchTerm("");
@@ -231,13 +234,15 @@ export default function InspectionsPage() {
             Section · Save Template
           </div>
           <div>
-            <Button
+            <SecureButton
+              page="inspections"
+              action="create"
               onClick={() => setIsTemplateModalOpen(true)}
               variant="ghost"
               className="px-3 py-1 rounded-full border"
             >
               Open Template Manager
-            </Button>
+            </SecureButton>
           </div>
         </div>
 
@@ -348,13 +353,15 @@ export default function InspectionsPage() {
                         )}
 
                         <div className="mt-3 flex gap-2">
-                          <Button
+                          <SecureButton
+                            page="inspections"
+                            action="edit"
                             variant="secondary"
                             className="bg-white/20 hover:bg-white/30 text-white border border-white/30"
                             onClick={() => openInspectionModal(insp)}
                           >
                             Manage Inspection
-                          </Button>
+                          </SecureButton>
                           <Link href={`/fleetManager/inspections/${insp.id}`}>
                             <Button
                               variant="secondary"
@@ -480,7 +487,9 @@ export default function InspectionsPage() {
 
               {/* Placeholder area for manager actions (edit, mark resolved, etc.) */}
               <div className="pt-2 border-t flex justify-end gap-2">
-                <Button
+                <SecureButton
+                  page="inspections"
+                  action="edit"
                   variant="ghost"
                   onClick={() => {
                     // placeholder: hook up real update logic
@@ -488,15 +497,17 @@ export default function InspectionsPage() {
                   }}
                 >
                   Edit (placeholder)
-                </Button>
-                <Button
+                </SecureButton>
+                <SecureButton
+                  page="inspections"
+                  action="edit"
                   onClick={() => {
                     // placeholder: example action
                     alert("Marking as resolved would call backend.");
                   }}
                 >
                   Mark Resolved (placeholder)
-                </Button>
+                </SecureButton>
               </div>
             </div>
           </div>
