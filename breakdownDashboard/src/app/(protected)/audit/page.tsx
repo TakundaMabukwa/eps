@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { SecureButton } from '@/components/SecureButton'
 import {
   Dialog,
   DialogContent,
@@ -422,7 +423,9 @@ export default function AuditPage() {
                         >
                           View
                         </Button>
-                        <Button
+                        <SecureButton
+                          page="financials"
+                          action="view"
                           variant="outline"
                           size="sm"
                           onClick={() => {
@@ -433,7 +436,7 @@ export default function AuditPage() {
                           className={`h-7 px-2 text-xs ${!hasRoutePoints(record.route_points) ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           <Route className="h-3 w-3" />
-                        </Button>
+                        </SecureButton>
                       </div>
                     </td>
                   </tr>

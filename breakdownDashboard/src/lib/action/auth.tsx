@@ -43,6 +43,7 @@ export async function login(formData: FormData) {
   cookieStore.set("access_token", resData.session.access_token);
   cookieStore.set("refresh_token", resData.session.refresh_token);
   cookieStore.set("role", role);
+  cookieStore.set("userId", resData.user.id);
 
   revalidatePath("/", "layout");
 

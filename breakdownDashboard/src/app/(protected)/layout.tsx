@@ -26,6 +26,8 @@ import {
   Fuel,
 } from "lucide-react";
 import GlobalProvider from "@/context/global-context/provider";
+import { PAGES, Permission, hasPermission } from "@/lib/permissions/permissions";
+import { createClient } from "@/lib/supabase/client";
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
@@ -70,6 +72,8 @@ function DateTimeDisplay() {
   );
 }
 
+
+
 // Role-based navigation
 const roleNavigation = {
   admin: [
@@ -101,7 +105,6 @@ const roleNavigation = {
     { name: "Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
     { name: "Drivers", href: "/drivers", Icon: <Users /> },
     { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
-    { name: "Qoute Management", href: "/qoutation", Icon: <Building2 /> },
     { name: "System Settings", href: "/settings", Icon: <Settings /> },
     { name: "User Management", href: "/userManagement", Icon: <PlusSquare /> },
   ],
@@ -154,7 +157,9 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
   const [navigation, setNavigation] = useState<any[]>([]);
+  const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
   const pathname = usePathname();
+  const supabase = createClient();
 
   useEffect(() => {
     const getCookie = (name: string) => {
@@ -164,35 +169,56 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
       return null;
     };
 
+    const fetchUserPermissions = async () => {
+      const userId = getCookie("userId");
+      if (userId) {
+        const { data: user } = await supabase
+          .from('users')
+          .select('permissions')
+          .eq('id', userId)
+          .single();
+        
+        if (user?.permissions) {
+          setUserPermissions(user.permissions);
+        }
+      }
+    };
+
     const role = decodeURIComponent(getCookie("role") || "");
-    const session = getCookie("session");
 
     if (role) {
       setUserRole(role);
-      let roleNav = roleNavigation[role as keyof typeof roleNavigation] || [];
-
-      if (role === "fc") {
-        roleNav = [
-          { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
-          { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
-        ];
-      } else if (role === "customer") {
-        roleNav = [
-          { name: "Drivers", href: "/drivers", Icon: <Users /> },
-          { name: "Vehicles", href: "/vehicles", Icon: <Car /> },
-          {
-            name: "Inspections",
-            href: "/fleetManager/inspections",
-            Icon: <QrCode />,
-          },
-          { name: "Fuel Can Bus", href: "/fuel", Icon: <Truck /> },
-        ];
-      }
-      setNavigation(roleNav);
+      fetchUserPermissions();
     } else {
       window.location.href = "/login";
     }
   }, []);
+
+  // Generate navigation from user permissions
+  useEffect(() => {
+    if (userPermissions.length > 0) {
+      const pageToNavMap = {
+        dashboard: { name: "Dashboard", href: "/dashboard", Icon: <ChartBar /> },
+        fleetJobs: { name: "Fleet Jobs", href: "/jobsFleet", Icon: <Briefcase /> },
+        loadPlan: { name: "Load Plan", href: "/load-plan", Icon: <Route /> },
+        fuel: { name: "Fuel Can Bus", href: "/fuel", Icon: <Fuel /> },
+        drivers: { name: "Drivers", href: "/drivers", Icon: <Users /> },
+        vehicles: { name: "Vehicles", href: "/vehicles", Icon: <Truck /> },
+        costCenters: { name: "Cost Centers", href: "/ccenter", Icon: <DollarSign /> },
+        financials: { name: "Financials", href: "/audit", Icon: <Settings2Icon /> },
+        inspections: { name: "Inspections", href: "/fleetManager/inspections", Icon: <QrCode /> },
+        userManagement: { name: "User Management", href: "/userManagement", Icon: <PlusSquare /> },
+        systemSettings: { name: "System Settings", href: "/settings", Icon: <Settings /> }
+      };
+      
+      const permissionBasedNav = userPermissions
+        .filter(permission => permission.actions.includes('view'))
+        .map(permission => pageToNavMap[permission.page])
+        .filter(Boolean);
+      
+      setNavigation(permissionBasedNav);
+    }
+  }, [userPermissions]);
 
   const handleLogout = () => {
     window.location.href = "/logout";
@@ -225,6 +251,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
           tabIndex={0}
         >
           <ul className="flex flex-col items-center space-y-2">
+
             {navigation.map((item) => {
               const isActive = pathname === item.href;
               return (

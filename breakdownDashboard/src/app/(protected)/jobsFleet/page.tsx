@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SecureButton } from "@/components/SecureButton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -783,14 +784,16 @@ export default function FleetJobsPage() {
                           </Link>
                         </div>
                         <div className="flex gap-2">
-                          <Button
+                          <SecureButton
+                            page="fleetJobs"
+                            action="edit"
                             variant="destructive"
                             size="sm"
                             onClick={() => handleChangeDetails(job)}
                           >
                             <XCircle className="h-4 w-4 mr-2" />
                             Close Job
-                          </Button>
+                          </SecureButton>
                         </div>
 
                         {/* <div>
@@ -809,7 +812,9 @@ export default function FleetJobsPage() {
                         {job.status === "awaiting-approval" &&
                           canApproveJobs && (
                             <div className="flex gap-2">
-                              <Button
+                              <SecureButton
+                                page="fleetJobs"
+                                action="edit"
                                 onClick={() =>
                                   handleUpdateJobStatus(
                                     job.id,
@@ -822,8 +827,10 @@ export default function FleetJobsPage() {
                               >
                                 <CheckCircle className="h-4 w-4 mr-2" />
                                 Approve
-                              </Button>
-                              <Button
+                              </SecureButton>
+                              <SecureButton
+                                page="fleetJobs"
+                                action="delete"
                                 variant="destructive"
                                 onClick={() =>
                                   handleUpdateJobStatus(
@@ -836,7 +843,7 @@ export default function FleetJobsPage() {
                               >
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Reject
-                              </Button>
+                              </SecureButton>
                             </div>
                           )}
                       </div>

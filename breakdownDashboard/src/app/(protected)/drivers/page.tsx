@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Button } from '@/components/ui/button'
+import { SecureButton } from '@/components/SecureButton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -438,10 +439,10 @@ export default function Drivers() {
 
                                 <Dialog.Root open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) resetForm() }}>
                                     <Dialog.Trigger asChild>
-                                        <Button className="bg-blue-600 hover:bg-blue-700">
+                                        <SecureButton page="drivers" action="create" className="bg-blue-600 hover:bg-blue-700">
                                             <Plus className="w-4 h-4 mr-2" />
                                             Add Driver
-                                        </Button>
+                                        </SecureButton>
                                     </Dialog.Trigger>
 
                     <Dialog.Portal>
@@ -764,7 +765,7 @@ export default function Drivers() {
                                             <TableCell>
                                                 <div className="flex gap-1">
                                                     <Button size="sm" variant="outline" onClick={() => handleViewDriver(driver)}>View</Button>
-                                                    <Button size="sm" variant="outline" onClick={() => startEditDriver(driver)}>Edit</Button>
+                                                    <SecureButton page="drivers" action="edit" size="sm" variant="outline" onClick={() => startEditDriver(driver)}>Edit</SecureButton>
                                                 </div>
                                             </TableCell>
                                         </TableRow>

@@ -52,6 +52,27 @@ export async function CreateUser(formData: FormData) {
         redirect("/userManagement?message=No+user+ID+returned");
     }
 
+    // Get permissions from form data or use default
+    const permissionsData = formData.get("permissions") as string;
+    let permissions = permissionsData ? JSON.parse(permissionsData) : null;
+    
+    // Special case: admin@eps.com gets all permissions
+    if (email === "admin@eps.com") {
+        permissions = [
+            { page: 'dashboard', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'fleetJobs', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'loadPlan', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'fuel', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'drivers', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'vehicles', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'costCenters', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'financials', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'inspections', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'userManagement', actions: ['view', 'create', 'edit', 'delete'] },
+            { page: 'systemSettings', actions: ['view', 'create', 'edit', 'delete'] }
+        ];
+    }
+
     // Insert into users table
     const { error: insertError } = await supabase.from("users").insert({
         id: userId,
@@ -60,7 +81,7 @@ export async function CreateUser(formData: FormData) {
         created_at: new Date().toISOString(),
         tech_admin: false,
         first_login: true,
-        permissions: null,
+        permissions: permissions,
         energyrite: false,
         cost_code: "",
         company: "EPS Courier Services"
@@ -82,11 +103,15 @@ export async function CreateUser(formData: FormData) {
     });
 
     if (emailResult.success) {
-        console.log("✅ User created and welcome email sent");
-        redirect("/userManagement?message=User+created+successfully+and+welcome+email+sent");
+        console.log("✅ User created successfully");
+        if (emailResult.message?.includes('skipped')) {
+            redirect("/userManagement?message=User+created+successfully+(email+not+configured)");
+        } else {
+            redirect("/userManagement?message=User+created+successfully+and+welcome+email+sent");
+        }
     } else {
         console.log("⚠️ User created but email failed:", emailResult.error);
-        redirect("/userManagement?message=User+created+but+email+failed+to+send");
+        redirect("/userManagement?message=User+created+successfully+(email+failed)");
     }
 }
 

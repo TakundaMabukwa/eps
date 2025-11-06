@@ -6,6 +6,12 @@ const notificationapi = require('notificationapi-node-server-sdk').default;
 export async function sendWelcomeEmail(options: any) {
   const { email, password, role, company } = options;
 
+  // Check if NotificationAPI credentials are configured
+  if (!process.env.NOTIFICATIONAPI_CLIENT_ID || !process.env.NOTIFICATIONAPI_CLIENT_SECRET) {
+    console.log('⚠️ NotificationAPI credentials not configured, skipping email');
+    return { success: true, message: 'Email skipped - credentials not configured' };
+  }
+
   try {
     console.log('Sending email via NotificationAPI SDK...');
     

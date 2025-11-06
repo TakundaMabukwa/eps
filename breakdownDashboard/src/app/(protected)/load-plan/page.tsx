@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { SecureButton } from '@/components/SecureButton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
@@ -1281,13 +1282,15 @@ export default function LoadPlanPage() {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <Label className="text-lg font-medium">Stop Points</Label>
-                      <Button 
+                      <SecureButton 
+                        page="loadPlan" 
+                        action="edit" 
                         type="button" 
                         onClick={() => setStopPoints([...stopPoints, ''])} 
                         size="sm"
                       >
                         <Plus className="h-4 w-4 mr-1" /> Add Stop Point
-                      </Button>
+                      </SecureButton>
                     </div>
                     
                     {stopPoints.map((stopPoint, index) => (
@@ -1350,9 +1353,15 @@ export default function LoadPlanPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <Label className="text-lg font-medium">Driver Assignments</Label>
-                    <Button type="button" onClick={addDriver} size="sm">
+                    <SecureButton 
+                      page="loadPlan" 
+                      action="edit" 
+                      type="button" 
+                      onClick={addDriver} 
+                      size="sm"
+                    >
                       <Plus className="h-4 w-4 mr-1" /> Add Driver
-                    </Button>
+                    </SecureButton>
                   </div>
                   
                   {driverAssignments.map((driver, driverIndex) => (
@@ -1625,9 +1634,15 @@ export default function LoadPlanPage() {
                   </div>
                 </div>
 
-                <Button type="button" onClick={handleCreateClick} className="w-full">
+                <SecureButton 
+                  page="loadPlan" 
+                  action="create" 
+                  type="button" 
+                  onClick={handleCreateClick} 
+                  className="w-full"
+                >
                   Create Load
-                </Button>
+                </SecureButton>
               </form>
             </CardContent>
             </Card>

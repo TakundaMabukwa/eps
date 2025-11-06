@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { SecureButton } from "@/components/SecureButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
@@ -485,13 +486,15 @@ export default function Vehicles() {
             Manage your vehicle and trailer fleet
           </p>
         </div>
-        <Button
+        <SecureButton
+          page="vehicles"
+          action="create"
           onClick={() => setIsAddingVehicle(true)}
           className="bg-blue-600 hover:bg-blue-700"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Vehicle
-        </Button>
+        </SecureButton>
       </div>
 
       {/* Stats Cards */}
@@ -1180,7 +1183,9 @@ export default function Vehicles() {
                           >
                             View
                           </Button>
-                          <Button 
+                          <SecureButton 
+                            page="vehicles"
+                            action="edit"
                             variant="outline" 
                             size="sm"
                             className="h-7 px-2 text-xs"
@@ -1191,7 +1196,7 @@ export default function Vehicles() {
                             }}
                           >
                             Equipment
-                          </Button>
+                          </SecureButton>
                           <Link href={`/vehicles/${vehicle.id}`}>
                             <Button variant="default" size="sm" className="h-7 px-2 text-xs bg-slate-700 hover:bg-slate-800">Details</Button>
                           </Link>

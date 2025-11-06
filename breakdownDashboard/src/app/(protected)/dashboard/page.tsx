@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SecureButton } from "@/components/SecureButton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -316,28 +317,28 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           <MapPin className="w-3 h-3" /> Track
         </Button>
 
-        <Button
+        <SecureButton
+          page="dashboard"
+          action="edit"
           size="sm"
           variant="link"
           className="h-8 text-xs border"
-          disabled={userRole === "fleet manager" || userRole === "fc"}
           onClick={() => {
-            if (userRole === "fleet manager" || userRole === "fc") return;
             setCurrentTripForNote(trip);
             setNoteText(trip.status_notes || '');
             setNoteOpen(true);
           }}
         >
           <FileText className="w-3 h-3" /> Note
-        </Button>
+        </SecureButton>
 
-        <Button
+        <SecureButton
+          page="dashboard"
+          action="edit"
           size="sm"
           variant="link"
           className="h-8 text-xs border"
-          disabled={userRole === "fleet manager" || userRole === "fc"}
           onClick={async () => {
-            if (userRole === "fleet manager" || userRole === "fc") return;
             const supabase = createClient();
             const { data: drivers } = await supabase.from('drivers').select('*');
             setAvailableDrivers(drivers || []);
@@ -346,15 +347,15 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           }}
         >
           <User className="w-3 h-3" /> Change
-        </Button>
+        </SecureButton>
 
-        <Button
+        <SecureButton
+          page="dashboard"
+          action="delete"
           size="sm"
           variant="destructive"
           className="h-8 text-xs border"
-          disabled={userRole === "fleet manager" || userRole === "fc"}
           onClick={async () => {
-            if (userRole === "fleet manager" || userRole === "fc") return;
             if (!confirm('Are you sure you want to delete this trip?')) return;
             try {
               const supabase = createClient();
@@ -368,7 +369,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           }}
         >
           <X className="w-3 h-3" /> Cancel
-        </Button>
+        </SecureButton>
       </div>
     </div>
   )
@@ -727,13 +728,13 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2 mt-1">
-              <Button 
+              <SecureButton 
+              page="dashboard"
+              action="edit"
               size="sm" 
               variant="outline" 
               className="h-8 text-xs"
-              disabled={userRole === "fc"}
               onClick={() => {
-              if (userRole === "fc") return;
               setCurrentTripForTime(trip);
               setTimeType('pickup');
               const pickupLocs = trip.pickup_locations || trip.pickuplocations || [];
@@ -743,14 +744,14 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
               >
               <Clock className="w-3 h-3 mr-1" />
               {(trip.pickup_locations?.[0]?.scheduled_time || trip.pickuplocations?.[0]?.scheduled_time) ? 'Update Pickup' : 'Set Pickup'}
-              </Button>
-              <Button 
+              </SecureButton>
+              <SecureButton 
+              page="dashboard"
+              action="edit"
               size="sm" 
               variant="outline" 
               className="h-8 text-xs"
-              disabled={userRole === "fc"}
               onClick={() => {
-              if (userRole === "fc") return;
               setCurrentTripForTime(trip);
               setTimeType('dropoff');
               const dropoffLocs = trip.dropoff_locations || trip.dropofflocations || [];
@@ -760,7 +761,7 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
               >
               <Clock className="w-3 h-3 mr-1" />
               {(trip.dropoff_locations?.[0]?.scheduled_time || trip.dropofflocations?.[0]?.scheduled_time) ? 'Update Drop-off' : 'Set Drop-off'}
-              </Button>
+              </SecureButton>
               <Button 
               size="sm"
               variant="link"

@@ -8,25 +8,23 @@ const roles = [
   },
   {
     name: 'call centre',
-    path: ['/dashboard', '/profile', '/login', '/signup', '/', '/ccenter', '/logout', 'jobs'],
+    path: ['*'], // All users have access to all routes
   },
   {
     name: 'fc',
-    path: ['/fleetManager', '/jobsFleet', '/dashboard', '/drivers', '/vehicles', '/technician', '/profile', '/logs', '/login', '/signup', '/', '/logout', '/qoutation'],
+    path: ['*'], // All users have access to all routes
   },
   {
     name: 'fleet manager',
-    path: ['/fleetManager', '/jobsFleet', '/dashboard', '/drivers', '/vehicles',
-      '/technician', '/profile', '/logs', '/login', '/signup', '/', '/logout',
-      '/qoutation', '/fleetManager/trips', '/fleetManager/inspections'],
+    path: ['*'], // All users have access to all routes
   },
   {
     name: 'customer',
-    path: ['/dashboard', '/profile', '/editCustomer', '/customer', '/login', '/signup', '/', '/logout', '/ccenter', '/exvehicles', '/extechnicians'],
+    path: ['*'], // All users have access to all routes
   },
   {
     name: 'cost centre',
-    path: ['/dashboard', '/ccenter', '/jobs', '/profile', '/quotation', '/notification', '/login', '/signup', '/', '/logout', '/userManagement'],
+    path: ['*'], // All users have access to all routes
   },
 ]
 

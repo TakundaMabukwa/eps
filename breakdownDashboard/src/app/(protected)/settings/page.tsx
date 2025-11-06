@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { SecureButton } from "@/components/SecureButton"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
@@ -54,17 +55,17 @@ export default function SettingsPage() {
 
         const UserData = async () => {
             const { data: session, error } = await supabase.auth.getSession()
-            const userId = session.session?.user.aud;
+            const userId = session.session?.user.id;
 
             if (userId) {
-                const { data: profile, error: profileError } = await supabase
-                    .from("profiles")
+                const { data: user, error: userError } = await supabase
+                    .from("users")
                     .select("*")
                     .eq("id", userId)
-                    .single();  // Since there's only one profile per user     
-                setUsers(profile as any)
-                if (profileError) {
-                    console.error("Error fetching profile:", profileError);
+                    .single();
+                setUsers(user as any)
+                if (userError) {
+                    console.error("Error fetching user:", userError);
                     return;
                 }
             }
@@ -200,34 +201,46 @@ export default function SettingsPage() {
                                                     <p className="text-sm text-gray-600">{setting.description}</p>
                                                 </div>
                                                 <div className="w-48">
-                                                    {setting.type === "boolean" ? (
-                                                        <Switch
-                                                            checked={setting.value === "true"}
-                                                            onCheckedChange={(checked) => handleUpdateSetting(setting.id, checked.toString())}
-                                                        />
-                                                    ) : setting.type === "select" && setting.options ? (
-                                                        <Select
-                                                            value={setting.value}
-                                                            onValueChange={(value) => handleUpdateSetting(setting.id, value)}
+                                                    <div className="flex items-center gap-2">
+                                                        {setting.type === "boolean" ? (
+                                                            <Switch
+                                                                checked={setting.value === "true"}
+                                                                onCheckedChange={(checked) => handleUpdateSetting(setting.id, checked.toString())}
+                                                                disabled={false}
+                                                            />
+                                                        ) : setting.type === "select" && setting.options ? (
+                                                            <Select
+                                                                value={setting.value}
+                                                                onValueChange={(value) => handleUpdateSetting(setting.id, value)}
+                                                            >
+                                                                <SelectTrigger>
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {setting.options.map((option) => (
+                                                                        <SelectItem key={option} value={option}>
+                                                                            {option}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        ) : (
+                                                            <Input
+                                                                type={setting.type === "number" ? "number" : "text"}
+                                                                value={setting.value}
+                                                                onChange={(e) => handleUpdateSetting(setting.id, e.target.value)}
+                                                            />
+                                                        )}
+                                                        <SecureButton
+                                                            page="systemSettings"
+                                                            action="edit"
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleUpdateSetting(setting.id, setting.value)}
                                                         >
-                                                            <SelectTrigger>
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {setting.options.map((option) => (
-                                                                    <SelectItem key={option} value={option}>
-                                                                        {option}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    ) : (
-                                                        <Input
-                                                            type={setting.type === "number" ? "number" : "text"}
-                                                            value={setting.value}
-                                                            onChange={(e) => handleUpdateSetting(setting.id, e.target.value)}
-                                                        />
-                                                    )}
+                                                            Save
+                                                        </SecureButton>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
