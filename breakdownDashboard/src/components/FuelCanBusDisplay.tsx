@@ -30,11 +30,13 @@ export default function FuelCanBusDisplay() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch('http://64.227.138.235:3000/api/eps-vehicles/fuel-data')
+      const response = await fetch('/api/fuel')
       if (!response.ok) throw new Error('Failed to fetch fuel data')
       const result = await response.json()
-      setVehicles(result.data || [])
+      console.log('Fuel API response:', result)
+      setVehicles(result.data || result || [])
     } catch (err) {
+      console.error('Fuel fetch error:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
