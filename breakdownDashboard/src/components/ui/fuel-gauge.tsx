@@ -13,7 +13,7 @@ interface FuelGaugeProps {
   fuelLevel: number;
   temperature: number;
   volume: number;
-  remaining: string;
+
   status: string;
   lastUpdated: string;
   updated_at?: string;
@@ -34,7 +34,7 @@ export function FuelGauge({
   fuelLevel,
   temperature,
   volume,
-  remaining,
+
   status,
   lastUpdated,
   updated_at,
@@ -117,7 +117,7 @@ export function FuelGauge({
             <Gauge className="mb-1 w-5 h-5 text-gray-400" />
             <span className="font-medium text-gray-500 text-sm">Fuel</span>
             <span className="mt-1 font-bold text-gray-900 text-2xl">{fuelLevel}</span>
-            <span className="text-gray-500 text-xs">%</span>
+            <span className="text-gray-500 text-xs">L</span>
           </div>
         </div>
       </div>
@@ -153,35 +153,7 @@ export function FuelGauge({
           )}>Temperature</span>
         </div>
 
-        <div className={cn(
-          "p-2 rounded-lg",
-          status.includes('ON') || status.includes('on') 
-            ? "bg-green-100" 
-            : status.includes('No Signal')
-            ? "bg-red-100"
-            : "bg-blue-50"
-        )}>
-          <div className="text-center mb-1">
-            <span className={cn(
-              "font-medium text-sm",
-              status.includes('ON') || status.includes('on') 
-                ? "text-green-800" 
-                : status.includes('No Signal')
-                ? "text-red-800"
-                : "text-blue-900"
-            )}>Remaining</span>
-          </div>
-          <div className="text-center">
-            <span className={cn(
-              "font-bold text-sm",
-              status.includes('ON') || status.includes('on') 
-                ? "text-green-800" 
-                : status.includes('No Signal')
-                ? "text-red-800"
-                : "text-blue-900"
-            )}>{remaining}</span>
-          </div>
-        </div>
+
 
         <div className={cn(
           "flex items-center gap-2 p-2 rounded-lg",

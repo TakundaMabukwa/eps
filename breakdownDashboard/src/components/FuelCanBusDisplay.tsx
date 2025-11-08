@@ -7,18 +7,12 @@ import { RefreshCw, Fuel } from 'lucide-react'
 import { formatForDisplay } from '@/lib/utils/date-formatter'
 
 interface FuelData {
-  id: number
   plate: string
-  driver_name: string | null
-  fuel_level: string
-  fuel_volume: string | null
-  fuel_temperature: string
-  fuel_percentage: number
-  engine_status: string | null
-  loc_time: string | null
-  latitude: string | null
-  longitude: string | null
-  created_at: string
+  timestamp: string
+  fuelLevel: number
+  fuelPercentage: number
+  engineTemperature: number
+  totalFuelUsed: number
 }
 
 export default function FuelCanBusDisplay() {
@@ -30,7 +24,7 @@ export default function FuelCanBusDisplay() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch('/api/fuel')
+      const response = await fetch('/api/canbus/fuel')
       if (!response.ok) throw new Error('Failed to fetch fuel data')
       const result = await response.json()
       console.log('Fuel API response:', result)
@@ -47,26 +41,32 @@ export default function FuelCanBusDisplay() {
     fetchVehicles()
   }, [])
 
-  // Convert EPS fuel data to fuel gauge format
+  // Convert CAN bus fuel data to fuel gauge format
   const getFuelGaugeData = () => {
-    return vehicles.map((vehicle) => {
-      const fuelPercentage = vehicle.fuel_percentage || 0
-      const fuelLevel = parseFloat(vehicle.fuel_level) || 0
-      const fuelTemp = parseFloat(vehicle.fuel_temperature) || 25
-      const fuelVolume = vehicle.fuel_volume ? parseFloat(vehicle.fuel_volume) : 0
-      const isEngineOn = vehicle.engine_status === 'on'
+    const gaugeData = vehicles.map((vehicle) => {
+      const fuelPercentage = vehicle.fuelPercentage || 0
+      const fuelLevel = vehicle.fuelLevel || 0
+      const engineTemp = vehicle.engineTemperature || 0
+      const isEngineOn = engineTemp > 40
 
       return {
-        id: vehicle.plate || `vehicle-${vehicle.id}`,
-        location: vehicle.plate || 'Unknown Plate',
-        fuelLevel: Math.max(0, Math.min(100, fuelPercentage)),
-        temperature: Math.max(0, fuelTemp),
+        id: vehicle.plate,
+        location: vehicle.plate,
+        fuelLevel: Math.max(0, fuelLevel),
+        temperature: Math.max(0, engineTemp),
         volume: Math.max(0, fuelLevel),
-        remaining: `${fuelLevel.toFixed(1)}L / ${fuelVolume.toFixed(1)}L`,
+
         status: isEngineOn ? 'Active' : 'Engine Off',
-        lastUpdated: formatForDisplay(vehicle.created_at),
-        updated_at: vehicle.created_at
+        lastUpdated: formatForDisplay(vehicle.timestamp),
+        updated_at: vehicle.timestamp
       }
+    })
+    
+    // Sort to move 0 fuel level vehicles to the end
+    return gaugeData.sort((a, b) => {
+      if (a.fuelLevel === 0 && b.fuelLevel !== 0) return 1
+      if (a.fuelLevel !== 0 && b.fuelLevel === 0) return -1
+      return 0
     })
   }
 
@@ -120,7 +120,7 @@ export default function FuelCanBusDisplay() {
                 fuelLevel={data.fuelLevel}
                 temperature={data.temperature}
                 volume={data.volume}
-                remaining={data.remaining}
+
                 status={data.status}
                 lastUpdated={data.lastUpdated}
                 updated_at={data.updated_at}
