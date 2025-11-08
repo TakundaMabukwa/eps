@@ -16,34 +16,90 @@ interface FuelData {
 }
 
 export default function FuelCanBusDisplay() {
-  const [vehicles, setVehicles] = useState<FuelData[]>([])
+  const [vehicles, setVehicles] = useState<Map<string, FuelData>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [connected, setConnected] = useState(false)
 
-  const fetchVehicles = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch('/api/canbus/fuel')
-      if (!response.ok) throw new Error('Failed to fetch fuel data')
-      const result = await response.json()
-      console.log('Fuel API response:', result)
-      setVehicles(result.data || result || [])
-    } catch (err) {
-      console.error('Fuel fetch error:', err)
-      setError(err instanceof Error ? err.message : 'Unknown error')
-    } finally {
-      setLoading(false)
+  const processVehicleData = (vehicle: any): FuelData => {
+    const fuelLevelItem = vehicle.data?.find((item: any) => 
+      item.name === 'fuel Level Liter' || item.code === '96'
+    )
+    const engineTempItem = vehicle.data?.find((item: any) => 
+      item.name === 'engine temperature' || item.code === '6E'
+    )
+    const totalFuelUsedItem = vehicle.data?.find((item: any) => 
+      item.name === 'total fuel used' || item.code === 'FA'
+    )
+    const fuelPercentItem = vehicle.data?.find((item: any) => 
+      item.name === 'fuel level %' || item.code === '60'
+    )
+
+    return {
+      plate: vehicle.plate,
+      timestamp: vehicle.timestamp,
+      fuelLevel: fuelLevelItem?.value || 0,
+      fuelPercentage: fuelPercentItem?.value || 0,
+      engineTemperature: engineTempItem?.value || 0,
+      totalFuelUsed: totalFuelUsedItem?.value || 0
     }
   }
 
   useEffect(() => {
-    fetchVehicles()
+    const wsEndpoint = process.env.NEXT_PUBLIC_CAN_BUS_WEBSOCKET_ENDPOINT
+    const key = process.env.NEXT_PUBLIC_CANBUS_KEY
+    
+    if (!wsEndpoint || !key) {
+      setError('WebSocket endpoint not configured')
+      return
+    }
+
+    const ws = new WebSocket(`${wsEndpoint}?key=${key}`)
+    
+    ws.onopen = () => {
+      console.log('Connected to CAN bus WebSocket')
+      setConnected(true)
+      setLoading(false)
+    }
+    
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data)
+      
+      if (message.type === 'snapshot') {
+        // Initial data load
+        const vehicleMap = new Map()
+        message.data.forEach((vehicle: any) => {
+          const processedVehicle = processVehicleData(vehicle)
+          vehicleMap.set(processedVehicle.plate, processedVehicle)
+        })
+        setVehicles(vehicleMap)
+      } else if (message.type === 'update') {
+        // Real-time update
+        const processedVehicle = processVehicleData(message.data)
+        setVehicles(prev => new Map(prev).set(processedVehicle.plate, processedVehicle))
+      }
+    }
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error)
+      setConnected(false)
+      setError('WebSocket connection failed')
+    }
+    
+    ws.onclose = () => {
+      console.log('WebSocket connection closed')
+      setConnected(false)
+    }
+    
+    return () => {
+      ws.close()
+      setConnected(false)
+    }
   }, [])
 
   // Convert CAN bus fuel data to fuel gauge format
   const getFuelGaugeData = () => {
-    const gaugeData = vehicles.map((vehicle) => {
+    const gaugeData = Array.from(vehicles.values()).map((vehicle) => {
       const fuelPercentage = vehicle.fuelPercentage || 0
       const fuelLevel = vehicle.fuelLevel || 0
       const engineTemp = vehicle.engineTemperature || 0
@@ -102,15 +158,9 @@ export default function FuelCanBusDisplay() {
   return (
     <div className="bg-gray-50 h-full">
       <div className="p-4">
-        <div className="mb-6 flex justify-between items-center">
-          {/* <h2 className="text-2xl font-bold text-gray-900">Fuel CAN Bus Monitor</h2> */}
-          <Button onClick={fetchVehicles} variant="outline" size="sm">
-            <RefreshCw className="mr-2 w-4 h-4" />
-            Refresh
-          </Button>
-        </div>
+
         
-        {vehicles.length > 0 ? (
+        {vehicles.size > 0 ? (
           <div className="gap-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 xl:grid-cols-5">
             {getFuelGaugeData().map((data) => (
               <FuelGauge
