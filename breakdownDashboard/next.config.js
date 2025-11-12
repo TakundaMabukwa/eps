@@ -11,7 +11,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, isServer }) => {
     if (dev) {
       config.watchOptions = {
         poll: 1000,
@@ -19,6 +19,15 @@ const nextConfig = {
         ignored: /node_modules/
       }
     }
+    
+    // Fix for Supabase SSR compatibility with Next.js 15
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    
     return config
   }
 }

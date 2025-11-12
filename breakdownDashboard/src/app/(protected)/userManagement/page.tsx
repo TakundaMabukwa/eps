@@ -22,15 +22,17 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Settings, MapPin, Plus, Edit, Trash2, Eye, ChevronDown, ChevronRight, Info, User, Shield, Users, Building } from "lucide-react"
+import { Settings, MapPin, Plus, Edit, Trash2, Eye, ChevronDown, ChevronRight, Info, User, Shield, Users, Building, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 import { signup } from "@/lib/action/auth"
 import { CreateUser } from "@/lib/action/createUser"
 import { createClient } from "@/lib/supabase/client"
+import { createClient as createServerClient } from "@supabase/supabase-js"
 import { PagePermissionSelector } from "@/components/ui/page-permission-selector"
 import { PageActionSelector } from "@/components/ui/page-action-selector"
 import { DEFAULT_ROLE_PERMISSIONS, Permission, PAGES, ACTIONS } from "@/lib/permissions/permissions"
 import { SecureButton } from "@/components/SecureButton"
+import { resetUserPassword } from "@/lib/action/resetPassword"
 
 interface User {
     id: string
@@ -43,6 +45,7 @@ interface User {
     energyrite: boolean
     cost_code: string
     company: string
+    last_sign_in_at?: string
 }
 
 interface Role {
@@ -74,9 +77,15 @@ export default function SettingsPage() {
     const [editingUser, setEditingUser] = useState(null);
     const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
     const [isPermissionOpen, setIsPermissionOpen] = useState(false);
+    const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
+    const [resetPasswordUser, setResetPasswordUser] = useState<{id: string, email: string} | null>(null);
+    const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
+    const [resultDialog, setResultDialog] = useState<{type: 'success' | 'error', title: string, message: string} | null>(null);
+    const [isCreatingUser, setIsCreatingUser] = useState(false);
     
     // Add user form states
     const [newUserEmail, setNewUserEmail] = useState("");
+    const [newUserPhone, setNewUserPhone] = useState("");
     const [newUserRole, setNewUserRole] = useState("");
     const [newUserPermissions, setNewUserPermissions] = useState<Permission[]>([]);
     const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
@@ -123,7 +132,8 @@ export default function SettingsPage() {
 
     const fetchUsers = async () => {
         try {
-            const { data, error } = await supabase
+            // Get users from users table
+            const { data: usersData, error } = await supabase
                 .from('users')
                 .select('*')
             
@@ -132,8 +142,33 @@ export default function SettingsPage() {
                 setUsers([]);
                 return;
             }
+
+            // Get auth data using service role
+            const serviceSupabase = createServerClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!,
+                {
+                    auth: {
+                        autoRefreshToken: false,
+                        persistSession: false
+                    }
+                }
+            );
+            const usersWithAuth = await Promise.all(
+                (usersData || []).map(async (user) => {
+                    try {
+                        const { data: authUser } = await serviceSupabase.auth.admin.getUserById(user.id);
+                        return {
+                            ...user,
+                            last_sign_in_at: authUser.user?.last_sign_in_at
+                        };
+                    } catch {
+                        return { ...user, last_sign_in_at: null };
+                    }
+                })
+            );
             
-            setUsers(data || []);
+            setUsers(usersWithAuth);
         } catch (err) {
             console.error('Error in fetchUsers:', err);
             setUsers([]);
@@ -263,13 +298,33 @@ export default function SettingsPage() {
         if (!confirmed) return;
 
         try {
+            // Delete from users table first
             const { error } = await supabase
                 .from('users')
                 .delete()
                 .eq('id', userId);
 
             if (error) {
-                toast.error('Failed to delete user: ' + error.message);
+                toast.error('Failed to delete user profile: ' + error.message);
+                return;
+            }
+
+            // Delete from auth using service role
+            const serviceSupabase = createServerClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!,
+                {
+                    auth: {
+                        autoRefreshToken: false,
+                        persistSession: false
+                    }
+                }
+            );
+
+            const { error: authError } = await serviceSupabase.auth.admin.deleteUser(userId);
+            
+            if (authError) {
+                toast.error('Failed to delete user from auth: ' + authError.message);
                 return;
             }
 
@@ -279,6 +334,74 @@ export default function SettingsPage() {
         } catch (err) {
             console.error('Error deleting user:', err);
             toast.error('Failed to delete user');
+        }
+    }
+
+    function openResetPasswordDialog(userId: string, email: string) {
+        setResetPasswordUser({ id: userId, email });
+        setIsResetPasswordOpen(true);
+    }
+
+    async function handleCreateUser(e: React.FormEvent) {
+        e.preventDefault();
+        setIsCreatingUser(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('email', newUserEmail);
+            formData.append('phone', newUserPhone);
+            formData.append('role', newUserRole);
+            formData.append('permissions', JSON.stringify(newUserPermissions));
+
+            const result = await CreateUser(formData);
+            
+            if (result.success) {
+                toast.success(result.message || 'User created successfully');
+                setIsAddUserOpen(false);
+                setNewUserEmail('');
+                setNewUserPhone('');
+                setNewUserRole('');
+                setNewUserPermissions([]);
+                await fetchUsers();
+            } else {
+                setResultDialog({
+                    type: 'error',
+                    title: 'Failed to Create User',
+                    message: result.message || 'An unknown error occurred while creating the user.'
+                });
+                setIsResultDialogOpen(true);
+            }
+        } catch (error: any) {
+            setResultDialog({
+                type: 'error',
+                title: 'Error Creating User',
+                message: error.message || 'An unexpected error occurred.'
+            });
+            setIsResultDialogOpen(true);
+        } finally {
+            setIsCreatingUser(false);
+        }
+    }
+
+    async function confirmResetPassword() {
+        if (!resetPasswordUser) return;
+
+        try {
+            const result = await resetUserPassword(resetPasswordUser.id, resetPasswordUser.email);
+            
+            if (result.success) {
+                const emailStatus = result.emailSent ? 'Email sent' : 'Email failed';
+                const smsStatus = result.smsSent ? 'SMS sent' : 'SMS failed';
+                toast.success(`Password updated successfully. ${emailStatus}, ${smsStatus}.`);
+            } else {
+                toast.error('Failed to update password: ' + result.error);
+            }
+        } catch (err) {
+            console.error('Error updating password:', err);
+            toast.error('Failed to update password');
+        } finally {
+            setIsResetPasswordOpen(false);
+            setResetPasswordUser(null);
         }
     }
 
@@ -304,6 +427,7 @@ export default function SettingsPage() {
                                 setIsAddUserOpen(open);
                                 if (!open) {
                                     setNewUserEmail('');
+                                    setNewUserPhone('');
                                     setNewUserRole('');
                                     setNewUserPermissions([]);
                                 }
@@ -329,8 +453,9 @@ export default function SettingsPage() {
                                         </div>
                                     </DialogHeader>
                                     <TooltipProvider>
-                                        <form action={CreateUser} className="space-y-8">
+                                        <form onSubmit={handleCreateUser} className="space-y-8">
                                             <input type="hidden" name="email" value={newUserEmail} />
+                                            <input type="hidden" name="phone" value={newUserPhone} />
                                             <input type="hidden" name="role" value={newUserRole} />
                                             <input type="hidden" name="permissions" value={JSON.stringify(newUserPermissions)} />
                                             
@@ -339,7 +464,7 @@ export default function SettingsPage() {
                                                     <User className="h-5 w-5" />
                                                     User Information
                                                 </h3>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                     <div className="space-y-2">
                                                         <Label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
                                                             Email Address
@@ -359,6 +484,28 @@ export default function SettingsPage() {
                                                             required 
                                                             value={newUserEmail}
                                                             onChange={(e) => setNewUserEmail(e.target.value)}
+                                                            className="h-11"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="phone" className="text-sm font-medium flex items-center gap-2">
+                                                            Phone Number
+                                                            <Tooltip>
+                                                                <TooltipTrigger>
+                                                                    <Info className="h-4 w-4 text-gray-400" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Contact number for the user</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </Label>
+                                                        <Input 
+                                                            id="phone" 
+                                                            type="tel" 
+                                                            placeholder="073 123 4567"
+                                                            required 
+                                                            value={newUserPhone}
+                                                            onChange={(e) => setNewUserPhone(e.target.value)}
                                                             className="h-11"
                                                         />
                                                     </div>
@@ -615,7 +762,7 @@ export default function SettingsPage() {
                                                 </Button>
                                                 <Button 
                                                     type="submit" 
-                                                    disabled={!newUserEmail || !newUserRole}
+                                                    disabled={!newUserEmail || !newUserPhone || !newUserRole}
                                                     className="px-6 bg-blue-600 hover:bg-blue-700"
                                                 >
                                                     Create User Account
@@ -635,8 +782,7 @@ export default function SettingsPage() {
                                             <TableHead>Name</TableHead>
                                             <TableHead>Email</TableHead>
                                             <TableHead>Role</TableHead>
-                                            {/* <TableHead>Status</TableHead> */}
-                                            {/* <TableHead>Last Login</TableHead> */}
+                                            <TableHead>Last Sign In</TableHead>
                                             <TableHead>Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -650,18 +796,18 @@ export default function SettingsPage() {
                                                         {user.role === 'customer' ? 'EXTERNAL' : user.role?.replace("-", " ").toUpperCase() || 'NO ROLE'}
                                                     </Badge>
                                                 </TableCell>
-                                                {/* <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <Switch
-                                                            checked={user.status === "active"}
-                                                            onCheckedChange={() => handleToggleUserStatus(user.id)}
-                                                        />
-                                                        <span className={user.status === "active" ? "text-green-600" : "text-red-600"}>
-                                                            {user.status}
-                                                        </span>
-                                                    </div>
-                                                </TableCell> */}
-                                                {/* <TableCell>{user.lastLogin}</TableCell> */}
+                                                <TableCell>
+                                                    {user.last_sign_in_at ? 
+                                                        new Date(user.last_sign_in_at).toLocaleDateString('en-US', {
+                                                            year: 'numeric',
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        }) : 
+                                                        <span className="text-gray-400">Never</span>
+                                                    }
+                                                </TableCell>
                                                 <TableCell>
                                                     <div className="flex gap-2">
                                                         <SecureButton 
@@ -676,6 +822,15 @@ export default function SettingsPage() {
                                                             }}
                                                         >
                                                             <Edit className="h-4 w-4" />
+                                                        </SecureButton>
+                                                        <SecureButton 
+                                                            page="userManagement"
+                                                            action="edit"
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            onClick={() => openResetPasswordDialog(user.id, user.email)}
+                                                        >
+                                                            <RotateCcw className="h-4 w-4" />
                                                         </SecureButton>
                                                         <SecureButton 
                                                             page="userManagement"
@@ -857,6 +1012,79 @@ export default function SettingsPage() {
                                     Close
                                 </Button>
                             </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Reset Password Dialog */}
+                <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Update Password</DialogTitle>
+                            <DialogDescription>
+                                Generate a new password for {resetPasswordUser?.email}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                <div className="flex items-start gap-3">
+                                    <Info className="h-5 w-5 text-amber-600 mt-0.5" />
+                                    <div className="text-sm">
+                                        <p className="font-medium text-amber-800">Password Update</p>
+                                        <p className="text-amber-700 mt-1">
+                                            A new 8-character password will be generated and sent to the user's email and phone number. 
+                                            Their current password will be replaced.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-4">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsResetPasswordOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                onClick={confirmResetPassword}
+                                className="bg-blue-600 hover:bg-blue-700"
+                            >
+                                Update Password
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Error Dialog */}
+                <Dialog open={isResultDialogOpen} onOpenChange={setIsResultDialogOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="text-red-600">
+                                {resultDialog?.title}
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center mt-0.5">
+                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="text-sm">
+                                        <p className="text-red-800">
+                                            {resultDialog?.message}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <Button onClick={() => setIsResultDialogOpen(false)}>
+                                OK
+                            </Button>
                         </div>
                     </DialogContent>
                 </Dialog>

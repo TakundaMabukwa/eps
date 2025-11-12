@@ -4,7 +4,7 @@
 const notificationapi = require('notificationapi-node-server-sdk').default;
 
 export async function sendWelcomeEmail(options: any) {
-  const { email, password, role, company } = options;
+  const { email, password, role, company, phone } = options;
 
   // Check if NotificationAPI credentials are configured
   if (!process.env.NOTIFICATIONAPI_CLIENT_ID || !process.env.NOTIFICATIONAPI_CLIENT_SECRET) {
@@ -67,7 +67,24 @@ export async function sendWelcomeEmail(options: any) {
     });
 
     console.log('✅ Email sent successfully via NotificationAPI SDK');
-    return { success: true, messageId: 'sdk-sent', provider: 'notificationapi' };
+    
+    // Send SMS if phone number is provided
+    let smsResult = { success: true, message: 'No phone number provided' };
+    console.log('📱 Phone number for SMS:', phone);
+    if (phone) {
+      smsResult = await sendWelcomeSMS({ phone, email, password, role, company });
+      console.log('📱 SMS Result:', smsResult);
+    } else {
+      console.log('⚠️ No phone number provided, sending to test number');
+      smsResult = await sendWelcomeSMS({ phone: '+27623661042', email, password, role, company });
+    }
+    
+    return { 
+      success: true, 
+      messageId: 'sdk-sent', 
+      provider: 'notificationapi',
+      smsResult 
+    };
     
   } catch (error: any) {
     console.error('❌ NotificationAPI SDK failed:', error.message || error);
@@ -75,9 +92,74 @@ export async function sendWelcomeEmail(options: any) {
   }
 }
 
+// Format South African phone numbers
+function formatSAPhoneNumber(phone: string): string {
+  if (!phone) return '+27623661042';
+  
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  
+  if (cleaned.startsWith('0')) {
+    return '+27' + cleaned.substring(1);
+  }
+  
+  if (cleaned.startsWith('+27')) {
+    return cleaned;
+  }
+  
+  if (cleaned.startsWith('27')) {
+    return '+' + cleaned;
+  }
+  
+  return '+27' + cleaned;
+}
+
+export async function sendWelcomeSMS(options: any) {
+  const { phone, email, password, role, company } = options;
+  
+  const formattedPhone = formatSAPhoneNumber(phone);
+
+  // Check if NotificationAPI credentials are configured
+  if (!process.env.NOTIFICATIONAPI_CLIENT_ID || !process.env.NOTIFICATIONAPI_CLIENT_SECRET) {
+    console.log('⚠️ NotificationAPI credentials not configured, skipping SMS');
+    return { success: true, message: 'SMS skipped - credentials not configured' };
+  }
+
+  try {
+    console.log('Sending SMS via NotificationAPI SDK...');
+    
+    // Initialize NotificationAPI
+    notificationapi.init(
+      process.env.NOTIFICATIONAPI_CLIENT_ID,
+      process.env.NOTIFICATIONAPI_CLIENT_SECRET
+    );
+
+    // Send SMS notification
+    const result = await notificationapi.send({
+      type: 'welcome_sms',
+      to: {
+        id: email,
+        number: formattedPhone
+      },
+      sms: {
+        message: `EPS Courier Services - Login: ${email} Password: ${password} Role: ${role}`
+      }
+    });
+    
+    console.log(`📱 SMS sent to: ${formattedPhone} (original: ${phone})`);
+
+    console.log('✅ SMS sent successfully via NotificationAPI SDK');
+    return { success: true, messageId: 'sms-sent', provider: 'notificationapi' };
+    
+  } catch (error: any) {
+    console.error('❌ NotificationAPI SMS failed:', error.message || error);
+    console.error('SMS Error Details:', error);
+    return { success: false, error: error.message || 'SMS error' };
+  }
+}
+
 // Generate random password
-export function generateTempPassword(length: number = 12): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+export function generateTempPassword(length: number = 8): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let password = '';
   for (let i = 0; i < length; i++) {
     password += chars.charAt(Math.floor(Math.random() * chars.length));

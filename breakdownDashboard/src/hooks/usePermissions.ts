@@ -13,26 +13,40 @@ export function usePermissions() {
     async function fetchUserPermissions() {
       try {
         const supabase = createClient()
+        
+        // Check session first
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('🔐 Session:', session?.user?.email || 'No session')
+        
         const { data: { user } } = await supabase.auth.getUser()
+        console.log('🔍 Auth User:', user?.email || 'No user')
         
         if (!user?.email) {
+          console.log('❌ No user email found')
           setLoading(false)
           return
         }
 
         setUserEmail(user.email)
+        console.log('📧 User Email:', user.email)
 
-        const { data: userData } = await supabase
+        const { data: userData, error } = await supabase
           .from('users')
           .select('permissions')
           .eq('email', user.email)
           .single()
 
+        console.log('📊 User Data:', userData)
+        console.log('❗ Query Error:', error)
+
         if (userData?.permissions) {
+          console.log('✅ Permissions Found:', userData.permissions)
           setPermissions(userData.permissions)
+        } else {
+          console.log('⚠️ No permissions found in database')
         }
       } catch (error) {
-        console.error('Error fetching permissions:', error)
+        console.error('❌ Error fetching permissions:', error)
       } finally {
         setLoading(false)
       }
@@ -44,9 +58,12 @@ export function usePermissions() {
   const canAccess = (page: PageKey, action: ActionKey = 'view') => {
     // Special case for admin@eps.com - full access
     if (userEmail === 'admin@eps.com') {
+      console.log('🔑 Admin access granted for:', page, action)
       return true
     }
-    return hasPermission(permissions, page, action)
+    const hasAccess = hasPermission(permissions, page, action)
+    console.log(`🔐 Permission check: ${page}.${action} = ${hasAccess}`, permissions)
+    return hasAccess
   }
 
   const getActions = (page: PageKey) => {

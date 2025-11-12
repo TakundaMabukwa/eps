@@ -1,11 +1,11 @@
 "use server";
 import { createClient as createServerClient } from "@supabase/supabase-js";
-import { redirect } from "next/navigation";
 import { sendWelcomeEmail, generateTempPassword } from "@/lib/services/emailService";
 
 export async function CreateUser(formData: FormData) {
     const role = formData.get("role") as string;
     const email = formData.get("email") as string;
+    const phone = formData.get("phone") as string;
     
     // Validate role
     if (
@@ -14,7 +14,7 @@ export async function CreateUser(formData: FormData) {
         role !== "fc" &&
         role !== "customer"
     ) {
-        redirect(`/userManagement?message=Invalid role`);
+        return { success: false, message: "Invalid role selected" };
     }
 
     // Generate temporary password
@@ -44,12 +44,12 @@ export async function CreateUser(formData: FormData) {
 
     if (createError) {
         console.error("Error creating user:", createError.message);
-        redirect(`/userManagement?message=${encodeURIComponent(createError.message)}`);
+        return { success: false, message: createError.message };
     }
 
     const userId = newUser.user?.id;
     if (!userId) {
-        redirect("/userManagement?message=No+user+ID+returned");
+        return { success: false, message: "No user ID returned from authentication" };
     }
 
     // Get permissions from form data or use default
@@ -77,6 +77,7 @@ export async function CreateUser(formData: FormData) {
     const { error: insertError } = await supabase.from("users").insert({
         id: userId,
         email,
+        phone,
         role,
         created_at: new Date().toISOString(),
         tech_admin: false,
@@ -89,12 +90,13 @@ export async function CreateUser(formData: FormData) {
 
     if (insertError) {
         console.error("Error inserting user profile:", insertError.message);
-        redirect(`/userManagement?message=Failed+to+create+user+profile`);
+        return { success: false, message: "Failed to create user profile: " + insertError.message };
     }
 
-    // Send welcome email
+    // Send welcome email and SMS
     const emailResult = await sendWelcomeEmail({
         email,
+        phone,
         password: tempPassword,
         role,
         company: "EPS Courier Services",
@@ -105,13 +107,15 @@ export async function CreateUser(formData: FormData) {
     if (emailResult.success) {
         console.log("✅ User created successfully");
         if (emailResult.message?.includes('skipped')) {
-            redirect("/userManagement?message=User+created+successfully+(email+not+configured)");
+            return { success: true, message: "User created successfully (email not configured)" };
         } else {
-            redirect("/userManagement?message=User+created+successfully+and+welcome+email+sent");
+            const smsStatus = emailResult.smsResult?.success ? 'SMS sent' : 'SMS failed';
+            return { success: true, message: `User created successfully. Email and ${smsStatus}.` };
         }
     } else {
         console.log("⚠️ User created but email failed:", emailResult.error);
-        redirect("/userManagement?message=User+created+successfully+(email+failed)");
+        const smsStatus = emailResult.smsResult?.success ? 'SMS sent' : 'SMS failed';
+        return { success: true, message: `User created successfully. Email failed, ${smsStatus}.` };
     }
 }
 
