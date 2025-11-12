@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Settings, MapPin, Plus, Edit, Trash2, Eye, ChevronDown, ChevronRight, Info, User, Shield, Users, Building, RotateCcw } from "lucide-react"
+import { Settings, MapPin, Plus, Edit, Trash2, Eye, ChevronDown, ChevronRight, Info, User, Shield, Users, Building, RotateCcw, Ban, CheckCircle } from "lucide-react"
 import { toast } from "sonner"
 import { signup } from "@/lib/action/auth"
 import { CreateUser } from "@/lib/action/createUser"
@@ -33,6 +33,8 @@ import { PageActionSelector } from "@/components/ui/page-action-selector"
 import { DEFAULT_ROLE_PERMISSIONS, Permission, PAGES, ACTIONS } from "@/lib/permissions/permissions"
 import { SecureButton } from "@/components/SecureButton"
 import { resetUserPassword } from "@/lib/action/resetPassword"
+import { disableUser } from "@/lib/action/disableUser"
+import { enableUser } from "@/lib/action/enableUser"
 
 interface User {
     id: string
@@ -46,6 +48,7 @@ interface User {
     cost_code: string
     company: string
     last_sign_in_at?: string
+    is_active?: boolean
 }
 
 interface Role {
@@ -82,6 +85,8 @@ export default function SettingsPage() {
     const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
     const [resultDialog, setResultDialog] = useState<{type: 'success' | 'error', title: string, message: string} | null>(null);
     const [isCreatingUser, setIsCreatingUser] = useState(false);
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+    const [confirmDialog, setConfirmDialog] = useState<{title: string, message: string, onConfirm: () => void} | null>(null);
     
     // Add user form states
     const [newUserEmail, setNewUserEmail] = useState("");
@@ -293,9 +298,19 @@ export default function SettingsPage() {
         {} as Record<string, SystemSetting[]>,
     )
 
-    async function handleDeleteUser(userId: string) {
-        const confirmed = window.confirm("Are you sure you want to delete this user?");
-        if (!confirmed) return;
+    async function handleDeleteUser(userId: string, userEmail: string) {
+        setConfirmDialog({
+            title: 'Delete User',
+            message: `Are you sure you want to permanently delete ${userEmail}? This action cannot be undone.`,
+            onConfirm: async () => {
+                await performDeleteUser(userId);
+                setIsConfirmDialogOpen(false);
+            }
+        });
+        setIsConfirmDialogOpen(true);
+    }
+
+    async function performDeleteUser(userId: string) {
 
         try {
             // Delete from users table first
@@ -778,28 +793,31 @@ export default function SettingsPage() {
                             <CardContent className="p-0">
                                 <Table>
                                     <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Name</TableHead>
-                                            <TableHead>Email</TableHead>
-                                            <TableHead>Role</TableHead>
-                                            <TableHead>Last Sign In</TableHead>
-                                            <TableHead>Actions</TableHead>
+                                        <TableRow className="h-10">
+                                            <TableHead className="py-2">Email</TableHead>
+                                            <TableHead className="py-2">Role</TableHead>
+                                            <TableHead className="py-2">Status</TableHead>
+                                            <TableHead className="py-2">Last Sign In</TableHead>
+                                            <TableHead className="py-2">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {users.map((user) => (
-                                            <TableRow key={user.id}>
-                                                <TableCell className="font-medium">{user.email}</TableCell>
-                                                <TableCell>{user.email}</TableCell>
-                                                <TableCell>
+                                            <TableRow key={user.id} className="h-12">
+                                                <TableCell className="py-2">{user.email}</TableCell>
+                                                <TableCell className="py-2">
                                                     <Badge className={getRoleBadgeColor(user.role)}>
                                                         {user.role === 'customer' ? 'EXTERNAL' : user.role?.replace("-", " ").toUpperCase() || 'NO ROLE'}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell>
+                                                <TableCell className="py-2">
+                                                    <Badge className={user.is_active !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                                                        {user.is_active !== false ? 'Active' : 'Disabled'}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="py-2 text-sm">
                                                     {user.last_sign_in_at ? 
                                                         new Date(user.last_sign_in_at).toLocaleDateString('en-US', {
-                                                            year: 'numeric',
                                                             month: 'short',
                                                             day: 'numeric',
                                                             hour: '2-digit',
@@ -808,8 +826,8 @@ export default function SettingsPage() {
                                                         <span className="text-gray-400">Never</span>
                                                     }
                                                 </TableCell>
-                                                <TableCell>
-                                                    <div className="flex gap-2">
+                                                <TableCell className="py-2">
+                                                    <div className="flex gap-1">
                                                         <SecureButton 
                                                             page="userManagement"
                                                             action="edit"
@@ -832,12 +850,65 @@ export default function SettingsPage() {
                                                         >
                                                             <RotateCcw className="h-4 w-4" />
                                                         </SecureButton>
+                                                        {user.is_active !== false ? (
+                                                            <SecureButton 
+                                                                page="userManagement"
+                                                                action="delete"
+                                                                variant="outline" 
+                                                                size="sm" 
+                                                                onClick={() => {
+                                                                    setConfirmDialog({
+                                                                        title: 'Disable User Account',
+                                                                        message: `Disable account for ${user.email}? They will not be able to sign in.`,
+                                                                        onConfirm: async () => {
+                                                                            const result = await disableUser(user.id);
+                                                                            if (result.success) {
+                                                                                toast.success('User disabled successfully');
+                                                                                await fetchUsers();
+                                                                            } else {
+                                                                                toast.error('Failed to disable user: ' + result.error);
+                                                                            }
+                                                                            setIsConfirmDialogOpen(false);
+                                                                        }
+                                                                    });
+                                                                    setIsConfirmDialogOpen(true);
+                                                                }}
+                                                            >
+                                                                <Ban className="h-4 w-4" />
+                                                            </SecureButton>
+                                                        ) : (
+                                                            <SecureButton 
+                                                                page="userManagement"
+                                                                action="delete"
+                                                                variant="outline" 
+                                                                size="sm" 
+                                                                onClick={() => {
+                                                                    setConfirmDialog({
+                                                                        title: 'Enable User Account',
+                                                                        message: `Enable account for ${user.email}?`,
+                                                                        onConfirm: async () => {
+                                                                            const result = await enableUser(user.id);
+                                                                            if (result.success) {
+                                                                                toast.success('User enabled successfully');
+                                                                                await fetchUsers();
+                                                                            } else {
+                                                                                toast.error('Failed to enable user: ' + result.error);
+                                                                            }
+                                                                            setIsConfirmDialogOpen(false);
+                                                                        }
+                                                                    });
+                                                                    setIsConfirmDialogOpen(true);
+                                                                }}
+                                                            >
+                                                                <CheckCircle className="h-4 w-4" />
+                                                            </SecureButton>
+                                                        )}
                                                         <SecureButton 
                                                             page="userManagement"
                                                             action="delete"
                                                             variant="outline" 
                                                             size="sm" 
-                                                            onClick={() => handleDeleteUser(user.id)}
+                                                            onClick={() => handleDeleteUser(user.id, user.email)}
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </SecureButton>
@@ -1084,6 +1155,33 @@ export default function SettingsPage() {
                         <div className="flex justify-end mt-4">
                             <Button onClick={() => setIsResultDialogOpen(false)}>
                                 OK
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Confirmation Dialog */}
+                <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>{confirmDialog?.title}</DialogTitle>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <p className="text-sm text-gray-600">{confirmDialog?.message}</p>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsConfirmDialogOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                onClick={confirmDialog?.onConfirm}
+                                className="bg-blue-600 hover:bg-blue-700"
+                            >
+                                Confirm
                             </Button>
                         </div>
                     </DialogContent>
