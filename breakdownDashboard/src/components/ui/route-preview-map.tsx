@@ -18,9 +18,10 @@ interface RoutePreviewMapProps {
     lng: number;
     name: string;
   };
+  tripId?: string;
 }
 
-export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [], driverLocation }: RoutePreviewMapProps) {
+export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [], driverLocation, tripId }: RoutePreviewMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -180,8 +181,29 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
           });
         }
 
-        // Always get optimized route from loading to dropoff with stop points
-        const mainRoute = routeData?.geometry || await getRoute(originCoords, destCoords, stopPoints);
+        // Fetch route from API if tripId is provided, otherwise use routeData or calculate
+        let mainRoute = routeData?.geometry;
+        
+        if (tripId && !mainRoute) {
+          try {
+            const response = await fetch(`/api/trip-route?tripId=${tripId}`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.coordinates && data.coordinates.length > 0) {
+                mainRoute = {
+                  type: 'LineString',
+                  coordinates: data.coordinates.map((coord: any) => [coord.longitude, coord.latitude])
+                };
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching trip route:', error);
+          }
+        }
+        
+        if (!mainRoute) {
+          mainRoute = await getRoute(originCoords, destCoords, stopPoints);
+        }
         
         if (mainRoute && map.current.isStyleLoaded()) {
           // Remove existing route

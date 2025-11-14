@@ -566,7 +566,7 @@ export default function TripDetails({ id }) {
           description={'Map view of this trip'}
         >
           <div className=" h-[250] rounded-lg bg-gray-100 flex items-center justify-center">
-            <DisplayMap address={locations} />
+            <DisplayMap address={locations} tripId={trip?.trip_id} />
           </div>
 
           <Separator className="my-4" />
