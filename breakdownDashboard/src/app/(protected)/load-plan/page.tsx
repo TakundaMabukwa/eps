@@ -25,7 +25,7 @@ import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { CommodityDropdown } from '@/components/ui/commodity-dropdown'
 import { ClientDropdown } from '@/components/ui/client-dropdown'
 import { ClientAddressPopup } from '@/components/ui/client-address-popup'
-import { Toast, useToast } from '@/components/ui/toast'
+import { Toast } from '@/components/ui/toast'
 import { DriverDropdown } from '@/components/ui/driver-dropdown'
 import { StopPointDropdown } from '@/components/ui/stop-point-dropdown'
 import { markDriversUnavailable } from '@/lib/utils/driver-availability'
@@ -35,7 +35,11 @@ export default function LoadPlanPage() {
   console.log('LoadPlanPage component rendering')
   const supabase = createClient()
   console.log('Supabase client created:', !!supabase)
-  const { toast, showToast, hideToast } = useToast()
+  const [toast, setToast] = useState({ message: '', type: 'success' as 'success' | 'error', isVisible: false })
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type, isVisible: true })
+  }
+  const hideToast = () => setToast(prev => ({ ...prev, isVisible: false }))
   const [loads, setLoads] = useState([
     {
       id: 'test-1',
@@ -1831,11 +1835,12 @@ export default function LoadPlanPage() {
       />
       
       <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={hideToast}
-      />
+        open={toast.isVisible}
+        onOpenChange={(open) => !open && hideToast()}
+        variant={toast.type}
+      >
+        {toast.message}
+      </Toast>
     </div>
   )
 }
