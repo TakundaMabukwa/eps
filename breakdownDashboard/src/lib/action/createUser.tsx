@@ -1,24 +1,33 @@
 "use server";
 import { createClient as createServerClient } from "@supabase/supabase-js";
 import { sendWelcomeEmail, generateTempPassword } from "@/lib/services/emailService";
+import { createClient } from "@/lib/supabase/server";
 
 export async function CreateUser(formData: FormData) {
-    const role = formData.get("role") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
+    try {
+        console.log('CreateUser called with formData');
+        const role = formData.get("role") as string;
+        const email = formData.get("email") as string;
+        const phone = formData.get("phone") as string;
+        const driverCode = formData.get("driverCode") as string;
+        
+        console.log('Extracted values:', { role, email, phone, driverCode });
     
     // Validate role
     if (
         role !== "admin" &&
         role !== "fleet manager" &&
         role !== "fc" &&
-        role !== "customer"
+        role !== "customer" &&
+        role !== "driver"
     ) {
+        console.log('Invalid role:', role);
         return { success: false, message: "Invalid role selected" };
     }
 
-    // Generate temporary password
-    const tempPassword = generateTempPassword();
+    // Generate password - use EPS83782 for drivers, temp password for others
+    const tempPassword = role === 'driver' ? 'EPS83782' : generateTempPassword();
+    console.log('Generated password for role', role, ':', tempPassword);
 
     // Create Supabase client with service role
     const supabase = createServerClient(
@@ -33,6 +42,7 @@ export async function CreateUser(formData: FormData) {
     );
 
     // Create user using service role
+    console.log('Creating auth user with email:', email);
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email,
         password: tempPassword,
@@ -41,9 +51,11 @@ export async function CreateUser(formData: FormData) {
             role,
         },
     });
+    console.log('Auth user creation result:', { newUser: !!newUser, error: createError });
 
     if (createError) {
         console.error("Error creating user:", createError.message);
+        console.error("Full error:", createError);
         return { success: false, message: createError.message };
     }
 
@@ -93,7 +105,64 @@ export async function CreateUser(formData: FormData) {
         return { success: false, message: "Failed to create user profile: " + insertError.message };
     }
 
-    // Send welcome email and SMS
+    // Handle driver creation
+    if (role === 'driver') {
+        const fullDriverCode = `EPS${driverCode}`;
+        
+        // Check if driver exists by email
+        const { data: existingDriver } = await supabase
+            .from('drivers')
+            .select('id')
+            .eq('email_address', email)
+            .single();
+            
+        if (existingDriver) {
+            // Update existing driver
+            const { error: updateError } = await supabase
+                .from('drivers')
+                .update({
+                    user_id: userId,
+                    email_address: email,
+                    cell_number: phone,
+                    driver_code: fullDriverCode
+                })
+                .eq('email_address', email);
+                
+            if (updateError) {
+                return { success: false, message: "Failed to update driver: " + updateError.message };
+            }
+        } else {
+            // Insert new driver
+            const { error: driverError } = await supabase
+                .from('drivers')
+                .insert({
+                    user_id: userId,
+                    first_name: email,
+                    email_address: email,
+                    cell_number: phone,
+                    driver_code: fullDriverCode
+                });
+                
+            if (driverError) {
+                return { success: false, message: "Failed to create driver: " + driverError.message };
+            }
+        }
+        
+        // Send welcome SMS to driver
+        const emailResult = await sendWelcomeEmail({
+            email,
+            phone,
+            password: tempPassword,
+            role: "Driver",
+            company: "EPS Courier Services"
+        });
+        
+        const emailStatus = emailResult.success ? 'Email sent' : 'Email failed';
+        const smsStatus = emailResult.smsResult?.success ? 'SMS sent' : 'SMS failed';
+        return { success: true, message: `Driver created successfully. ${emailStatus}, ${smsStatus}.` };
+    }
+
+    // Send welcome email and SMS for non-drivers
     const emailResult = await sendWelcomeEmail({
         email,
         phone,
@@ -116,6 +185,10 @@ export async function CreateUser(formData: FormData) {
         console.log("⚠️ User created but email failed:", emailResult.error);
         const smsStatus = emailResult.smsResult?.success ? 'SMS sent' : 'SMS failed';
         return { success: true, message: `User created successfully. Email failed, ${smsStatus}.` };
+    }
+    } catch (error: any) {
+        console.error('Unhandled error in CreateUser:', error);
+        return { success: false, message: 'Unexpected error: ' + error.message };
     }
 }
 

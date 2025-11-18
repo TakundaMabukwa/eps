@@ -92,6 +92,7 @@ export default function SettingsPage() {
     const [newUserEmail, setNewUserEmail] = useState("");
     const [newUserPhone, setNewUserPhone] = useState("");
     const [newUserRole, setNewUserRole] = useState("");
+    const [newUserDriverCode, setNewUserDriverCode] = useState("");
     const [newUserPermissions, setNewUserPermissions] = useState<Permission[]>([]);
     const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
 
@@ -359,6 +360,7 @@ export default function SettingsPage() {
 
     async function handleCreateUser(e: React.FormEvent) {
         e.preventDefault();
+        console.log('Form submitted with:', { newUserEmail, newUserPhone, newUserRole, newUserDriverCode });
         setIsCreatingUser(true);
 
         try {
@@ -366,9 +368,12 @@ export default function SettingsPage() {
             formData.append('email', newUserEmail);
             formData.append('phone', newUserPhone);
             formData.append('role', newUserRole);
+            formData.append('driverCode', newUserDriverCode);
             formData.append('permissions', JSON.stringify(newUserPermissions));
 
+            console.log('Calling CreateUser with formData');
             const result = await CreateUser(formData);
+            console.log('CreateUser result:', result);
             
             if (result.success) {
                 toast.success(result.message || 'User created successfully');
@@ -376,6 +381,7 @@ export default function SettingsPage() {
                 setNewUserEmail('');
                 setNewUserPhone('');
                 setNewUserRole('');
+                setNewUserDriverCode('');
                 setNewUserPermissions([]);
                 await fetchUsers();
             } else {
@@ -387,6 +393,7 @@ export default function SettingsPage() {
                 setIsResultDialogOpen(true);
             }
         } catch (error: any) {
+            console.error('Error in handleCreateUser:', error);
             setResultDialog({
                 type: 'error',
                 title: 'Error Creating User',
@@ -405,9 +412,15 @@ export default function SettingsPage() {
             const result = await resetUserPassword(resetPasswordUser.id, resetPasswordUser.email);
             
             if (result.success) {
-                const emailStatus = result.emailSent ? 'Email sent' : 'Email failed';
-                const smsStatus = result.smsSent ? 'SMS sent' : 'SMS failed';
-                toast.success(`Password updated successfully. ${emailStatus}, ${smsStatus}.`);
+                const user = users.find(u => u.id === resetPasswordUser.id);
+                if (user?.role === 'driver') {
+                    const smsStatus = result.smsSent ? 'SMS sent to driver' : 'SMS failed';
+                    toast.success(`Driver password updated to driver code. ${smsStatus}.`);
+                } else {
+                    const emailStatus = result.emailSent ? 'Email sent' : 'Email failed';
+                    const smsStatus = result.smsSent ? 'SMS sent' : 'SMS failed';
+                    toast.success(`Password updated successfully. ${emailStatus}, ${smsStatus}.`);
+                }
             } else {
                 toast.error('Failed to update password: ' + result.error);
             }
@@ -444,6 +457,7 @@ export default function SettingsPage() {
                                     setNewUserEmail('');
                                     setNewUserPhone('');
                                     setNewUserRole('');
+                                    setNewUserDriverCode('');
                                     setNewUserPermissions([]);
                                 }
                             }}>
@@ -565,6 +579,15 @@ export default function SettingsPage() {
                                                                         </div>
                                                                     </div>
                                                                 </SelectItem>
+                                                                <SelectItem value="driver">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <User className="h-4 w-4 text-purple-500" />
+                                                                        <div>
+                                                                            <div className="font-medium">Driver</div>
+                                                                            <div className="text-xs text-gray-500">Driver access to mobile app</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </SelectItem>
                                                                 <SelectItem value="fc">
                                                                     <div className="flex items-center gap-2">
                                                                         <Eye className="h-4 w-4 text-green-500" />
@@ -586,6 +609,35 @@ export default function SettingsPage() {
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
+                                                    {newUserRole === 'driver' && (
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="driverCode" className="text-sm font-medium flex items-center gap-2">
+                                                                Driver Code
+                                                                <Tooltip>
+                                                                    <TooltipTrigger>
+                                                                        <Info className="h-4 w-4 text-gray-400" />
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>Enter numbers only (EPS prefix will be added automatically)</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </Label>
+                                                            <div className="flex">
+                                                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                                                                    EPS
+                                                                </span>
+                                                                <Input 
+                                                                    id="driverCode" 
+                                                                    type="text" 
+                                                                    placeholder="12345"
+                                                                    required 
+                                                                    value={newUserDriverCode}
+                                                                    onChange={(e) => setNewUserDriverCode(e.target.value.replace(/[^0-9]/g, ''))}
+                                                                    className="h-11 rounded-l-none"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         
@@ -777,7 +829,7 @@ export default function SettingsPage() {
                                                 </Button>
                                                 <Button 
                                                     type="submit" 
-                                                    disabled={!newUserEmail || !newUserPhone || !newUserRole}
+                                                    disabled={!newUserEmail || !newUserPhone || !newUserRole || (newUserRole === 'driver' && !newUserDriverCode)}
                                                     className="px-6 bg-blue-600 hover:bg-blue-700"
                                                 >
                                                     Create User Account
@@ -1103,7 +1155,11 @@ export default function SettingsPage() {
                                     <div className="text-sm">
                                         <p className="font-medium text-amber-800">Password Update</p>
                                         <p className="text-amber-700 mt-1">
-                                            A new 8-character password will be generated and sent to the user's email and phone number. 
+                                            {users.find(u => u.id === resetPasswordUser?.id)?.role === 'driver' ? (
+                                                'Driver password will be updated to their driver code and sent via SMS to their phone number.'
+                                            ) : (
+                                                'A new 8-character password will be generated and sent to the user\'s email and phone number.'
+                                            )}
                                             Their current password will be replaced.
                                         </p>
                                     </div>
