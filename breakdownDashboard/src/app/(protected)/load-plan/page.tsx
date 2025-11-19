@@ -495,9 +495,9 @@ export default function LoadPlanPage() {
             waypoints = `${driverLocation.lng},${driverLocation.lat};${loadingCoords[0]},${loadingCoords[1]};${dropOffCoords[0]},${dropOffCoords[1]}`
           }
           
-          // Get driving directions with complete route timing, traffic, and tolls
+          // Get truck-specific directions with restrictions, traffic, and tolls
           const directionsResponse = await fetch(
-            `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${waypoints}?access_token=${mapboxToken}&geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry`
+            `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}?access_token=${mapboxToken}&geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry&approaches=unrestricted&radiuses=1000&steps=true&voice_instructions=false&banner_instructions=false&roundabout_exits=true&voice_units=metric`
           )
           const directionsData = await directionsResponse.json()
           
