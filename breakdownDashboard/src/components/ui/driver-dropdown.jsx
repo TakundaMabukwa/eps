@@ -9,22 +9,27 @@ export function DriverDropdown({
   onChange, 
   drivers = [], 
   placeholder = "Select driver",
-  isCalculatingDistance = false,
-  vehicleTrackingData = []
+  showDistance = false
 }) {
+  // Sort drivers by distance when showDistance is true
+  const sortedDrivers = showDistance 
+    ? [...drivers].sort((a, b) => {
+        if (a.distance === null && b.distance === null) return 0
+        if (a.distance === null) return 1
+        if (b.distance === null) return -1
+        return a.distance - b.distance
+      })
+    : drivers
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const dropdownRef = useRef(null)
   const searchInputRef = useRef(null)
 
-  // Filter drivers by availability and search term
-  const filteredDrivers = drivers
-    .filter(driver => driver.available === true) // Only show available drivers
-    .filter(driver =>
-      `${driver.first_name} ${driver.surname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.surname?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+  const filteredDrivers = sortedDrivers.filter(driver =>
+    `${driver.first_name} ${driver.surname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    driver.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    driver.surname?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -50,21 +55,8 @@ export function DriverDropdown({
     setSearchTerm('')
   }
 
-  const selectedDriver = drivers.find(d => d.id === value)
-  
-  // Get plate for selected driver
-  const getDriverPlate = (driver) => {
-    if (!driver) return ''
-    const driverFullName = `${driver.first_name} ${driver.surname}`.trim().toLowerCase()
-    const matchingVehicle = vehicleTrackingData.find(vehicle => 
-      vehicle.driver_name && 
-      vehicle.driver_name.toLowerCase() === driverFullName
-    )
-    return matchingVehicle?.plate || 'No Vehicle'
-  }
-  
-  const displayValue = selectedDriver ? 
-    `${selectedDriver.first_name} ${selectedDriver.surname}/${getDriverPlate(selectedDriver)}` : ''
+  const selectedDriver = sortedDrivers.find(d => d.id === value)
+  const displayValue = selectedDriver ? `${selectedDriver.first_name} ${selectedDriver.surname}` : ''
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -78,9 +70,7 @@ export function DriverDropdown({
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="truncate">
-            {isCalculatingDistance ? "Finding closest driver..." : (displayValue || placeholder)}
-          </span>
+          <span className="truncate">{displayValue || placeholder}</span>
         </div>
         <ChevronDown className={cn("h-4 w-4 transition-transform flex-shrink-0", isOpen && "rotate-180")} />
       </button>
@@ -100,40 +90,48 @@ export function DriverDropdown({
           <div className="max-h-60 overflow-auto p-1">
             {filteredDrivers.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
-                {searchTerm ? 'No available drivers match your search.' : 'No available drivers found.'}
+                {searchTerm ? 'No drivers match your search.' : 'No drivers found.'}
               </div>
             ) : (
-              filteredDrivers.map((driver, index) => (
-                <div
-                  key={driver.id}
-                  className={cn(
-                    "relative flex cursor-default select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
-                    value === driver.id && "bg-accent text-accent-foreground"
-                  )}
-                  onClick={() => handleSelect(driver)}
-                >
-                  <div className="flex items-center justify-between w-full">
+              filteredDrivers.map((driver, index) => {
+                const isClosest = showDistance && index === 0 && driver.distance !== null
+                return (
+                  <div
+                    key={driver.id}
+                    className={cn(
+                      "relative flex cursor-default select-none items-center justify-between rounded-sm px-2 py-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                      value === driver.id && "bg-accent text-accent-foreground",
+                      isClosest && "bg-blue-50 border border-blue-200"
+                    )}
+                    onClick={() => handleSelect(driver)}
+                  >
                     <div className="flex items-center gap-2">
-                      <span>{driver.first_name} {driver.surname}/{getDriverPlate(driver)}</span>
-                      <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
-                        Available
+                      <User className={cn("h-4 w-4", isClosest && "text-blue-600")} />
+                      <span className={cn(isClosest && "font-medium text-blue-900")}>
+                        {driver.first_name} {driver.surname}
+                        {isClosest && <span className="ml-1 text-xs text-blue-600">(Closest)</span>}
                       </span>
                     </div>
-                    {driver.distance !== null && (
+                    {showDistance && driver.distance !== null && (
                       <div className="flex items-center gap-1">
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          index === 0 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
-                        }`}>
+                        <span className={cn(
+                          "text-xs font-medium px-2 py-1 rounded-full",
+                          isClosest 
+                            ? "bg-blue-100 text-blue-700" 
+                            : "bg-gray-100 text-gray-600"
+                        )}>
                           {driver.distance}km
                         </span>
-                        {index === 0 && (
-                          <span className="text-xs text-blue-600">Closest</span>
+                        {driver.driverToLoading && driver.loadingToDropoff && (
+                          <span className="text-xs text-muted-foreground" title={`Driver to Loading: ${driver.driverToLoading}km, Loading to Drop-off: ${driver.loadingToDropoff}km`}>
+                            ({driver.driverToLoading}+{driver.loadingToDropoff})
+                          </span>
                         )}
                       </div>
                     )}
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>

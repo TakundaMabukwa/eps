@@ -27,6 +27,9 @@ import { ClientDropdown } from '@/components/ui/client-dropdown'
 import { ClientAddressPopup } from '@/components/ui/client-address-popup'
 import { Toast } from '@/components/ui/toast'
 import { DriverDropdown } from '@/components/ui/driver-dropdown'
+import { VehicleDropdown } from '@/components/ui/vehicle-dropdown'
+import { VehicleTypeDropdown } from '@/components/ui/vehicle-type-dropdown'
+import { TrailerDropdown } from '@/components/ui/trailer-dropdown'
 import { StopPointDropdown } from '@/components/ui/stop-point-dropdown'
 import { markDriversUnavailable } from '@/lib/utils/driver-availability'
 
@@ -344,7 +347,7 @@ export default function LoadPlanPage() {
     const typeKeywords = keywords[selectedVehicleType] || []
     
     return vehicles.filter(vehicle => {
-      const searchText = `${vehicle.make} ${vehicle.model} ${vehicle.sub_model} ${vehicle.vehicle_type}`.toLowerCase()
+      const searchText = `${vehicle.model || vehicle.make || ''}`.toLowerCase()
       return typeKeywords.some(keyword => searchText.includes(keyword.toLowerCase()))
     })
   }, [vehicles, selectedVehicleType])
@@ -434,7 +437,7 @@ export default function LoadPlanPage() {
 
 
 
-  // Preview route when locations change (only for national trips) - without saving
+  // Preview route when locations change - get Mapbox timing data
   useEffect(() => {
     const previewRoute = async () => {
       if (!loadingLocation || !dropOffPoint) {
@@ -442,37 +445,70 @@ export default function LoadPlanPage() {
         return
       }
       
-      if (tripType !== 'national') {
-        return
-      }
-      
       setIsOptimizing(true)
       try {
-        // Get waypoints from selected stop points
-        const selectedStopPoints = getSelectedStopPointsData()
-        const waypoints = selectedStopPoints.map(point => {
-          // Calculate centroid of polygon for waypoint
-          const coords = point.coordinates
-          const avgLng = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length
-          const avgLat = coords.reduce((sum, coord) => sum + coord[1], 0) / coords.length
-          return `${avgLng},${avgLat}`
-        })
+        const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+        if (!mapboxToken) return
         
-        // Use preview endpoint that doesn't save to database
-        const response = await fetch('/api/routes/preview', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            origin: loadingLocation,
-            destination: dropOffPoint,
-            pickupTime: etaPickup,
-            waypoints: waypoints
-          })
-        })
+        // Check if we have driver location for complete route
+        const firstDriver = driverAssignments[0]
+        let driverLocation = null
         
-        if (response.ok) {
-          const routeData = await response.json()
-          setOptimizedRoute(routeData)
+        if (firstDriver?.id) {
+          const driver = drivers.find(d => d.id === firstDriver.id)
+          if (driver) {
+            const driverFullName = `${driver.first_name} ${driver.surname}`.trim().toLowerCase()
+            const trackingData = Array.isArray(vehicleTrackingData) ? vehicleTrackingData : []
+            const matchingVehicle = trackingData.find(vehicle => 
+              vehicle.driver_name && 
+              vehicle.driver_name.toLowerCase() === driverFullName
+            )
+            
+            if (matchingVehicle?.latitude && matchingVehicle?.longitude) {
+              driverLocation = {
+                lat: parseFloat(matchingVehicle.latitude),
+                lng: parseFloat(matchingVehicle.longitude)
+              }
+            }
+          }
+        }
+        
+        // Geocode loading and drop-off locations
+        const [loadingResponse, dropOffResponse] = await Promise.all([
+          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(loadingLocation)}.json?access_token=${mapboxToken}&country=za&limit=1`),
+          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dropOffPoint)}.json?access_token=${mapboxToken}&country=za&limit=1`)
+        ])
+        
+        const [loadingData, dropOffData] = await Promise.all([
+          loadingResponse.json(),
+          dropOffResponse.json()
+        ])
+        
+        if (loadingData.features?.[0] && dropOffData.features?.[0]) {
+          const loadingCoords = loadingData.features[0].center
+          const dropOffCoords = dropOffData.features[0].center
+          
+          let waypoints = `${loadingCoords[0]},${loadingCoords[1]};${dropOffCoords[0]},${dropOffCoords[1]}`
+          
+          // If we have driver location, create complete route: driver → loading → drop-off
+          if (driverLocation) {
+            waypoints = `${driverLocation.lng},${driverLocation.lat};${loadingCoords[0]},${loadingCoords[1]};${dropOffCoords[0]},${dropOffCoords[1]}`
+          }
+          
+          // Get driving directions with complete route timing, traffic, and tolls
+          const directionsResponse = await fetch(
+            `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${waypoints}?access_token=${mapboxToken}&geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry`
+          )
+          const directionsData = await directionsResponse.json()
+          
+          if (directionsData.routes?.[0]) {
+            setOptimizedRoute({
+              route: directionsData.routes[0],
+              distance: directionsData.routes[0].distance,
+              duration: directionsData.routes[0].duration,
+              hasDriverLocation: !!driverLocation
+            })
+          }
         }
       } catch (error) {
         console.error('Route preview failed:', error)
@@ -481,7 +517,7 @@ export default function LoadPlanPage() {
     }
     
     previewRoute()
-  }, [loadingLocation, dropOffPoint, orderNumber, etaPickup, tripType, JSON.stringify(stopPoints)])
+  }, [loadingLocation, dropOffPoint, orderNumber, etaPickup, tripType, driverAssignments[0]?.id])
 
   // Update sorted drivers when pickup location changes
   useEffect(() => {
@@ -1336,17 +1372,68 @@ export default function LoadPlanPage() {
                           Optimizing route...
                         </div>
                       )}
-                      <RoutePreviewMap
-                        origin={loadingLocation}
-                        destination={dropOffPoint}
-                        routeData={tripType === 'national' ? optimizedRoute : null}
-                        stopPoints={tripType === 'national' ? getSelectedStopPointsData() : []}
-                        driverLocation={selectedDriverLocation ? {
-                          lat: selectedDriverLocation.latitude,
-                          lng: selectedDriverLocation.longitude,
-                          name: `${selectedDriverLocation.driver.first_name} ${selectedDriverLocation.driver.surname}`
-                        } : undefined}
-                      />
+                      <div className="space-y-4">
+                        <RoutePreviewMap
+                          origin={loadingLocation}
+                          destination={dropOffPoint}
+                          routeData={tripType === 'national' ? optimizedRoute : null}
+                          stopPoints={tripType === 'national' ? getSelectedStopPointsData() : []}
+                          driverLocation={selectedDriverLocation ? {
+                            lat: selectedDriverLocation.latitude,
+                            lng: selectedDriverLocation.longitude,
+                            name: `${selectedDriverLocation.driver.first_name} ${selectedDriverLocation.driver.surname}`
+                          } : undefined}
+                        />
+                        
+                        {/* Route Summary */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium mb-3">Main Route (Optimized)</h4>
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <span className="font-medium">Loading:</span> {loadingLocation}
+                            </div>
+                            {dropOffPoint && (
+                              <div>
+                                <span className="font-medium">Drop-off:</span> {dropOffPoint}
+                              </div>
+                            )}
+                              <div>
+                              <span className="font-medium">Driver:</span> {
+                                (() => {
+                                  const firstDriver = driverAssignments[0]
+                                  if (firstDriver?.id) {
+                                    const driver = drivers.find(d => d.id === firstDriver.id)
+                                    return driver ? `${driver.first_name} ${driver.surname}` : 'Selected Driver'
+                                  }
+                                  return 'No driver selected'
+                                })()
+                              }
+                            </div>
+                            {optimizedRoute && (
+                              <div className="border-t pt-2 mt-2">
+                                <div className="font-medium text-blue-600 mb-1">
+                                  Route Information {optimizedRoute.hasDriverLocation ? '(Driver → Loading → Drop-off)' : '(Loading → Drop-off)'}:
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 text-xs">
+                                  <div>
+                                    <span className="font-medium">Total Distance:</span> {
+                                      Math.round((optimizedRoute.route?.distance || optimizedRoute.distance) / 1000 * 10) / 10
+                                    } km
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Estimated Time:</span> {
+                                      (() => {
+                                        const duration = optimizedRoute.route?.duration || optimizedRoute.duration
+                                        return `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`
+                                      })()
+                                    }
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1375,8 +1462,7 @@ export default function LoadPlanPage() {
                         onChange={(value) => handleDriverChange(driverIndex, value)}
                         drivers={availableDrivers}
                         placeholder="Select available driver"
-                        isCalculatingDistance={isCalculatingDistance}
-                        vehicleTrackingData={vehicleTrackingData}
+                        showDistance={!!loadingLocation}
                       />
                     </div>
                   ))}
@@ -1391,55 +1477,36 @@ export default function LoadPlanPage() {
                   {/* Vehicle Type Dropdown */}
                   <div className="space-y-2">
                     <Label htmlFor="vehicleType" className="text-sm font-medium text-slate-700">Vehicle Type</Label>
-                    <Select value={selectedVehicleType} onValueChange={(value) => {
-                      setSelectedVehicleType(value)
-                      setSelectedVehicleId('') // Reset vehicle selection when type changes
-                    }}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select vehicle type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vehicleTypeOptions.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <VehicleTypeDropdown
+                      value={selectedVehicleType}
+                      onChange={(value) => {
+                        setSelectedVehicleType(value)
+                        setSelectedVehicleId('') // Reset vehicle selection when type changes
+                      }}
+                      placeholder="Select vehicle type"
+                    />
                   </div>
 
                   {/* Horse Dropdown - Vehicles only */}
                   <div className="space-y-2">
                     <Label htmlFor="horse" className="text-sm font-medium text-slate-700">Select Horse</Label>
-                    <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select horse (vehicle)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vehicles.filter(vehicle => vehicle.vehicle_type === 'vehicle').map((vehicle) => (
-                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                            {vehicle.registration_number} - {vehicle.make} {vehicle.model}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <VehicleDropdown
+                      value={selectedVehicleId}
+                      onChange={setSelectedVehicleId}
+                      vehicles={vehicles.filter(vehicle => vehicle.vehicle_type === 'vehicle')}
+                      placeholder="Select horse (vehicle)"
+                    />
                   </div>
 
                   {/* Trailer Dropdown - All except vehicles */}
                   <div className="space-y-2">
                     <Label htmlFor="trailer" className="text-sm font-medium text-slate-700">Select Trailer</Label>
-                    <Select value={selectedTrailerId} onValueChange={setSelectedTrailerId}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select trailer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vehicles.filter(vehicle => vehicle.vehicle_type !== 'vehicle').map((vehicle) => (
-                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                            {vehicle.registration_number} - {vehicle.make} {vehicle.model} ({vehicle.vehicle_type})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <TrailerDropdown
+                      value={selectedTrailerId}
+                      onChange={setSelectedTrailerId}
+                      trailers={vehicles.filter(vehicle => vehicle.vehicle_type !== 'vehicle')}
+                      placeholder="Select trailer"
+                    />
                   </div>
                 </div>
 

@@ -8,6 +8,10 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CommodityDropdown } from '@/components/ui/commodity-dropdown'
+import { VehicleDropdown } from '@/components/ui/vehicle-dropdown'
+import { DriverDropdown } from '@/components/ui/driver-dropdown'
+import { RouteMap } from '@/components/ui/route-map'
 import { createClient } from '@/lib/supabase/client'
 
 const LoadForm = ({ onClose, id }) => {
@@ -17,6 +21,10 @@ const LoadForm = ({ onClose, id }) => {
   const [vehicles, setVehicles] = useState([])
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(false)
+  const [vehicleTrackingData, setVehicleTrackingData] = useState([])
+  const [sortedDrivers, setSortedDrivers] = useState([])
+  const [selectedDriverLocation, setSelectedDriverLocation] = useState(null)
+  const [routeData, setRouteData] = useState({ distance: 0, duration: 0 })
   
   const [formState, setFormState] = useState({
     client: '',
@@ -31,6 +39,7 @@ const LoadForm = ({ onClose, id }) => {
     status: 'pending',
     vehicleAssignments: [{
       vehicle: { id: '', name: '' },
+      trailer: { id: '', name: '' },
       drivers: [{ id: '', name: '' }]
     }]
   })
@@ -42,15 +51,23 @@ const LoadForm = ({ onClose, id }) => {
         const [
           { data: driversData },
           { data: vehiclesData },
-          { data: clientsData }
+          { data: clientsData },
+          trackingResponse
         ] = await Promise.all([
           supabase.from('drivers').select('*'),
-          supabase.from('vehicles').select('*'),
-          supabase.from('clients').select('*')
+          supabase.from('vehicles').select('*').limit(1000),
+          supabase.from('clients').select('*'),
+          fetch('http://64.227.138.235:3000/api/eps-vehicles')
         ])
+        
+        const trackingData = await trackingResponse.json()
+        const vehicleData = trackingData?.result?.data || trackingData?.data || trackingData || []
+        
         setDrivers(driversData || [])
         setVehicles(vehiclesData || [])
         setClients(clientsData || [])
+        setVehicleTrackingData(vehicleData)
+        setSortedDrivers(driversData || [])
       } catch (err) {
         console.error('Error fetching data:', err)
       }
@@ -78,6 +95,7 @@ const LoadForm = ({ onClose, id }) => {
             dropOffPoint: data.destination || data.dropoffLocations?.[0]?.location || data.dropoff_locations?.[0]?.location || '',
             vehicleAssignments: data.vehicleAssignments || data.vehicle_assignments || [{
               vehicle: { id: '', name: '' },
+              trailer: { id: '', name: '' },
               drivers: [{ id: '', name: '' }]
             }]
           }
@@ -97,10 +115,134 @@ const LoadForm = ({ onClose, id }) => {
     setFormState(prev => ({ ...prev, [field]: value }))
   }
 
+  // Calculate distance between two coordinates
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371 // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    return R * c
+  }
+
+  // Get pickup location coordinates using Mapbox
+  const getPickupCoordinates = async (location) => {
+    if (!location) return null
+    try {
+      const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+      if (!mapboxToken) return null
+      
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxToken}&country=za&limit=1`
+      )
+      const data = await response.json()
+      if (data.features?.[0]?.center) {
+        const [lon, lat] = data.features[0].center
+        return { lat, lon }
+      }
+    } catch (error) {
+      console.error('Error geocoding pickup location:', error)
+    }
+    return null
+  }
+
+  // Get sorted drivers by optimized route distance
+  const getSortedDriversByDistance = async (pickupLocation, dropoffLocation) => {
+    if (!pickupLocation) return drivers
+    
+    const [pickupCoords, dropoffCoords] = await Promise.all([
+      getPickupCoordinates(pickupLocation),
+      dropoffLocation ? getPickupCoordinates(dropoffLocation) : null
+    ])
+    
+    if (!pickupCoords) return drivers
+    
+    const driversWithDistance = drivers.map(driver => {
+      const driverFullName = `${driver.first_name} ${driver.surname}`.trim().toLowerCase()
+      const matchingVehicle = Array.isArray(vehicleTrackingData) ? vehicleTrackingData.find(vehicle => 
+        vehicle.driver_name && 
+        vehicle.driver_name.toLowerCase() === driverFullName
+      ) : null
+      
+      if (matchingVehicle?.latitude && matchingVehicle?.longitude) {
+        const driverLat = parseFloat(matchingVehicle.latitude)
+        const driverLon = parseFloat(matchingVehicle.longitude)
+        
+        // Calculate optimized route: Driver → Loading → Drop off
+        const driverToLoading = calculateDistance(
+          driverLat, driverLon,
+          pickupCoords.lat, pickupCoords.lon
+        )
+        
+        let totalDistance = driverToLoading
+        
+        if (dropoffCoords) {
+          const loadingToDropoff = calculateDistance(
+            pickupCoords.lat, pickupCoords.lon,
+            dropoffCoords.lat, dropoffCoords.lon
+          )
+          totalDistance = driverToLoading + loadingToDropoff
+        }
+        
+        return { 
+          ...driver, 
+          distance: Math.round(totalDistance * 10) / 10,
+          driverToLoading: Math.round(driverToLoading * 10) / 10,
+          loadingToDropoff: dropoffCoords ? Math.round(calculateDistance(
+            pickupCoords.lat, pickupCoords.lon,
+            dropoffCoords.lat, dropoffCoords.lon
+          ) * 10) / 10 : null
+        }
+      }
+      
+      return { ...driver, distance: null }
+    })
+    
+    return driversWithDistance.sort((a, b) => {
+      if (a.distance === null && b.distance === null) return 0
+      if (a.distance === null) return 1
+      if (b.distance === null) return -1
+      return a.distance - b.distance
+    })
+  }
+
+  // Update sorted drivers when loading or dropoff location changes
+  useEffect(() => {
+    if (formState.loadingLocation) {
+      getSortedDriversByDistance(formState.loadingLocation, formState.dropOffPoint).then(setSortedDrivers)
+    } else {
+      setSortedDrivers(drivers)
+    }
+  }, [formState.loadingLocation, formState.dropOffPoint, drivers, vehicleTrackingData])
+
+  // Update driver location when first driver is selected
+  useEffect(() => {
+    const firstDriver = formState.vehicleAssignments[0]?.drivers[0]
+    if (firstDriver?.id && !selectedDriverLocation) {
+      const selectedDriver = drivers.find(d => d.id === firstDriver.id)
+      if (selectedDriver) {
+        const driverFullName = `${selectedDriver.first_name} ${selectedDriver.surname}`.trim().toLowerCase()
+        const matchingVehicle = Array.isArray(vehicleTrackingData) ? vehicleTrackingData.find(vehicle => 
+          vehicle.driver_name && 
+          vehicle.driver_name.toLowerCase() === driverFullName
+        ) : null
+        
+        if (matchingVehicle?.latitude && matchingVehicle?.longitude) {
+          setSelectedDriverLocation({
+            lat: parseFloat(matchingVehicle.latitude),
+            lng: parseFloat(matchingVehicle.longitude)
+          })
+        }
+      }
+    }
+  }, [formState.vehicleAssignments, drivers, vehicleTrackingData, selectedDriverLocation])
+
   // Vehicle Assignment Handlers
   const handleVehicleChange = (vehicleIndex, vehicleId) => {
     const selectedVehicle = vehicles.find(v => v.id === vehicleId)
-    const vehicleName = selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model} (${selectedVehicle.regNumber})` : ''
+    const vehicleName = selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model} (${selectedVehicle.regNumber || selectedVehicle.registration_number})` : ''
 
     setFormState(prev => {
       const updatedAssignments = [...prev.vehicleAssignments]
@@ -112,12 +254,26 @@ const LoadForm = ({ onClose, id }) => {
     })
   }
 
+  const handleTrailerChange = (vehicleIndex, trailerId) => {
+    const selectedTrailer = vehicles.find(v => v.id === trailerId)
+    const trailerName = selectedTrailer ? `${selectedTrailer.make} ${selectedTrailer.model} (${selectedTrailer.regNumber || selectedTrailer.registration_number})` : ''
+
+    setFormState(prev => {
+      const updatedAssignments = [...prev.vehicleAssignments]
+      updatedAssignments[vehicleIndex] = {
+        ...updatedAssignments[vehicleIndex],
+        trailer: { id: trailerId, name: trailerName }
+      }
+      return { ...prev, vehicleAssignments: updatedAssignments }
+    })
+  }
+
   const addVehicle = () => {
     setFormState(prev => ({
       ...prev,
       vehicleAssignments: [
         ...prev.vehicleAssignments,
-        { vehicle: { id: '', name: '' }, drivers: [{ id: '', name: '' }] }
+        { vehicle: { id: '', name: '' }, trailer: { id: '', name: '' }, drivers: [{ id: '', name: '' }] }
       ]
     }))
   }
@@ -128,7 +284,7 @@ const LoadForm = ({ onClose, id }) => {
       updatedAssignments.splice(vehicleIndex, 1)
       return {
         ...prev,
-        vehicleAssignments: updatedAssignments.length > 0 ? updatedAssignments : [{ vehicle: { id: '', name: '' }, drivers: [{ id: '', name: '' }] }]
+        vehicleAssignments: updatedAssignments.length > 0 ? updatedAssignments : [{ vehicle: { id: '', name: '' }, trailer: { id: '', name: '' }, drivers: [{ id: '', name: '' }] }]
       }
     })
   }
@@ -148,6 +304,22 @@ const LoadForm = ({ onClose, id }) => {
       }
       return { ...prev, vehicleAssignments: updatedAssignments }
     })
+
+    // Update selected driver location for map
+    if (selectedDriver) {
+      const driverFullName = `${selectedDriver.first_name} ${selectedDriver.surname}`.trim().toLowerCase()
+      const matchingVehicle = Array.isArray(vehicleTrackingData) ? vehicleTrackingData.find(vehicle => 
+        vehicle.driver_name && 
+        vehicle.driver_name.toLowerCase() === driverFullName
+      ) : null
+      
+      if (matchingVehicle?.latitude && matchingVehicle?.longitude) {
+        setSelectedDriverLocation({
+          lat: parseFloat(matchingVehicle.latitude),
+          lng: parseFloat(matchingVehicle.longitude)
+        })
+      }
+    }
   }
 
   const addVehicleDriver = (vehicleIndex) => {
@@ -278,7 +450,7 @@ const LoadForm = ({ onClose, id }) => {
 
             <div>
               <Label htmlFor="commodity">Commodity</Label>
-              <Input name="commodity" value={formState.commodity} onChange={handleChange} placeholder="Commodity" />
+              <CommodityDropdown value={formState.commodity} onChange={(value) => handleSelectChange('commodity', value)} placeholder="Select commodity" />
             </div>
 
             <div>
@@ -326,6 +498,66 @@ const LoadForm = ({ onClose, id }) => {
           </CardContent>
         </Card>
 
+        {/* Route Map */}
+        {formState.loadingLocation && selectedDriverLocation && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Route Visualization</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RouteMap
+                key={`${selectedDriverLocation.lat}-${selectedDriverLocation.lng}-${formState.loadingLocation}-${formState.dropOffPoint}`}
+                driverLocation={selectedDriverLocation}
+                loadingLocation={formState.loadingLocation}
+                dropoffLocation={formState.dropOffPoint}
+                driverName={formState.vehicleAssignments[0]?.drivers[0]?.name || "Selected Driver"}
+                className="w-full h-[300px]"
+                onRouteCalculated={setRouteData}
+              />
+              
+              {/* Route Summary */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-3">Main Route (Optimized)</h4>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Loading:</span> {formState.loadingLocation}
+                  </div>
+                  {formState.dropOffPoint && (
+                    <div>
+                      <span className="font-medium">Drop-off:</span> {formState.dropOffPoint}
+                    </div>
+                  )}
+                  <div>
+                    <span className="font-medium">Driver:</span> {(() => {
+                      const firstDriver = formState.vehicleAssignments[0]?.drivers[0]
+                      if (firstDriver?.id) {
+                        const driver = drivers.find(d => d.id === firstDriver.id)
+                        return driver ? `${driver.first_name} ${driver.surname}` : firstDriver.name || "Selected Driver"
+                      }
+                      return "No driver selected"
+                    })()}
+                  </div>
+                  {routeData.distance > 0 && (
+                    <>
+                      <div className="border-t pt-2 mt-2">
+                        <div className="font-medium text-blue-600 mb-1">Route Information:</div>
+                        <div className="grid grid-cols-2 gap-4 text-xs">
+                          <div>
+                            <span className="font-medium">Total Distance:</span> {routeData.distance} km
+                          </div>
+                          <div>
+                            <span className="font-medium">Estimated Time:</span> {Math.floor(routeData.duration / 60)}h {routeData.duration % 60}m
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Vehicle Assignments */}
         <Card>
           <CardHeader>
@@ -350,19 +582,29 @@ const LoadForm = ({ onClose, id }) => {
 
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <Label>Select Vehicle</Label>
-                    <Select value={assignment.vehicle.id} onValueChange={(value) => handleVehicleChange(vehicleIndex, value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select vehicle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vehicles.map(vehicle => (
-                          <SelectItem key={vehicle.id} value={vehicle.id}>
-                            {vehicle.make} {vehicle.model} ({vehicle.regNumber})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Select Horse (Vehicle)</Label>
+                    <VehicleDropdown
+                      value={assignment.vehicle.id}
+                      onChange={(value) => handleVehicleChange(vehicleIndex, value)}
+                      vehicles={vehicles.filter(v => v.vehicle_type === 'vehicle').map(v => ({
+                        ...v,
+                        regNumber: v.regNumber || v.registration_number
+                      }))}
+                      placeholder="Select horse (vehicle)"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Select Trailer</Label>
+                    <VehicleDropdown
+                      value={assignment.trailer?.id || ''}
+                      onChange={(value) => handleTrailerChange(vehicleIndex, value)}
+                      vehicles={vehicles.filter(v => v.vehicle_type !== 'vehicle').map(v => ({
+                        ...v,
+                        regNumber: v.regNumber || v.registration_number
+                      }))}
+                      placeholder="Select trailer"
+                    />
                   </div>
 
                   <div>
@@ -375,18 +617,13 @@ const LoadForm = ({ onClose, id }) => {
                     
                     {assignment.drivers.map((driver, driverIndex) => (
                       <div key={driverIndex} className="flex gap-2 mb-2">
-                        <Select value={driver.id} onValueChange={(value) => handleVehicleDriverChange(vehicleIndex, driverIndex, value)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select driver" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {drivers.map(d => (
-                              <SelectItem key={d.id} value={d.id}>
-                                {d.first_name} {d.surname}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <DriverDropdown
+                          value={driver.id}
+                          onChange={(value) => handleVehicleDriverChange(vehicleIndex, driverIndex, value)}
+                          drivers={sortedDrivers}
+                          placeholder="Select driver"
+                          showDistance={!!formState.loadingLocation}
+                        />
                         {assignment.drivers.length > 1 && (
                           <Button type="button" onClick={() => removeVehicleDriver(vehicleIndex, driverIndex)} size="sm" variant="destructive">
                             <Minus className="h-4 w-4" />
