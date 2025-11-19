@@ -337,7 +337,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
   const geocodeLocation = async (location: string) => {
     try {
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}&country=za&limit=1`
+        `/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json`)}&country=za&limit=1`
       );
       const data = await response.json();
       
@@ -372,11 +372,11 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
       coordinates += `;${destination.lng},${destination.lat}`;
       
       // Use optimized routing with waypoint optimization
-      const url = stopPoints.length > 0 
-        ? `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
-        : `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`;
+      const endpoint = stopPoints.length > 0 
+        ? `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}`
+        : `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}`;
       
-      const response = await fetch(url);
+      const response = await fetch(`/api/mapbox?endpoint=${encodeURIComponent(endpoint)}&geometries=geojson`);
       const data = await response.json();
       
       // Handle both optimized trips and regular directions response

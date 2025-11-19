@@ -475,8 +475,8 @@ export default function LoadPlanPage() {
         
         // Geocode loading and drop-off locations
         const [loadingResponse, dropOffResponse] = await Promise.all([
-          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(loadingLocation)}.json?access_token=${mapboxToken}&country=za&limit=1`),
-          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dropOffPoint)}.json?access_token=${mapboxToken}&country=za&limit=1`)
+          fetch(`/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(loadingLocation)}.json`)}&country=za&limit=1`),
+          fetch(`/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dropOffPoint)}.json`)}&country=za&limit=1`)
         ])
         
         const [loadingData, dropOffData] = await Promise.all([
@@ -497,17 +497,23 @@ export default function LoadPlanPage() {
           
           // Get truck-specific directions with restrictions, traffic, and tolls
           const directionsResponse = await fetch(
-            `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}?access_token=${mapboxToken}&geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry&approaches=unrestricted&radiuses=1000&steps=true&voice_instructions=false&banner_instructions=false&roundabout_exits=true&voice_units=metric`
+            `/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}`)}&geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry`
           )
           const directionsData = await directionsResponse.json()
           
+          console.log('Directions API response:', directionsData)
+          
           if (directionsData.routes?.[0]) {
-            setOptimizedRoute({
+            const routeInfo = {
               route: directionsData.routes[0],
               distance: directionsData.routes[0].distance,
               duration: directionsData.routes[0].duration,
               hasDriverLocation: !!driverLocation
-            })
+            }
+            console.log('Setting optimized route:', routeInfo)
+            setOptimizedRoute(routeInfo)
+          } else {
+            console.error('No routes found:', directionsData)
           }
         }
       } catch (error) {
