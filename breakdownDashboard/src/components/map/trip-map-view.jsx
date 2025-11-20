@@ -24,6 +24,7 @@ import { getTripStatusBadge } from '@/hooks/use-badges'
 import PageLoader from '../ui/loader'
 import { ClipLoader } from 'react-spinners'
 import DetailCard from '../ui/detail-card'
+import HighRiskOverlay from './high-risk-overlay'
 // Create custom marker icon
 const createCustomIcon = (status) => {
   if (typeof window === 'undefined') return null
@@ -177,6 +178,9 @@ export default function TripMapView() {
               url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
 
+            {/* High-risk areas overlay */}
+            <HighRiskOverlay />
+            
             {markers.map((marker, idx) => (
               <Marker
                 key={idx}

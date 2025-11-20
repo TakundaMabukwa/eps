@@ -38,6 +38,8 @@ export function StopPointDropdown({
   }
 
   const handleStopPointSelect = (stopPoint) => {
+    console.log('Stop point selected:', stopPoint)
+    console.log('Calling onChange with ID:', stopPoint.id.toString())
     onChange(stopPoint.id.toString())
     setSearchTerm('')
     setShowDropdown(false)
@@ -66,6 +68,12 @@ export function StopPointDropdown({
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }}
           placeholder={placeholder}
           className="pr-8"
           autoComplete="off"

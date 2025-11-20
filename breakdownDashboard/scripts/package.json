@@ -1,13 +1,13 @@
 {
-  "name": "client-import-script",
+  "name": "stop-points-importer",
   "version": "1.0.0",
-  "description": "Script to import client data from Excel to Supabase",
-  "main": "import-clients.js",
+  "description": "Import stop points from CSV to database",
+  "main": "import-stop-points-duplicate.js",
   "scripts": {
-    "import": "node import-clients.js"
+    "import": "node import-stop-points-duplicate.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "xlsx": "^0.18.5"
+    "csv-parser": "^3.0.0"
   }
 }
