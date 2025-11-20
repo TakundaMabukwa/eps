@@ -43,5 +43,7 @@ next-env.d.ts
 # scripts
 /scripts/
 *.xlsx
+./scripts/*.js
+./scripts/node_modules
 
 .vercel
