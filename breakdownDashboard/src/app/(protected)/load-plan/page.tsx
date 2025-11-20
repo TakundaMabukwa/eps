@@ -21,6 +21,7 @@ import { RouteOptimizer } from '@/components/ui/route-optimizer'
 import { RouteTracker } from '@/components/ui/route-tracker'
 import { RoutePreviewMap } from '@/components/ui/route-preview-map'
 import { RouteConfirmationModal } from '@/components/ui/route-confirmation-modal'
+import { RouteEditModal } from '@/components/ui/route-edit-modal'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { CommodityDropdown } from '@/components/ui/commodity-dropdown'
 import { ClientDropdown } from '@/components/ui/client-dropdown'
@@ -1583,9 +1584,19 @@ export default function LoadPlanPage() {
                         
                         {/* Route Summary */}
                         <div className="bg-gray-50 p-4 rounded-lg">
-                          <h4 className="font-medium mb-3">
-                            {tripType === 'local' ? 'Local Route' : 'Long Distance Route'} (Optimized)
-                          </h4>
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="font-medium">
+                              {tripType === 'local' ? 'Local Route' : 'Long Distance Route'} (Optimized)
+                            </h4>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setShowRouteModal(true)}
+                            >
+                              Edit Route
+                            </Button>
+                          </div>
                           <div className="space-y-2 text-sm">
                             <div>
                               <span className="font-medium">Loading:</span> {loadingLocation}
@@ -2098,6 +2109,23 @@ export default function LoadPlanPage() {
         onUseAsPickup={handleUseAsPickup}
         onUseAsDropoff={handleUseAsDropoff}
         onSkip={handleSkipAddress}
+      />
+      
+      <RouteEditModal
+        isOpen={showRouteModal}
+        onClose={() => setShowRouteModal(false)}
+        stopPoints={stopPoints}
+        customStopPoints={customStopPoints}
+        availableStopPoints={availableStopPoints}
+        onReorder={(newOrder) => {
+          setStopPoints(newOrder.stopPoints)
+          setCustomStopPoints(newOrder.customStopPoints)
+          setShowRouteModal(false)
+        }}
+        onForceRecalculate={() => {
+          setOptimizedRoute(null)
+          setShowRouteModal(false)
+        }}
       />
       
       <Toast

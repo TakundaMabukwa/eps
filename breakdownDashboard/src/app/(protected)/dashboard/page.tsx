@@ -75,6 +75,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
   const [loading, setLoading] = useState(false)
   const [vehicleLocation, setVehicleLocation] = useState<any>(null)
   const [isFlashing, setIsFlashing] = useState(false)
+  const [assignment, setAssignment] = useState<any>(null)
 
   // Check for unauthorized stops and trigger flash animation
   useEffect(() => {
@@ -94,6 +95,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
       try {
         const supabase = createClient()
         const assignment = assignments[0]
+        setAssignment(assignment) // Store assignment for fallback vehicle info
         
         // Switch to second driver if status is handover and second driver exists
         let driverToFetch = assignment.drivers?.[0]
@@ -117,11 +119,19 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
               const result = await response.json()
               const vehicles = result.data || []
               
-              const vehicle = vehicles.find((v: any) => {
+              // First try to match by driver name
+              let vehicle = vehicles.find((v: any) => {
                 const vehicleDriverName = v.driver_name?.toLowerCase() || ''
                 const searchName = `${driver.first_name} ${driver.surname}`.toLowerCase()
                 return vehicleDriverName.includes(searchName) || searchName.includes(vehicleDriverName)
               })
+              
+              // Fallback: match by vehicle name from assignment (JL64ZGGP)
+              if (!vehicle && assignment?.vehicle?.name) {
+                vehicle = vehicles.find((v: any) => {
+                  return v.plate?.toLowerCase() === assignment.vehicle.name.toLowerCase()
+                })
+              }
               
               if (vehicle) {
                 setVehicleLocation(vehicle)
@@ -132,7 +142,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           }
         }
         
-        // Fetch vehicle info by ID
+        // Fetch vehicle info by ID from local database
         if (assignment.vehicle?.id) {
           const { data: vehicle } = await supabase
             .from('vehiclesc')
@@ -140,6 +150,25 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
             .eq('id', assignment.vehicle.id)
             .single()
           setVehicleInfo(vehicle)
+          
+          // If no external vehicle found yet, try matching by local vehicle registration
+          if (!vehicleLocation && vehicle?.registration_number) {
+            try {
+              const response = await fetch('http://64.227.138.235:3000/api/eps-vehicles')
+              const result = await response.json()
+              const vehicles = result.data || []
+              
+              const matchedVehicle = vehicles.find((v: any) => {
+                return v.plate?.toLowerCase() === vehicle.registration_number.toLowerCase()
+              })
+              
+              if (matchedVehicle) {
+                setVehicleLocation(matchedVehicle)
+              }
+            } catch (error) {
+              console.error('Error fetching vehicle by registration:', error)
+            }
+          }
         }
       } catch (err) {
         console.error('Error fetching assignment info:', err)
@@ -243,7 +272,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
         </div>
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-slate-900 truncate">
-            {vehicleLocation?.plate || vehicleInfo?.registration_number || 'Not assigned'}
+            {vehicleLocation?.plate || vehicleInfo?.registration_number || assignment?.vehicle?.name || 'Not assigned'}
           </span>
           <span className="text-xs text-slate-500">{vehicleLocation ? `Speed: ${vehicleLocation.speed} km/h` : ''}</span>
         </div>
