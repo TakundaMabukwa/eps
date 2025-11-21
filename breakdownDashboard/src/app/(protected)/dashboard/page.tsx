@@ -272,7 +272,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
         </div>
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-slate-900 truncate">
-            {vehicleLocation?.plate || vehicleInfo?.registration_number || (typeof assignment?.vehicle?.name === 'string' ? assignment.vehicle.name : assignment?.vehicle?.name?.name) || 'Not assigned'}
+            {vehicleLocation?.plate || vehicleInfo?.registration_number || assignment?.vehicle?.name || 'Not assigned'}
           </span>
           <span className="text-xs text-slate-500">{vehicleLocation ? `Speed: ${vehicleLocation.speed} km/h` : ''}</span>
         </div>
