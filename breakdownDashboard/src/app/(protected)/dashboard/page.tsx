@@ -596,7 +596,6 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
 
         const clientDetails = typeof trip.clientdetails === 'string' ? JSON.parse(trip.clientdetails) : trip.clientdetails
         const title = clientDetails?.name || trip.selectedClient || trip.clientDetails?.name || `Trip ${trip.trip_id || trip.id}`
-        const isOffCourse = false // Simplified for demo
         const hasUnauthorizedStops = trip.unauthorized_stops_count > 0
 
         return (
@@ -624,15 +623,15 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
               <div className="h-1 w-full rounded-full bg-gradient-to-r from-blue-500 via-blue-400 to-blue-400 mb-3 opacity-100" />
 
               {/* Alert Banner */}
-              {(isOffCourse || (trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered')) && (
+              {((trip.unauthorized_stops_count > 0 && trip.status?.toLowerCase() !== 'delivered') || trip.alert_message) && (
               <div className="rounded-md p-2 mb-3 text-sm flex items-center gap-2 bg-red-50 border border-red-200">
               <AlertTriangle className="w-4 h-4 text-red-600" />
               <span className="text-sm font-medium text-red-700">
-              {trip.unauthorized_stops_count > 0 
-              ? `Unauthorized Stop — ${trip.unauthorized_stops_count} detected`
-              : 'Trip Off-Course — Attention Required'
+              {trip.alert_type ? trip.alert_type.replace('_', ' ').toUpperCase() :
+              `Unauthorized Stop — ${trip.unauthorized_stops_count} detected`
               }
               </span>
+
               </div>
               )}
 
@@ -917,6 +916,7 @@ export default function Dashboard() {
   const [photosModalOpen, setPhotosModalOpen] = useState(false);
   const [currentTripPhotos, setCurrentTripPhotos] = useState<any>(null);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const [trips, setTrips] = useState<any[]>([]);
 
   // Get user role from cookies
   useEffect(() => {
@@ -928,6 +928,21 @@ export default function Dashboard() {
     };
     const role = decodeURIComponent(getCookie("role") || "");
     setUserRole(role);
+  }, []);
+
+  // Fetch trips for alerts
+  useEffect(() => {
+    async function fetchTrips() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase.from('trips').select('*');
+        if (error) throw error;
+        setTrips(data || []);
+      } catch (err) {
+        console.error('Error fetching trips:', err);
+      }
+    }
+    fetchTrips();
   }, []);
 
   const handleViewMap = async (driverName: string, trip?: any) => {
@@ -1073,6 +1088,8 @@ export default function Dashboard() {
             </TabsList>
           </Tabs>
         </div> */}
+
+
 
         {/* Conditionally render the main views */}
         {activeTab === "routing" && (

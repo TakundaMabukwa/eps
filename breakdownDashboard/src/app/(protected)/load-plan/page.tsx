@@ -2225,14 +2225,14 @@ export default function LoadPlanPage() {
           setStopPoints(newOrder.stopPoints)
           setCustomStopPoints(newOrder.customStopPoints)
           setIsManuallyOrdered(true)
-          setOptimizedRoute(null)
           setShowRouteModal(false)
+          // Don't clear optimized route immediately - let the effect handle it
         }}
         onForceRecalculate={() => {
           console.log('Force recalculating route')
           setIsManuallyOrdered(false)
-          setOptimizedRoute(null)
           setShowRouteModal(false)
+          // Don't clear optimized route immediately - let the effect handle it
         }}
       />
       
