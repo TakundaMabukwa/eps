@@ -179,7 +179,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
     fetchAssignmentInfo()
   }, [trip.vehicleassignments, trip.vehicle_assignments])
 
-  const driverName = driverInfo ? driverInfo.surname : 'Unassigned'
+  const driverName = driverInfo ? (typeof driverInfo.surname === 'string' ? driverInfo.surname : String(driverInfo.surname || 'Unassigned')) : 'Unassigned'
   const initials = driverName !== 'Unassigned' ? driverName.split(' ').map((s: string) => s[0]).slice(0,2).join('') : 'DR'
 
   if (loading) {
@@ -219,7 +219,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-slate-900 truncate">{driverInfo?.surname || 'Unassigned'}</div>
+          <div className="text-sm font-semibold text-slate-900 truncate">{typeof driverInfo?.surname === 'string' ? driverInfo.surname : String(driverInfo?.surname || 'Unassigned')}</div>
           <div className="text-xs text-slate-600">{driverInfo ? driverInfo.phone_number : 'No driver assigned'}</div>
         </div>
         <div className="flex-shrink-0">
@@ -272,7 +272,7 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
         </div>
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-slate-900 truncate">
-            {vehicleLocation?.plate || vehicleInfo?.registration_number || assignment?.vehicle?.name || 'Not assigned'}
+            {vehicleLocation?.plate || vehicleInfo?.registration_number || (typeof assignment?.vehicle?.name === 'string' ? assignment.vehicle.name : assignment?.vehicle?.name?.name) || 'Not assigned'}
           </span>
           <span className="text-xs text-slate-500">{vehicleLocation ? `Speed: ${vehicleLocation.speed} km/h` : ''}</span>
         </div>
@@ -311,10 +311,11 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
 
             const selectedStopPoints = trip.selected_stop_points || trip.selectedstoppoints || [];
             if (selectedStopPoints.length > 0) {
+              const stopPointIds = selectedStopPoints.map((stop: any) => typeof stop === 'object' ? stop.id : stop);
               const { data: stopPointsData } = await supabase
                 .from('stop_points')
                 .select('id, name, coordinates')
-                .in('id', selectedStopPoints);
+                .in('id', stopPointIds);
 
               stopPoints = (stopPointsData || []).map(point => {
                 if (point.coordinates) {
@@ -340,7 +341,38 @@ function DriverCard({ trip, userRole, handleViewMap, setCurrentTripForNote, setN
               }).filter(Boolean);
             }
 
-            handleViewMap(driverName, { ...trip, vehicleLocation, routeCoords, stopPoints });
+            // Fetch high risk zones
+            let highRiskZones = [];
+            try {
+              const { data: riskZones } = await supabase
+                .from('high_risk')
+                .select('id, name, coordinates');
+              
+              highRiskZones = (riskZones || []).map(zone => {
+                if (zone.coordinates) {
+                  const coordPairs = zone.coordinates.split(' ')
+                    .filter(coord => coord.trim())
+                    .map(coord => {
+                      const [lng, lat, z] = coord.split(',');
+                      return [parseFloat(lng), parseFloat(lat)];
+                    })
+                    .filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]));
+
+                  if (coordPairs.length > 2) {
+                    return {
+                      name: zone.name,
+                      polygon: coordPairs
+                    };
+                  }
+                }
+                return null;
+              }).filter(Boolean);
+            } catch (error) {
+              console.error('Error fetching high risk zones:', error);
+            }
+
+            console.log('High risk zones:', highRiskZones);
+            handleViewMap(driverName, { ...trip, vehicleLocation, routeCoords, stopPoints, highRiskZones });
           }}
         >
           <MapPin className="w-3 h-3" /> Track
@@ -513,13 +545,13 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
       const onTripPos = baseWaypoints[5].position
       const stopSpacing = (onTripPos - loadingPos) / (stops.length + 1)
       
-      const stopWaypoints = stops.map((stopId: any, index: number) => ({
+      const stopWaypoints = stops.map((stop: any, index: number) => ({
         position: loadingPos + (stopSpacing * (index + 1)),
         label: `Stop ${index + 1}`,
         completed: currentStatusIndex > 4,
         current: false,
         isStop: true,
-        stopId
+        stopId: stop
       }))
       
       // Adjust positions of waypoints after Loading
@@ -689,7 +721,7 @@ function RoutingSection({ userRole, handleViewMap, setCurrentTripForNote, setNot
               </span>
               {waypoint.isStop && (
               <div className="absolute bottom-full mb-1 px-2 py-1 bg-white border rounded text-xs text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
-                Stop ID: {waypoint.stopId}
+                {typeof waypoint.stopId === 'object' ? waypoint.stopId.name : waypoint.stopId}
               </div>
               )}
               </div>
@@ -899,12 +931,44 @@ export default function Dashboard() {
   }, []);
 
   const handleViewMap = async (driverName: string, trip?: any) => {
+    // Fetch high risk zones
+    let highRiskZones = [];
+    try {
+      const supabase = createClient();
+      const { data: riskZones } = await supabase
+        .from('high_risk')
+        .select('id, name, coordinates');
+      
+      highRiskZones = (riskZones || []).map(zone => {
+        if (zone.coordinates) {
+          const coordPairs = zone.coordinates.split(' ')
+            .filter(coord => coord.trim())
+            .map(coord => {
+              const [lng, lat, z] = coord.split(',');
+              return [parseFloat(lng), parseFloat(lat)];
+            })
+            .filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]));
+
+          if (coordPairs.length > 2) {
+            return {
+              name: zone.name,
+              polygon: coordPairs
+            };
+          }
+        }
+        return null;
+      }).filter(Boolean);
+    } catch (error) {
+      console.error('Error fetching high risk zones:', error);
+    }
+
     if (trip?.vehicleLocation && trip.vehicleLocation.latitude && trip.vehicleLocation.longitude) {
       const vehicleData = {
         ...trip.vehicleLocation,
         trip,
         routeCoordinates: trip.routeCoords,
         stopPoints: trip.stopPoints,
+        highRiskZones,
         driverDetails: {
           fullName: driverName,
           plate: trip.vehicleLocation.plate,
@@ -923,6 +987,7 @@ export default function Dashboard() {
         ...trip.vehicleLocation,
         latitude: trip.vehicleLocation.latitude,
         longitude: trip.vehicleLocation.longitude,
+        highRiskZones,
         driverDetails: {
           fullName: driverName,
           plate: trip.vehicleLocation.plate,
@@ -1525,7 +1590,7 @@ export default function Dashboard() {
                             zoom: 15
                           })
                           
-                          map.on('load', () => {
+                          map.on('load', async () => {
                             // Driver location marker
                             const vehicleEl = document.createElement('div')
                             vehicleEl.innerHTML = '🚛'
@@ -1545,6 +1610,52 @@ export default function Dashboard() {
                               .setLngLat([parseFloat(mapData.longitude), parseFloat(mapData.latitude)])
                               .addTo(map)
                             
+                            // Add high risk zones first
+                            console.log('Adding high risk zones to map:', mapData.highRiskZones);
+                            if (mapData.highRiskZones && mapData.highRiskZones.length > 0) {
+                              mapData.highRiskZones.forEach((area, index) => {
+                                console.log('Processing risk zone:', area);
+                                if (!area.polygon || area.polygon.length < 3) return;
+                                
+                                const sourceId = `risk-zone-${index}`;
+                                
+                                if (!map.getSource(sourceId)) {
+                                  map.addSource(sourceId, {
+                                    type: 'geojson',
+                                    data: {
+                                      type: 'Feature',
+                                      properties: { name: area.name },
+                                      geometry: {
+                                        type: 'Polygon',
+                                        coordinates: [area.polygon]
+                                      }
+                                    }
+                                  });
+                                  
+                                  map.addLayer({
+                                    id: `${sourceId}-fill`,
+                                    type: 'fill',
+                                    source: sourceId,
+                                    paint: {
+                                      'fill-color': '#ef4444',
+                                      'fill-opacity': 0.5
+                                    }
+                                  });
+                                  
+                                  map.addLayer({
+                                    id: `${sourceId}-border`,
+                                    type: 'line',
+                                    source: sourceId,
+                                    paint: {
+                                      'line-color': '#dc2626',
+                                      'line-width': 3
+                                    }
+                                  });
+                                  console.log('Added risk zone:', sourceId);
+                                }
+                              });
+                            }
+
                             // Add route coordinates if available
                             if (mapData.routeCoordinates) {
                               map.addSource('planned-route', {
@@ -1583,6 +1694,8 @@ export default function Dashboard() {
                                 .setLngLat(mapData.routeCoordinates[mapData.routeCoordinates.length - 1])
                                 .addTo(map);
                               
+
+
                               // Add stop points if available
                               if (mapData.stopPoints && mapData.stopPoints.length > 0) {
                                 mapData.stopPoints.forEach((stopPoint, index) => {
@@ -1636,7 +1749,7 @@ export default function Dashboard() {
                                 });
                               }
                               
-                              // Fit map to show vehicle, route, and stop points
+                              // Fit map to show vehicle, route, stop points, and risk zones
                               const bounds = new window.mapboxgl.LngLatBounds();
                               bounds.extend([parseFloat(mapData.longitude), parseFloat(mapData.latitude)]);
                               mapData.routeCoordinates.forEach(coord => bounds.extend(coord));
@@ -1645,6 +1758,13 @@ export default function Dashboard() {
                                   bounds.extend(stop.coordinates);
                                   if (stop.polygon) {
                                     stop.polygon.forEach(coord => bounds.extend(coord));
+                                  }
+                                });
+                              }
+                              if (mapData.highRiskZones) {
+                                mapData.highRiskZones.forEach(zone => {
+                                  if (zone.polygon) {
+                                    zone.polygon.forEach(coord => bounds.extend(coord));
                                   }
                                 });
                               }

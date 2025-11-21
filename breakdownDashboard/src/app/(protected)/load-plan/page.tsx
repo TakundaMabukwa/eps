@@ -106,6 +106,7 @@ export default function LoadPlanPage() {
   const [isLoadingStopPoints, setIsLoadingStopPoints] = useState(false)
   const [customStopPoints, setCustomStopPoints] = useState([])
   const [tripDays, setTripDays] = useState(1)
+  const [isManuallyOrdered, setIsManuallyOrdered] = useState(false)
 
   // Rate Card System - Variable Costs
   const RATE_CARD_SYSTEM = {
@@ -449,7 +450,10 @@ export default function LoadPlanPage() {
       setIsOptimizing(true)
       try {
         const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-        if (!mapboxToken) return
+        if (!mapboxToken) {
+          setIsOptimizing(false)
+          return
+        }
         
         // Check if we have driver location for complete route
         const firstDriver = driverAssignments[0]
@@ -474,10 +478,26 @@ export default function LoadPlanPage() {
           }
         }
         
+        // Get stop points data if available
+        let stopPointsData = []
+        if (stopPoints.length > 0 || customStopPoints.some(p => p)) {
+          try {
+            stopPointsData = await getSelectedStopPointsData()
+            console.log('Stop points data for route:', stopPointsData)
+            // Filter out invalid stop points
+            stopPointsData = stopPointsData.filter(point => 
+              point && point.coordinates && point.coordinates.length > 0
+            )
+          } catch (error) {
+            console.error('Error getting stop points data:', error)
+            stopPointsData = []
+          }
+        }
+        
         // Geocode loading and drop-off locations
         const [loadingResponse, dropOffResponse] = await Promise.all([
-          fetch(`/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(loadingLocation)}.json`)}&country=za&limit=1`),
-          fetch(`/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dropOffPoint)}.json`)}&country=za&limit=1`)
+          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(loadingLocation)}.json?access_token=${mapboxToken}&country=za&limit=1`),
+          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dropOffPoint)}.json?access_token=${mapboxToken}&country=za&limit=1`)
         ])
         
         const [loadingData, dropOffData] = await Promise.all([
@@ -489,42 +509,85 @@ export default function LoadPlanPage() {
           const loadingCoords = loadingData.features[0].center
           const dropOffCoords = dropOffData.features[0].center
           
-          let waypoints = `${loadingCoords[0]},${loadingCoords[1]};${dropOffCoords[0]},${dropOffCoords[1]}`
+          // Build waypoints string including stop points
+          let waypoints = `${loadingCoords[0]},${loadingCoords[1]}`
           
-          // If we have driver location, create complete route: driver → loading → drop-off
-          if (driverLocation) {
-            waypoints = `${driverLocation.lng},${driverLocation.lat};${loadingCoords[0]},${loadingCoords[1]};${dropOffCoords[0]},${dropOffCoords[1]}`
+          // Add stop points as waypoints
+          if (stopPointsData.length > 0) {
+            const stopWaypoints = stopPointsData.map(point => {
+              const coords = point.coordinates
+              const avgLng = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length
+              const avgLat = coords.reduce((sum, coord) => sum + coord[1], 0) / coords.length
+              return `${avgLng},${avgLat}`
+            }).filter(waypoint => waypoint && !waypoint.includes('NaN'))
+            
+            if (stopWaypoints.length > 0) {
+              waypoints += `;${stopWaypoints.join(';')}`
+            }
           }
           
-          // Get truck-specific directions with restrictions, traffic, and tolls
-          const directionsResponse = await fetch(
-            `/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}`)}&geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry`
-          )
-          const directionsData = await directionsResponse.json()
+          waypoints += `;${dropOffCoords[0]},${dropOffCoords[1]}`
           
+          // If we have driver location, create complete route: driver → loading → stops → drop-off
+          if (driverLocation) {
+            waypoints = `${driverLocation.lng},${driverLocation.lat};${waypoints}`
+          }
+          
+          console.log('Calculating route with waypoints:', waypoints)
+          
+          // Always use directions API for now to avoid complexity
+          const apiEndpoint = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}`
+          const apiParams = 'geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry'
+          
+          const directionsResponse = await fetch(
+            `${apiEndpoint}?access_token=${mapboxToken}&${apiParams}`
+          )
+          
+          if (!directionsResponse.ok) {
+            console.error('API request failed:', directionsResponse.status, directionsResponse.statusText)
+            setOptimizedRoute(null)
+            return
+          }
+          
+          const directionsData = await directionsResponse.json()
           console.log('Directions API response:', directionsData)
           
-          if (directionsData.routes?.[0]) {
+          if (directionsData.code !== 'Ok') {
+            console.error('API returned error:', directionsData)
+            setOptimizedRoute(null)
+            return
+          }
+          
+          const route = directionsData.routes?.[0]
+          if (route) {
             const routeInfo = {
-              route: directionsData.routes[0],
-              distance: directionsData.routes[0].distance,
-              duration: directionsData.routes[0].duration,
-              hasDriverLocation: !!driverLocation
+              route: route,
+              distance: route.distance,
+              duration: route.duration,
+              hasDriverLocation: !!driverLocation,
+              stopPoints: stopPointsData,
+              geometry: route.geometry
             }
             console.log('Setting optimized route:', routeInfo)
             setOptimizedRoute(routeInfo)
           } else {
             console.error('No routes found:', directionsData)
+            setOptimizedRoute(null)
           }
         }
       } catch (error) {
         console.error('Route preview failed:', error)
+        setOptimizedRoute(null)
       }
       setIsOptimizing(false)
     }
     
-    previewRoute()
-  }, [loadingLocation, dropOffPoint, orderNumber, etaPickup, tripType, driverAssignments[0]?.id, stopPoints, customStopPoints])
+    // Add a small delay to prevent too frequent updates
+    const timeoutId = setTimeout(previewRoute, 500)
+    return () => clearTimeout(timeoutId)
+  }, [loadingLocation, dropOffPoint, stopPoints, customStopPoints, driverAssignments, isManuallyOrdered])
+
+
 
   // Update sorted drivers when pickup location changes
   useEffect(() => {
@@ -778,7 +841,7 @@ export default function LoadPlanPage() {
   }, [availableStopPoints, loadingLocation, dropOffPoint, optimizedRoute, distanceToRoute, calculateDistance])
 
   // Get selected stop points with coordinates including custom locations
-  const getSelectedStopPointsData = async () => {
+  const getSelectedStopPointsData = useCallback(async () => {
     console.log('getSelectedStopPointsData called with:', { stopPoints, customStopPoints, availableStopPoints: availableStopPoints.length })
     
     // Ensure stop points are loaded if not already available
@@ -878,7 +941,7 @@ export default function LoadPlanPage() {
     
     console.log('getSelectedStopPointsData returning:', results)
     return results
-  }
+  }, [stopPoints, customStopPoints, availableStopPoints])
 
   // Optimized handlers with useCallback
   const handleDriverChange = useCallback((driverIndex, driverId) => {
@@ -910,7 +973,13 @@ export default function LoadPlanPage() {
           latitude: parseFloat(matchingVehicle.latitude),
           longitude: parseFloat(matchingVehicle.longitude)
         })
+        // Force route recalculation when driver changes
+        setOptimizedRoute(null)
+      } else {
+        setSelectedDriverLocation(null)
       }
+    } else {
+      setSelectedDriverLocation(null)
     }
   }, [drivers, vehicleTrackingData])
 
@@ -981,8 +1050,8 @@ export default function LoadPlanPage() {
     e.preventDefault()
     
     // Validate required fields
-    if (!client || !commodity || !loadingLocation || !dropOffPoint || !comment) {
-      showToast('Please fill out all required fields including comment', 'error')
+    if (!client || !commodity || !loadingLocation || !dropOffPoint) {
+      showToast('Please fill out all required fields', 'error')
       return
     }
     
@@ -1148,7 +1217,15 @@ export default function LoadPlanPage() {
           }
         }],
         trip_type: tripType,
-        selected_stop_points: stopPoints, // Save stop points for both trip types
+        selected_stop_points: stopPoints.map((pointId, index) => {
+          if (customStopPoints[index]) {
+            return { type: 'custom', name: customStopPoints[index], id: `custom_${index}` }
+          } else if (pointId) {
+            const point = availableStopPoints.find(p => p.id.toString() === pointId)
+            return point ? { type: 'existing', ...point } : null
+          }
+          return null
+        }).filter(Boolean),
         selected_vehicle_type: selectedVehicleType,
         approximate_fuel_cost: approximateFuelCost,
         approximated_cpk: approximatedCPK,
@@ -1160,8 +1237,18 @@ export default function LoadPlanPage() {
         fuel_price_per_liter: parseFloat(fuelPricePerLiter) || null
       }
       
-      const { error } = await supabase.from('trips').insert([tripData])
-      if (error) throw error
+      console.log('Inserting trip data:', tripData)
+      const { data, error } = await supabase.from('trips').insert([tripData])
+      if (error) {
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
+        throw new Error(`Database error: ${error.message || 'Unknown error'}`)
+      }
+      console.log('Trip created successfully:', data)
       
       // Mark assigned drivers as unavailable
       const assignedDriverIds = driverAssignments
@@ -1364,8 +1451,8 @@ export default function LoadPlanPage() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label htmlFor="comment">Comment *</Label>
-                    <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comment (required)" required />
+                    <Label htmlFor="comment">Comment</Label>
+                    <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comment (optional)" />
                   </div>
                 </div>
 
@@ -1383,7 +1470,11 @@ export default function LoadPlanPage() {
                     <LocationAutocomplete
                       label="Loading Location"
                       value={loadingLocation}
-                      onChange={setLoadingLocation}
+                      onChange={(value) => {
+                        console.log('Loading location changed to:', value)
+                        setLoadingLocation(value)
+                        setOptimizedRoute(null) // Force route recalculation
+                      }}
                       placeholder="Search for loading location"
                       clientLocations={useMemo(() => {
                         const selectedClient = clients.find(c => c.name === client)
@@ -1409,7 +1500,11 @@ export default function LoadPlanPage() {
                     <LocationAutocomplete
                       label="Drop Off Point"
                       value={dropOffPoint}
-                      onChange={setDropOffPoint}
+                      onChange={(value) => {
+                        console.log('Drop off location changed to:', value)
+                        setDropOffPoint(value)
+                        setOptimizedRoute(null) // Force route recalculation
+                      }}
                       placeholder="Search for drop off location"
                       clientLocations={useMemo(() => {
                         const selectedClient = clients.find(c => c.name === client)
@@ -1492,11 +1587,13 @@ export default function LoadPlanPage() {
                               console.log('StopPointDropdown onChange called with value:', value)
                               const updated = [...stopPoints]
                               updated[index] = value
+                              console.log('Setting stopPoints from:', stopPoints, 'to:', updated)
                               setStopPoints(updated)
-                              console.log('Updated stopPoints:', updated)
                               const updatedCustom = [...customStopPoints]
                               updatedCustom[index] = ''
                               setCustomStopPoints(updatedCustom)
+                              // Force route recalculation
+                              setOptimizedRoute(null)
                             }}
                             stopPoints={filteredStopPoints}
                             placeholder="Select from existing stop points"
@@ -1514,6 +1611,7 @@ export default function LoadPlanPage() {
                             setStopPoints(updated)
                             const updatedCustom = customStopPoints.filter((_, i) => i !== index)
                             setCustomStopPoints(updatedCustom)
+                            setIsManuallyOrdered(false)
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -1524,6 +1622,7 @@ export default function LoadPlanPage() {
                         label=""
                         value={customStopPoints[index] || ''}
                         onChange={(value) => {
+                          console.log('Custom stop point changed:', value)
                           const updatedCustom = [...customStopPoints]
                           while (updatedCustom.length <= index) {
                             updatedCustom.push('')
@@ -1535,6 +1634,8 @@ export default function LoadPlanPage() {
                             updated[index] = ''
                             setStopPoints(updated)
                           }
+                          // Force route recalculation
+                          setOptimizedRoute(null)
                         }}
                         placeholder="Search for custom stop location"
                       />
@@ -1554,11 +1655,13 @@ export default function LoadPlanPage() {
                       )}
                       <div className="space-y-4">
                         <RoutePreviewMap
+                          key={`${loadingLocation}-${dropOffPoint}-${stopPoints.join(',')}-${customStopPoints.join(',')}`}
                           origin={loadingLocation}
                           destination={dropOffPoint}
                           routeData={optimizedRoute}
                           stopPoints={stopPoints.length > 0 || customStopPoints.some(p => p) ? 'async' : []}
                           getStopPointsData={getSelectedStopPointsData}
+                          preserveOrder={isManuallyOrdered}
                           driverLocation={selectedDriverLocation ? {
                             lat: selectedDriverLocation.latitude,
                             lng: selectedDriverLocation.longitude,
@@ -2118,11 +2221,16 @@ export default function LoadPlanPage() {
         customStopPoints={customStopPoints}
         availableStopPoints={availableStopPoints}
         onReorder={(newOrder) => {
+          console.log('Reordering stop points:', newOrder)
           setStopPoints(newOrder.stopPoints)
           setCustomStopPoints(newOrder.customStopPoints)
+          setIsManuallyOrdered(true)
+          setOptimizedRoute(null)
           setShowRouteModal(false)
         }}
         onForceRecalculate={() => {
+          console.log('Force recalculating route')
+          setIsManuallyOrdered(false)
           setOptimizedRoute(null)
           setShowRouteModal(false)
         }}

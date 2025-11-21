@@ -40,9 +40,10 @@ export function StopPointDropdown({
   const handleStopPointSelect = (stopPoint) => {
     console.log('Stop point selected:', stopPoint)
     console.log('Calling onChange with ID:', stopPoint.id.toString())
-    onChange(stopPoint.id.toString())
     setSearchTerm('')
     setShowDropdown(false)
+    // Call onChange after state updates to ensure proper re-rendering
+    setTimeout(() => onChange(stopPoint.id.toString()), 0)
   }
 
   const handleInputFocus = () => {

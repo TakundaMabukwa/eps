@@ -26,9 +26,10 @@ interface RoutePreviewMapProps {
   };
   selectedClient?: any;
   tripId?: string;
+  preserveOrder?: boolean;
 }
 
-export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [], getStopPointsData, driverLocation, clientLocation, selectedClient, tripId }: RoutePreviewMapProps) {
+export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [], getStopPointsData, driverLocation, clientLocation, selectedClient, tripId, preserveOrder = false }: RoutePreviewMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -38,16 +39,14 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
   const markersRef = useRef<any[]>([]);
 
   useEffect(() => {
-    if (!mapContainer.current) return;
-
     const initializeMap = async () => {
+      if (!mapContainer.current || map.current) return;
+      
       const mapboxgl = (await import('mapbox-gl')).default;
       mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
-      if (map.current) return;
-
       map.current = new mapboxgl.Map({
-        container: mapContainer.current!,
+        container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v12',
         center: [28.0473, -26.2041],
         zoom: 6
@@ -58,9 +57,11 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
       });
     };
 
-    initializeMap();
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(initializeMap, 100);
 
     return () => {
+      clearTimeout(timer);
       if (map.current) {
         map.current.remove();
         map.current = null;
@@ -74,8 +75,15 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
 
     // Create cache key to prevent duplicate updates
     const stopPointsKey = Array.isArray(stopPoints) ? stopPoints.map(p => p?.id || p).join(',') : stopPoints || '';
-    const cacheKey = `${origin}-${destination}-${stopPointsKey}-${selectedClient?.id || ''}-${tripId || ''}`;
-    if (lastUpdateRef.current === cacheKey) return;
+    const driverKey = driverLocation ? `${driverLocation.lat}-${driverLocation.lng}-${driverLocation.name}` : '';
+    const getStopPointsKey = getStopPointsData ? 'hasStopPoints' : 'noStopPoints';
+    const preserveOrderKey = preserveOrder ? 'preserve' : 'optimize';
+    const cacheKey = `${origin}-${destination}-${stopPointsKey}-${selectedClient?.id || ''}-${tripId || ''}-${driverKey}-${getStopPointsKey}-${preserveOrderKey}`;
+    
+    // Always update if locations changed or if we have async stop points
+    const shouldUpdate = lastUpdateRef.current !== cacheKey || stopPoints === 'async';
+    
+    if (!shouldUpdate) return;
     
     // Clear existing timeout
     if (updateTimeoutRef.current) {
@@ -86,7 +94,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
     updateTimeoutRef.current = setTimeout(() => {
       lastUpdateRef.current = cacheKey;
       updateRoute();
-    }, 500);
+    }, 200);
 
     const updateRoute = async () => {
       if (!map.current || !mapLoaded || !map.current.isStyleLoaded()) return;
@@ -379,7 +387,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
         if (mainRoute) {
           console.log('Adding main route to map:', mainRoute);
           // Remove existing route
-          if (map.current.getSource('main-route')) {
+          if (map.current && map.current.getSource('main-route')) {
             map.current.removeLayer('main-route');
             map.current.removeSource('main-route');
           }
@@ -414,6 +422,10 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
                   'line-width': 6
                 }
               });
+              
+              console.log('Route layer added successfully');
+              console.log('Map has source:', !!map.current.getSource('main-route'));
+              console.log('Map has layer:', !!map.current.getLayer('main-route'));
               
               // Add directional arrows along the route
               const coords = mainRoute.coordinates;
@@ -450,7 +462,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
           }
 
           // Fit map to all elements
-          if (mainRoute.coordinates && mainRoute.coordinates.length > 0) {
+          if (mainRoute?.coordinates && mainRoute.coordinates.length > 0 && map.current) {
             const coordinates = mainRoute.coordinates;
             const bounds = coordinates.reduce((bounds: any, coord: any) => {
               return bounds.extend(coord);
@@ -467,7 +479,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
             }
 
             map.current.fitBounds(bounds, { padding: 50 });
-          } else if (selectedClient?.coordinates) {
+          } else if (selectedClient?.coordinates && map.current) {
             // Fit to client coordinates if no main route
             const coords = selectedClient.coordinates.split(' ')
               .filter(coord => coord.trim())
@@ -493,59 +505,30 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
           try {
             console.log('Calling getStopPointsData...');
             const asyncStopPoints = await getStopPointsData();
-            console.log('Async stop points:', asyncStopPoints);
-            const mapboxgl = (await import('mapbox-gl')).default;
-            asyncStopPoints.forEach((stopPoint, index) => {
-              if (stopPoint.coordinates && stopPoint.coordinates.length > 0) {
-                // Calculate center point for marker
-                const coords = stopPoint.coordinates;
-                const avgLng = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length;
-                const avgLat = coords.reduce((sum, coord) => sum + coord[1], 0) / coords.length;
-                
-                // Add orange marker for stop point
-                const marker = new mapboxgl.Marker({ color: 'orange' })
-                  .setLngLat([avgLng, avgLat])
-                  .setPopup(new mapboxgl.Popup().setText(`Stop: ${stopPoint.name}`))
-                  .addTo(map.current);
-                markersRef.current.push(marker);
-                
-                // Add directional arrow from previous point
-                if (index > 0) {
-                  const prevStop = asyncStopPoints[index - 1];
-                  const prevCoords = prevStop.coordinates;
-                  const prevAvgLng = prevCoords.reduce((sum, coord) => sum + coord[0], 0) / prevCoords.length;
-                  const prevAvgLat = prevCoords.reduce((sum, coord) => sum + coord[1], 0) / prevCoords.length;
+            console.log('Async stop points received:', asyncStopPoints);
+            
+            if (asyncStopPoints && asyncStopPoints.length > 0) {
+              const mapboxgl = (await import('mapbox-gl')).default;
+              asyncStopPoints.forEach((stopPoint, index) => {
+                console.log('Processing async stop point:', stopPoint);
+                if (stopPoint.coordinates && stopPoint.coordinates.length > 0) {
+                  // Calculate center point for marker
+                  const coords = stopPoint.coordinates;
+                  const avgLng = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length;
+                  const avgLat = coords.reduce((sum, coord) => sum + coord[1], 0) / coords.length;
                   
-                  const arrowId = `async-arrow-${prevStop.id}-${stopPoint.id}`;
-                  if (map.current.getSource(arrowId)) {
-                    map.current.removeLayer(arrowId);
-                    map.current.removeSource(arrowId);
+                  console.log('Adding marker at:', avgLng, avgLat);
+                  // Add orange marker for stop point
+                  if (map.current) {
+                    const marker = new mapboxgl.Marker({ color: 'orange' })
+                      .setLngLat([avgLng, avgLat])
+                      .setPopup(new mapboxgl.Popup().setText(`Stop: ${stopPoint.name}`))
+                      .addTo(map.current);
+                    markersRef.current.push(marker);
                   }
-                  
-                  map.current.addSource(arrowId, {
-                    type: 'geojson',
-                    data: {
-                      type: 'Feature',
-                      geometry: {
-                        type: 'LineString',
-                        coordinates: [[prevAvgLng, prevAvgLat], [avgLng, avgLat]]
-                      }
-                    }
-                  });
-                  
-                  map.current.addLayer({
-                    id: arrowId,
-                    type: 'line',
-                    source: arrowId,
-                    paint: {
-                      'line-color': '#ff6b35',
-                      'line-width': 3,
-                      'line-dasharray': [2, 1]
-                    }
-                  });
                 }
-              }
-            });
+              });
+            }
           } catch (error) {
             console.error('Error loading async stop points:', error);
           }
@@ -631,7 +614,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
         clearTimeout(updateTimeoutRef.current);
       }
     };
-  }, [mapLoaded, origin, destination, selectedClient, tripId, stopPoints]);
+  }, [mapLoaded, origin, destination, selectedClient, tripId, stopPoints, driverLocation, getStopPointsData, preserveOrder, routeData]);
 
   const geocodeLocation = async (location: string) => {
     const cacheKey = `geocode-${location}`;
@@ -641,7 +624,7 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
     
     try {
       const response = await fetch(
-        `/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json`)}&country=za&limit=1`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}&country=za&limit=1`
       );
       const data = await response.json();
       
@@ -664,28 +647,32 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
     
     try {
       // Traffic overlay
-      map.current.addSource('mapbox-traffic', {
-        type: 'vector',
-        url: 'mapbox://mapbox.mapbox-traffic-v1'
-      });
+      if (!map.current.getSource('mapbox-traffic')) {
+        map.current.addSource('mapbox-traffic', {
+          type: 'vector',
+          url: 'mapbox://mapbox.mapbox-traffic-v1'
+        });
+      }
       
-      map.current.addLayer({
-        id: 'traffic',
-        type: 'line',
-        source: 'mapbox-traffic',
-        'source-layer': 'traffic',
-        paint: {
-          'line-width': 2,
-          'line-color': [
-            'case',
-            ['==', ['get', 'congestion'], 'low'], '#00ff00',
-            ['==', ['get', 'congestion'], 'moderate'], '#ffff00', 
-            ['==', ['get', 'congestion'], 'heavy'], '#ff8800',
-            ['==', ['get', 'congestion'], 'severe'], '#ff0000',
-            '#888888'
-          ]
-        }
-      });
+      if (!map.current.getLayer('traffic')) {
+        map.current.addLayer({
+          id: 'traffic',
+          type: 'line',
+          source: 'mapbox-traffic',
+          'source-layer': 'traffic',
+          paint: {
+            'line-width': 2,
+            'line-color': [
+              'case',
+              ['==', ['get', 'congestion'], 'low'], '#00ff00',
+              ['==', ['get', 'congestion'], 'moderate'], '#ffff00', 
+              ['==', ['get', 'congestion'], 'heavy'], '#ff8800',
+              ['==', ['get', 'congestion'], 'severe'], '#ff0000',
+              '#888888'
+            ]
+          }
+        });
+      }
       
       // High-risk areas
       const response = await fetch('/api/high-risk-areas');
@@ -706,26 +693,28 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
           if (coords.length >= 3) {
             const sourceId = `risk-${area.id}`;
             
-            map.current.addSource(sourceId, {
-              type: 'geojson',
-              data: {
-                type: 'Feature',
-                geometry: {
-                  type: 'Polygon',
-                  coordinates: [coords.concat([coords[0]])]
+            if (!map.current.getSource(sourceId)) {
+              map.current.addSource(sourceId, {
+                type: 'geojson',
+                data: {
+                  type: 'Feature',
+                  geometry: {
+                    type: 'Polygon',
+                    coordinates: [coords.concat([coords[0]])]
+                  }
                 }
-              }
-            });
-            
-            map.current.addLayer({
-              id: `${sourceId}-fill`,
-              type: 'fill',
-              source: sourceId,
-              paint: {
-                'fill-color': '#ef4444',
-                'fill-opacity': 0.3
-              }
-            });
+              });
+              
+              map.current.addLayer({
+                id: `${sourceId}-fill`,
+                type: 'fill',
+                source: sourceId,
+                paint: {
+                  'fill-color': '#ef4444',
+                  'fill-opacity': 0.3
+                }
+              });
+            }
           }
         });
       }
@@ -750,13 +739,13 @@ export function RoutePreviewMap({ origin, destination, routeData, stopPoints = [
       
       coordinates += `;${destination.lng},${destination.lat}`;
       
-      // Always use optimized trips API for best routing
-      const endpoint = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}`;
+      // Always use directions API for reliable routing
+      const endpoint = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}`;
       
-      const response = await fetch(`/api/mapbox?endpoint=${encodeURIComponent(endpoint)}&geometries=geojson&overview=full&steps=true&source=first&destination=last&roundtrip=false`);
+      const response = await fetch(`/api/mapbox?endpoint=${encodeURIComponent(endpoint)}&geometries=geojson&overview=full&exclude=ferry`);
       const data = await response.json();
       
-      return data.trips?.[0]?.geometry || data.routes?.[0]?.geometry;
+      return data.routes?.[0]?.geometry;
     } catch (error) {
       console.error('Route error:', error);
       return null;
