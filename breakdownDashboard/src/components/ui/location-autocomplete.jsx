@@ -68,7 +68,7 @@ export function LocationAutocomplete({
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [value, clientLocations])
+  }, [value])
 
   const handleSuggestionClick = (suggestion) => {
     onChange(suggestion.address || suggestion.name)

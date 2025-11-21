@@ -21,6 +21,7 @@ import { RouteOptimizer } from '@/components/ui/route-optimizer'
 import { RouteTracker } from '@/components/ui/route-tracker'
 import { RoutePreviewMap } from '@/components/ui/route-preview-map'
 import { RouteConfirmationModal } from '@/components/ui/route-confirmation-modal'
+import { RouteEditModal } from '@/components/ui/route-edit-modal'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { CommodityDropdown } from '@/components/ui/commodity-dropdown'
 import { ClientDropdown } from '@/components/ui/client-dropdown'
@@ -35,9 +36,7 @@ import { markDriversUnavailable } from '@/lib/utils/driver-availability'
 
 
 export default function LoadPlanPage() {
-  console.log('LoadPlanPage component rendering')
   const supabase = createClient()
-  console.log('Supabase client created:', !!supabase)
   const [toast, setToast] = useState({ message: '', type: 'success' as 'success' | 'error', isVisible: false })
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type, isVisible: true })
@@ -105,7 +104,9 @@ export default function LoadPlanPage() {
   const [stopPoints, setStopPoints] = useState([])
   const [availableStopPoints, setAvailableStopPoints] = useState([])
   const [isLoadingStopPoints, setIsLoadingStopPoints] = useState(false)
+  const [customStopPoints, setCustomStopPoints] = useState([])
   const [tripDays, setTripDays] = useState(1)
+  const [isManuallyOrdered, setIsManuallyOrdered] = useState(false)
 
   // Rate Card System - Variable Costs
   const RATE_CARD_SYSTEM = {
@@ -207,7 +208,7 @@ export default function LoadPlanPage() {
         .from('stop_points')
         .select('id, name, name2, coordinates')
         .order('name')
-        .limit(1000) // Limit to prevent large data loads
+        // .limit(1000) // Removed limit to get all stop points
       
       if (stopPointsError) {
         console.error('Stop points error:', stopPointsError)
@@ -233,7 +234,7 @@ export default function LoadPlanPage() {
         trackingResponse
       ] = await Promise.all([
         supabase.from('trips').select('*').order('created_at', { ascending: false }),
-        supabase.from('clients').select('id, name, client_id, address, contact_person, phone, pickup_locations, dropoff_locations').eq('status', 'Active'),
+        supabase.from('eps_client_list').select('id, name, coordinates').order('name'),
         supabase.from('vehiclesc').select('id, registration_number, engine_number, vin_number, make, model, sub_model, manufactured_year, vehicle_type').eq('veh_dormant_flag', false),
         supabase.from('drivers').select('*'),
         supabase.from('cost_centers').select('*'),
@@ -440,6 +441,7 @@ export default function LoadPlanPage() {
   // Preview route when locations change - get Mapbox timing data
   useEffect(() => {
     const previewRoute = async () => {
+      console.log('Route preview triggered:', { loadingLocation, dropOffPoint, stopPoints, customStopPoints })
       if (!loadingLocation || !dropOffPoint) {
         setOptimizedRoute(null)
         return
@@ -448,7 +450,10 @@ export default function LoadPlanPage() {
       setIsOptimizing(true)
       try {
         const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-        if (!mapboxToken) return
+        if (!mapboxToken) {
+          setIsOptimizing(false)
+          return
+        }
         
         // Check if we have driver location for complete route
         const firstDriver = driverAssignments[0]
@@ -473,10 +478,26 @@ export default function LoadPlanPage() {
           }
         }
         
+        // Get stop points data if available
+        let stopPointsData = []
+        if (stopPoints.length > 0 || customStopPoints.some(p => p)) {
+          try {
+            stopPointsData = await getSelectedStopPointsData()
+            console.log('Stop points data for route:', stopPointsData)
+            // Filter out invalid stop points
+            stopPointsData = stopPointsData.filter(point => 
+              point && point.coordinates && point.coordinates.length > 0
+            )
+          } catch (error) {
+            console.error('Error getting stop points data:', error)
+            stopPointsData = []
+          }
+        }
+        
         // Geocode loading and drop-off locations
         const [loadingResponse, dropOffResponse] = await Promise.all([
-          fetch(`/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(loadingLocation)}.json`)}&country=za&limit=1`),
-          fetch(`/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dropOffPoint)}.json`)}&country=za&limit=1`)
+          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(loadingLocation)}.json?access_token=${mapboxToken}&country=za&limit=1`),
+          fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dropOffPoint)}.json?access_token=${mapboxToken}&country=za&limit=1`)
         ])
         
         const [loadingData, dropOffData] = await Promise.all([
@@ -488,57 +509,110 @@ export default function LoadPlanPage() {
           const loadingCoords = loadingData.features[0].center
           const dropOffCoords = dropOffData.features[0].center
           
-          let waypoints = `${loadingCoords[0]},${loadingCoords[1]};${dropOffCoords[0]},${dropOffCoords[1]}`
+          // Build waypoints string including stop points
+          let waypoints = `${loadingCoords[0]},${loadingCoords[1]}`
           
-          // If we have driver location, create complete route: driver → loading → drop-off
-          if (driverLocation) {
-            waypoints = `${driverLocation.lng},${driverLocation.lat};${loadingCoords[0]},${loadingCoords[1]};${dropOffCoords[0]},${dropOffCoords[1]}`
+          // Add stop points as waypoints
+          if (stopPointsData.length > 0) {
+            const stopWaypoints = stopPointsData.map(point => {
+              const coords = point.coordinates
+              const avgLng = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length
+              const avgLat = coords.reduce((sum, coord) => sum + coord[1], 0) / coords.length
+              return `${avgLng},${avgLat}`
+            }).filter(waypoint => waypoint && !waypoint.includes('NaN'))
+            
+            if (stopWaypoints.length > 0) {
+              waypoints += `;${stopWaypoints.join(';')}`
+            }
           }
           
-          // Get truck-specific directions with restrictions, traffic, and tolls
-          const directionsResponse = await fetch(
-            `/api/mapbox?endpoint=${encodeURIComponent(`https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}`)}&geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry`
-          )
-          const directionsData = await directionsResponse.json()
+          waypoints += `;${dropOffCoords[0]},${dropOffCoords[1]}`
           
+          // If we have driver location, create complete route: driver → loading → stops → drop-off
+          if (driverLocation) {
+            waypoints = `${driverLocation.lng},${driverLocation.lat};${waypoints}`
+          }
+          
+          console.log('Calculating route with waypoints:', waypoints)
+          
+          // Always use directions API for now to avoid complexity
+          const apiEndpoint = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}`
+          const apiParams = 'geometries=geojson&overview=full&annotations=duration,distance&exclude=ferry'
+          
+          const directionsResponse = await fetch(
+            `${apiEndpoint}?access_token=${mapboxToken}&${apiParams}`
+          )
+          
+          if (!directionsResponse.ok) {
+            console.error('API request failed:', directionsResponse.status, directionsResponse.statusText)
+            setOptimizedRoute(null)
+            return
+          }
+          
+          const directionsData = await directionsResponse.json()
           console.log('Directions API response:', directionsData)
           
-          if (directionsData.routes?.[0]) {
+          if (directionsData.code !== 'Ok') {
+            console.error('API returned error:', directionsData)
+            setOptimizedRoute(null)
+            return
+          }
+          
+          const route = directionsData.routes?.[0]
+          if (route) {
             const routeInfo = {
-              route: directionsData.routes[0],
-              distance: directionsData.routes[0].distance,
-              duration: directionsData.routes[0].duration,
-              hasDriverLocation: !!driverLocation
+              route: route,
+              distance: route.distance,
+              duration: route.duration,
+              hasDriverLocation: !!driverLocation,
+              stopPoints: stopPointsData,
+              geometry: route.geometry
             }
             console.log('Setting optimized route:', routeInfo)
             setOptimizedRoute(routeInfo)
           } else {
             console.error('No routes found:', directionsData)
+            setOptimizedRoute(null)
           }
         }
       } catch (error) {
         console.error('Route preview failed:', error)
+        setOptimizedRoute(null)
       }
       setIsOptimizing(false)
     }
     
-    previewRoute()
-  }, [loadingLocation, dropOffPoint, orderNumber, etaPickup, tripType, driverAssignments[0]?.id])
+    // Add a small delay to prevent too frequent updates
+    const timeoutId = setTimeout(previewRoute, 500)
+    return () => clearTimeout(timeoutId)
+  }, [loadingLocation, dropOffPoint, stopPoints, customStopPoints, driverAssignments, isManuallyOrdered])
+
+
 
   // Update sorted drivers when pickup location changes
   useEffect(() => {
     if (loadingLocation) {
-      getSortedDriversByDistance(loadingLocation).then((sorted) => {
-        setSortedDrivers(sorted)
-        // Also update available drivers with distance info
-        const availableWithDistance = sorted.filter(d => d.available === true)
-        setAvailableDrivers(availableWithDistance)
-      })
+      // Refresh vehicle tracking data when location changes
+      fetch('http://64.227.138.235:3000/api/eps-vehicles')
+        .then(response => response.json())
+        .then(trackingData => {
+          const vehicleData = trackingData?.result?.data || trackingData?.data || trackingData || []
+          setVehicleTrackingData(vehicleData)
+          return getSortedDriversByDistance(loadingLocation)
+        })
+        .then((sorted) => {
+          setSortedDrivers(sorted)
+          const availableWithDistance = sorted.filter(d => d.available === true)
+          setAvailableDrivers(availableWithDistance)
+        })
+        .catch(error => {
+          console.error('Error updating driver distances:', error)
+        })
     } else {
       setSortedDrivers(drivers)
       setAvailableDrivers(drivers.filter(d => d.available === true))
     }
-  }, [loadingLocation, getSortedDriversByDistance, drivers])
+  }, [loadingLocation])
 
   // Calculate estimated distance when locations change
   useEffect(() => {
@@ -766,34 +840,108 @@ export default function LoadPlanPage() {
     })
   }, [availableStopPoints, loadingLocation, dropOffPoint, optimizedRoute, distanceToRoute, calculateDistance])
 
-  // Get selected stop points with coordinates
-  const getSelectedStopPointsData = () => {
-    return stopPoints.map(pointId => {
-      const point = availableStopPoints.find(p => p.id.toString() === pointId)
-      if (point?.coordinates) {
+  // Get selected stop points with coordinates including custom locations
+  const getSelectedStopPointsData = useCallback(async () => {
+    console.log('getSelectedStopPointsData called with:', { stopPoints, customStopPoints, availableStopPoints: availableStopPoints.length })
+    
+    // Ensure stop points are loaded if not already available
+    if (availableStopPoints.length === 0 && (stopPoints.length > 0 || customStopPoints.some(p => p))) {
+      console.log('Loading stop points from database...')
+      try {
+        const { data: stopPointsData, error: stopPointsError } = await supabase
+          .from('stop_points')
+          .select('id, name, name2, coordinates')
+          .order('name')
+        
+        if (stopPointsError) {
+          console.error('Stop points error:', stopPointsError)
+        } else {
+          setAvailableStopPoints(stopPointsData || [])
+          console.log('Loaded stop points:', stopPointsData?.length || 0)
+        }
+      } catch (err) {
+        console.error('Error fetching stop points:', err)
+      }
+    }
+    
+    const results = []
+    
+    for (let i = 0; i < stopPoints.length; i++) {
+      const pointId = stopPoints[i]
+      const customLocation = customStopPoints[i]
+      console.log(`Processing stop point ${i}:`, { pointId, customLocation })
+      
+      if (customLocation) {
+        // Geocode custom location
         try {
-          // Parse coordinates format: "28.141508,-26.232723,0 28.140979,-26.232172,0 ..."
-          const coordPairs = point.coordinates.split(' ')
-            .filter(coord => coord.trim())
-            .map(coord => {
-              const [lng, lat, alt] = coord.split(',')
-              return [parseFloat(lng), parseFloat(lat)]
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(customLocation)}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}&country=za&limit=1`
+          )
+          const data = await response.json()
+          if (data.features?.[0]) {
+            const [lng, lat] = data.features[0].center
+            results.push({
+              id: `custom_${i}`,
+              name: customLocation,
+              coordinates: [[lng, lat]]
             })
-            .filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]))
-          
-          return {
-            id: point.id,
-            name: point.name,
-            coordinates: coordPairs
           }
         } catch (error) {
-          console.error('Error parsing coordinates:', error)
-          return null
+          console.error('Error geocoding custom location:', error)
+        }
+      } else if (pointId) {
+        // Use existing stop point - use current availableStopPoints or fetch directly
+        let point = availableStopPoints.find(p => p.id.toString() === pointId)
+        
+        // If not found in current array, fetch directly from database
+        if (!point) {
+          console.log('Stop point not found in cache, fetching from database...')
+          try {
+            const { data: pointData, error } = await supabase
+              .from('stop_points')
+              .select('id, name, name2, coordinates')
+              .eq('id', pointId)
+              .single()
+            
+            if (!error && pointData) {
+              point = pointData
+              console.log('Fetched stop point from database:', point)
+            }
+          } catch (err) {
+            console.error('Error fetching individual stop point:', err)
+          }
+        }
+        
+        console.log('Found stop point for ID', pointId, ':', point)
+        if (point?.coordinates) {
+          try {
+            const coordPairs = point.coordinates.split(' ')
+              .filter(coord => coord.trim())
+              .map(coord => {
+                const [lng, lat] = coord.split(',')
+                return [parseFloat(lng), parseFloat(lat)]
+              })
+              .filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]))
+            
+            console.log('Parsed coordinates:', coordPairs)
+            results.push({
+              id: point.id,
+              name: point.name,
+              coordinates: coordPairs
+            })
+          } catch (error) {
+            console.error('Error parsing coordinates:', error)
+          }
+        } else {
+          console.log('No coordinates found for point:', pointId)
+          console.log('Point found but no coordinates:', point)
         }
       }
-      return null
-    }).filter(Boolean)
-  }
+    }
+    
+    console.log('getSelectedStopPointsData returning:', results)
+    return results
+  }, [stopPoints, customStopPoints, availableStopPoints])
 
   // Optimized handlers with useCallback
   const handleDriverChange = useCallback((driverIndex, driverId) => {
@@ -825,7 +973,13 @@ export default function LoadPlanPage() {
           latitude: parseFloat(matchingVehicle.latitude),
           longitude: parseFloat(matchingVehicle.longitude)
         })
+        // Force route recalculation when driver changes
+        setOptimizedRoute(null)
+      } else {
+        setSelectedDriverLocation(null)
       }
+    } else {
+      setSelectedDriverLocation(null)
     }
   }, [drivers, vehicleTrackingData])
 
@@ -839,6 +993,12 @@ export default function LoadPlanPage() {
     
     setIsCalculatingDistance(true)
     try {
+      // Refresh vehicle tracking data first
+      const trackingResponse = await fetch('http://64.227.138.235:3000/api/eps-vehicles')
+      const trackingData = await trackingResponse.json()
+      const vehicleData = trackingData?.result?.data || trackingData?.data || trackingData || []
+      setVehicleTrackingData(vehicleData)
+      
       const sorted = await getSortedDriversByDistance(loadingLocation)
       setSortedDrivers(sorted)
       
@@ -888,11 +1048,18 @@ export default function LoadPlanPage() {
 
   const handleCreateClick = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate required fields
+    if (!client || !commodity || !loadingLocation || !dropOffPoint) {
+      showToast('Please fill out all required fields', 'error')
+      return
+    }
+    
     handleCreate()
   }
 
   const handleClientSelect = (clientData) => {
-    if (typeof clientData === 'object' && clientData.address) {
+    if (typeof clientData === 'object' && clientData.coordinates) {
       setSelectedClient(clientData)
       setClient(clientData.name)
       setManualClientName('') // Clear manual input
@@ -905,15 +1072,55 @@ export default function LoadPlanPage() {
   }
 
   const handleUseAsPickup = () => {
-    if (selectedClient?.address) {
-      setLoadingLocation(selectedClient.address)
+    if (selectedClient?.coordinates) {
+      try {
+        const coords = selectedClient.coordinates.split(' ')[0].split(',')
+        if (coords.length >= 2) {
+          const lng = parseFloat(coords[0])
+          const lat = parseFloat(coords[1])
+          if (!isNaN(lng) && !isNaN(lat)) {
+            fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+              .then(response => response.json())
+              .then(data => {
+                if (data.features && data.features.length > 0) {
+                  setLoadingLocation(data.features[0].place_name)
+                } else {
+                  setLoadingLocation(`${lat},${lng}`)
+                }
+              })
+              .catch(() => setLoadingLocation(`${lat},${lng}`))
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing coordinates:', error)
+      }
     }
     setShowAddressPopup(false)
   }
 
   const handleUseAsDropoff = () => {
-    if (selectedClient?.address) {
-      setDropOffPoint(selectedClient.address)
+    if (selectedClient?.coordinates) {
+      try {
+        const coords = selectedClient.coordinates.split(' ')[0].split(',')
+        if (coords.length >= 2) {
+          const lng = parseFloat(coords[0])
+          const lat = parseFloat(coords[1])
+          if (!isNaN(lng) && !isNaN(lat)) {
+            fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+              .then(response => response.json())
+              .then(data => {
+                if (data.features && data.features.length > 0) {
+                  setDropOffPoint(data.features[0].place_name)
+                } else {
+                  setDropOffPoint(`${lat},${lng}`)
+                }
+              })
+              .catch(() => setDropOffPoint(`${lat},${lng}`))
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing coordinates:', error)
+      }
     }
     setShowAddressPopup(false)
   }
@@ -926,11 +1133,11 @@ export default function LoadPlanPage() {
 
   const handleCreate = async () => {
     try {
-      // Save route to database only when creating the load
+      // Save route to database for both trip types when creating the load
       let routeId = null
-      if (tripType === 'national' && loadingLocation && dropOffPoint) {
+      if (loadingLocation && dropOffPoint) {
         try {
-          const selectedStopPoints = getSelectedStopPointsData()
+          const selectedStopPoints = await getSelectedStopPointsData()
           const waypoints = selectedStopPoints.map(point => {
             const coords = point.coordinates
             const avgLng = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length
@@ -1010,7 +1217,15 @@ export default function LoadPlanPage() {
           }
         }],
         trip_type: tripType,
-        selected_stop_points: tripType === 'national' ? stopPoints : [],
+        selected_stop_points: stopPoints.map((pointId, index) => {
+          if (customStopPoints[index]) {
+            return { type: 'custom', name: customStopPoints[index], id: `custom_${index}` }
+          } else if (pointId) {
+            const point = availableStopPoints.find(p => p.id.toString() === pointId)
+            return point ? { type: 'existing', ...point } : null
+          }
+          return null
+        }).filter(Boolean),
         selected_vehicle_type: selectedVehicleType,
         approximate_fuel_cost: approximateFuelCost,
         approximated_cpk: approximatedCPK,
@@ -1022,8 +1237,18 @@ export default function LoadPlanPage() {
         fuel_price_per_liter: parseFloat(fuelPricePerLiter) || null
       }
       
-      const { error } = await supabase.from('trips').insert([tripData])
-      if (error) throw error
+      console.log('Inserting trip data:', tripData)
+      const { data, error } = await supabase.from('trips').insert([tripData])
+      if (error) {
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
+        throw new Error(`Database error: ${error.message || 'Unknown error'}`)
+      }
+      console.log('Trip created successfully:', data)
       
       // Mark assigned drivers as unavailable
       const assignedDriverIds = driverAssignments
@@ -1047,7 +1272,8 @@ export default function LoadPlanPage() {
       setSelectedVehicleId('')
       setSelectedTrailerId('')
       setTripType('local')
-      setStopPoints([])
+      setStopPoints([]) // Reset stop points for both trip types
+      setCustomStopPoints([])
       setFuelPricePerLiter('')
       setGoodsInTransitPremium('')
       setSelectedVehicleType('')
@@ -1072,7 +1298,6 @@ export default function LoadPlanPage() {
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="loads">Loads</TabsTrigger>
           <TabsTrigger value="create">Create Load</TabsTrigger>
-          {/* <TabsTrigger value="routing">Routing</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="loads" className="space-y-6">
@@ -1227,7 +1452,7 @@ export default function LoadPlanPage() {
 
                   <div className="md:col-span-2">
                     <Label htmlFor="comment">Comment</Label>
-                    <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comment" />
+                    <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comment (optional)" />
                   </div>
                 </div>
 
@@ -1245,7 +1470,11 @@ export default function LoadPlanPage() {
                     <LocationAutocomplete
                       label="Loading Location"
                       value={loadingLocation}
-                      onChange={setLoadingLocation}
+                      onChange={(value) => {
+                        console.log('Loading location changed to:', value)
+                        setLoadingLocation(value)
+                        setOptimizedRoute(null) // Force route recalculation
+                      }}
                       placeholder="Search for loading location"
                       clientLocations={useMemo(() => {
                         const selectedClient = clients.find(c => c.name === client)
@@ -1271,7 +1500,11 @@ export default function LoadPlanPage() {
                     <LocationAutocomplete
                       label="Drop Off Point"
                       value={dropOffPoint}
-                      onChange={setDropOffPoint}
+                      onChange={(value) => {
+                        console.log('Drop off location changed to:', value)
+                        setDropOffPoint(value)
+                        setOptimizedRoute(null) // Force route recalculation
+                      }}
                       placeholder="Search for drop off location"
                       clientLocations={useMemo(() => {
                         const selectedClient = clients.find(c => c.name === client)
@@ -1312,9 +1545,7 @@ export default function LoadPlanPage() {
                         checked={tripType === 'national'}
                         onChange={(e) => {
                           setTripType(e.target.value)
-                          if (e.target.value === 'national') {
-                            fetchStopPoints()
-                          }
+                          fetchStopPoints() // Load stop points for both trip types
                         }}
                         className="w-4 h-4"
                       />
@@ -1323,53 +1554,97 @@ export default function LoadPlanPage() {
                   </div>
                 </div>
 
-                {/* Stop Points for National Trips */}
-                {tripType === 'national' && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+                {/* Stop Points - Available for both Local and Long Distance */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
                       <Label className="text-lg font-medium">Stop Points</Label>
-                      <SecureButton 
-                        page="loadPlan" 
-                        action="edit" 
-                        type="button" 
-                        onClick={() => setStopPoints([...stopPoints, ''])} 
-                        size="sm"
-                      >
-                        <Plus className="h-4 w-4 mr-1" /> Add Stop Point
-                      </SecureButton>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Add stops from existing points or search for custom locations
+                      </p>
                     </div>
-                    
-                    {stopPoints.map((stopPoint, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <StopPointDropdown
-                          value={stopPoint}
-                          onChange={(value) => {
-                            const updated = [...stopPoints]
-                            updated[index] = value
-                            setStopPoints(updated)
-                          }}
-                          stopPoints={filteredStopPoints}
-                          placeholder="Search stop points (25km radius, between origin/destination)"
-                          isLoading={isLoadingStopPoints}
-                        />
+                    <Button 
+                      type="button" 
+                      onClick={async (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        await fetchStopPoints()
+                        setStopPoints([...stopPoints, ''])
+                      }} 
+                      size="sm"
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add Stop Point
+                    </Button>
+                  </div>
+                  
+                  {stopPoints.map((stopPoint, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1">
+                          <StopPointDropdown
+                            value={stopPoint}
+                            onChange={(value) => {
+                              console.log('StopPointDropdown onChange called with value:', value)
+                              const updated = [...stopPoints]
+                              updated[index] = value
+                              console.log('Setting stopPoints from:', stopPoints, 'to:', updated)
+                              setStopPoints(updated)
+                              const updatedCustom = [...customStopPoints]
+                              updatedCustom[index] = ''
+                              setCustomStopPoints(updatedCustom)
+                              // Force route recalculation
+                              setOptimizedRoute(null)
+                            }}
+                            stopPoints={filteredStopPoints}
+                            placeholder="Select from existing stop points"
+                            isLoading={isLoadingStopPoints}
+                          />
+                        </div>
                         <Button 
                           type="button" 
                           variant="outline" 
                           size="sm"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
                             const updated = stopPoints.filter((_, i) => i !== index)
                             setStopPoints(updated)
+                            const updatedCustom = customStopPoints.filter((_, i) => i !== index)
+                            setCustomStopPoints(updatedCustom)
+                            setIsManuallyOrdered(false)
                           }}
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div className="text-center text-xs text-gray-500">OR</div>
+                      <LocationAutocomplete
+                        label=""
+                        value={customStopPoints[index] || ''}
+                        onChange={(value) => {
+                          console.log('Custom stop point changed:', value)
+                          const updatedCustom = [...customStopPoints]
+                          while (updatedCustom.length <= index) {
+                            updatedCustom.push('')
+                          }
+                          updatedCustom[index] = value
+                          setCustomStopPoints(updatedCustom)
+                          if (value) {
+                            const updated = [...stopPoints]
+                            updated[index] = ''
+                            setStopPoints(updated)
+                          }
+                          // Force route recalculation
+                          setOptimizedRoute(null)
+                        }}
+                        placeholder="Search for custom stop location"
+                      />
+                    </div>
+                  ))}
+                </div>
 
                 {/* Route Preview */}
-                {loadingLocation && dropOffPoint && (
+                {(loadingLocation && dropOffPoint) || selectedClient?.coordinates ? (
                   <div className="col-span-full">
                     <div className="space-y-4">
                       {isOptimizing && tripType === 'national' && (
@@ -1380,30 +1655,69 @@ export default function LoadPlanPage() {
                       )}
                       <div className="space-y-4">
                         <RoutePreviewMap
+                          key={`${loadingLocation}-${dropOffPoint}-${stopPoints.join(',')}-${customStopPoints.join(',')}`}
                           origin={loadingLocation}
                           destination={dropOffPoint}
-                          routeData={tripType === 'national' ? optimizedRoute : null}
-                          stopPoints={tripType === 'national' ? getSelectedStopPointsData() : []}
+                          routeData={optimizedRoute}
+                          stopPoints={stopPoints.length > 0 || customStopPoints.some(p => p) ? 'async' : []}
+                          getStopPointsData={getSelectedStopPointsData}
+                          preserveOrder={isManuallyOrdered}
                           driverLocation={selectedDriverLocation ? {
                             lat: selectedDriverLocation.latitude,
                             lng: selectedDriverLocation.longitude,
                             name: `${selectedDriverLocation.driver.first_name} ${selectedDriverLocation.driver.surname}`
                           } : undefined}
+                          clientLocation={selectedClient?.coordinates ? (() => {
+                            try {
+                              const coords = selectedClient.coordinates.split(' ')[0].split(',')
+                              if (coords.length >= 2) {
+                                const lng = parseFloat(coords[0])
+                                const lat = parseFloat(coords[1])
+                                if (!isNaN(lng) && !isNaN(lat)) {
+                                  return { lat, lng, name: selectedClient.name }
+                                }
+                              }
+                            } catch (error) {
+                              console.error('Error parsing client coordinates:', error)
+                            }
+                            return undefined
+                          })() : undefined}
+                          selectedClient={selectedClient}
                         />
                         
                         {/* Route Summary */}
                         <div className="bg-gray-50 p-4 rounded-lg">
-                          <h4 className="font-medium mb-3">Main Route (Optimized)</h4>
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="font-medium">
+                              {tripType === 'local' ? 'Local Route' : 'Long Distance Route'} (Optimized)
+                            </h4>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setShowRouteModal(true)}
+                            >
+                              Edit Route
+                            </Button>
+                          </div>
                           <div className="space-y-2 text-sm">
                             <div>
                               <span className="font-medium">Loading:</span> {loadingLocation}
                             </div>
+                            {stopPoints.length > 0 && (
+                              <div>
+                                <span className="font-medium">Stop Points:</span> {stopPoints.length} stop(s) added
+                              </div>
+                            )}
                             {dropOffPoint && (
                               <div>
                                 <span className="font-medium">Drop-off:</span> {dropOffPoint}
                               </div>
                             )}
-                              <div>
+                            <div>
+                              <span className="font-medium">Trip Type:</span> {tripType === 'local' ? 'Local Trip' : 'Long Distance'}
+                            </div>
+                            <div>
                               <span className="font-medium">Driver:</span> {
                                 (() => {
                                   const firstDriver = driverAssignments[0]
@@ -1442,23 +1756,19 @@ export default function LoadPlanPage() {
                       </div>
                     </div>
                   </div>
-                )}
-
-
+                ) : null}
 
                 {/* Driver Assignments */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <Label className="text-lg font-medium">Driver Assignments</Label>
-                    <SecureButton 
-                      page="loadPlan" 
-                      action="edit" 
+                    <Button 
                       type="button" 
                       onClick={addDriver} 
                       size="sm"
                     >
                       <Plus className="h-4 w-4 mr-1" /> Add Driver
-                    </SecureButton>
+                    </Button>
                   </div>
                   
                   {driverAssignments.map((driver, driverIndex) => (
@@ -1466,6 +1776,7 @@ export default function LoadPlanPage() {
                       <DriverDropdown
                         value={driver.id}
                         onChange={(value) => handleDriverChange(driverIndex, value)}
+                        onOpen={() => handleDriverDropdownOpen(driverIndex)}
                         drivers={availableDrivers}
                         placeholder="Select available driver"
                         showDistance={!!loadingLocation}
@@ -1473,8 +1784,6 @@ export default function LoadPlanPage() {
                     </div>
                   ))}
                 </div>
-
-
 
                 {/* Vehicle Selection */}
                 <div className="space-y-4">
@@ -1711,15 +2020,13 @@ export default function LoadPlanPage() {
                   </div>
                 </div>
 
-                <SecureButton 
-                  page="loadPlan" 
-                  action="create" 
+                <Button 
                   type="button" 
                   onClick={handleCreateClick} 
                   className="w-full"
                 >
                   Create Load
-                </SecureButton>
+                </Button>
               </form>
             </CardContent>
             </Card>
@@ -1905,6 +2212,28 @@ export default function LoadPlanPage() {
         onUseAsPickup={handleUseAsPickup}
         onUseAsDropoff={handleUseAsDropoff}
         onSkip={handleSkipAddress}
+      />
+      
+      <RouteEditModal
+        isOpen={showRouteModal}
+        onClose={() => setShowRouteModal(false)}
+        stopPoints={stopPoints}
+        customStopPoints={customStopPoints}
+        availableStopPoints={availableStopPoints}
+        onReorder={(newOrder) => {
+          console.log('Reordering stop points:', newOrder)
+          setStopPoints(newOrder.stopPoints)
+          setCustomStopPoints(newOrder.customStopPoints)
+          setIsManuallyOrdered(true)
+          setShowRouteModal(false)
+          // Don't clear optimized route immediately - let the effect handle it
+        }}
+        onForceRecalculate={() => {
+          console.log('Force recalculating route')
+          setIsManuallyOrdered(false)
+          setShowRouteModal(false)
+          // Don't clear optimized route immediately - let the effect handle it
+        }}
       />
       
       <Toast

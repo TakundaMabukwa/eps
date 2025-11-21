@@ -11,8 +11,7 @@ export function ClientDropdown({ value, onChange, clients = [], placeholder = "S
   const searchInputRef = useRef(null)
 
   const filteredClients = clients.filter(client =>
-    client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.client_id?.toLowerCase().includes(searchTerm.toLowerCase())
+    client.name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   useEffect(() => {
@@ -86,15 +85,6 @@ export function ClientDropdown({ value, onChange, clients = [], placeholder = "S
                 >
                   <div className="flex flex-col gap-1 flex-1 min-w-0">
                     <div className="font-medium truncate">{client.name}</div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <span>{client.client_id}</span>
-                      {client.address && (
-                        <>
-                          <span>•</span>
-                          <span className="truncate">{client.address}</span>
-                        </>
-                      )}
-                    </div>
                   </div>
                 </div>
               ))

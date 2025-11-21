@@ -1,0 +1,3 @@
+INSERT INTO public.high_risk (name, coordinates, type, address) VALUES 
+('Test High Risk Area 1', '27.717133,-26.161909,0 27.713698,-26.174851,0 27.734299,-26.181013,0 27.780646,-26.170843,0 27.717133,-26.161909,0', 'warehouse', 'Test Area 1'),
+('Test High Risk Area 2', '28.042224,-26.205459,0 28.045114,-26.204677,0 28.048552,-26.20569,0 28.045821,-26.209076,0 28.042224,-26.205459,0', 'restricted', 'Test Area 2');
